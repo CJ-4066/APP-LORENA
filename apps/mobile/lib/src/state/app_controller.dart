@@ -56,6 +56,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   Locale _locale;
   AppStage _stage = AppStage.restoring;
   AppBootstrap? _bootstrap;
+  AppBootstrap? _seedBootstrap;
   PhoneAuthStartResult? _challenge;
   PhoneAuthSession? _session;
   String? _authErrorMessage;
@@ -123,12 +124,11 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
 
     await _clearPersistedState();
     _session = null;
-    _bootstrap = null;
     _challenge = null;
     _authErrorMessage = null;
     _homeErrorMessage = null;
     _currentIndex = 0;
-    _stage = AppStage.phoneEntry;
+    await _activateGuestMode();
     notifyListeners();
   }
 
@@ -485,6 +485,14 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
         input: input,
       );
       _applyShopOrderSnapshot(order);
+      await trackBadgeAction(
+        'purchase_completed',
+        metadata: {
+          'orderId': order.id,
+          'itemCount': order.itemCount,
+          'totalAmount': order.total.amount,
+        },
+      );
       unawaited(refreshHome());
       return order;
     } catch (error) {
@@ -696,13 +704,60 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     }
 
     try {
-      return await _apiClient.sendCommunityChatMessage(
+      final items = await _apiClient.sendCommunityChatMessage(
         accessToken: currentSession.accessToken,
         body: body,
       );
+      await trackBadgeAction(
+        'community_message_sent',
+        metadata: {
+          'bodyLength': body.trim().length,
+        },
+      );
+      return items;
     } catch (error) {
       throw Exception(_readErrorMessage(error));
     }
+  }
+
+  Future<void> trackBadgeAction(
+    String actionKey, {
+    int value = 1,
+    Map<String, dynamic>? metadata,
+  }) async {
+    final currentSession = _session;
+    if (currentSession == null) {
+      return;
+    }
+
+    try {
+      final profile = await _apiClient.trackBadgeAction(
+        accessToken: currentSession.accessToken,
+        actionKey: actionKey,
+        value: value,
+        metadata: metadata,
+      );
+      _applyBadgeProfileSnapshot(profile);
+    } catch (_) {
+      // Badge tracking should never block the main user action.
+    }
+  }
+
+  Future<void> trackTarotDrawBadge() {
+    return trackBadgeAction('tarot_draw_completed');
+  }
+
+  Future<void> trackCourseStartedBadge({
+    required String courseId,
+    required String courseTitle,
+  }) {
+    return trackBadgeAction(
+      'course_started',
+      metadata: {
+        'courseId': courseId,
+        'courseTitle': courseTitle,
+      },
+    );
   }
 
   Future<void> _loadHomeForSession() async {
@@ -752,6 +807,9 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       final cachedLocale = await _appSettingsCache
           .readLocale()
           .timeout(const Duration(seconds: 1), onTimeout: () => null);
+      _seedBootstrap ??= await _seedBootstrapLoader
+          .load()
+          .timeout(const Duration(seconds: 1), onTimeout: () => null);
       final cachedBootstrap = await _bootstrapCache
           .read()
           .timeout(const Duration(seconds: 1), onTimeout: () => null);
@@ -780,10 +838,9 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
 
       _session = _normalizeSession(cachedSession);
       if (_session != null && !_session!.profileCompleted) {
-        _bootstrap = null;
-        _currentIndex = 0;
-        _stage = AppStage.profileEntry;
-        _homeErrorMessage = null;
+        await _sessionCache.clear();
+        _session = null;
+        await _activateGuestMode();
         notifyListeners();
         return;
       }
@@ -846,13 +903,22 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       await _persistBootstrap(response.rawJson);
       return response.data;
     } catch (_) {
-      final seedBootstrap = await _seedBootstrapLoader.load();
+      _seedBootstrap ??= await _seedBootstrapLoader.load();
+      final seedBootstrap = _seedBootstrap;
       if (seedBootstrap == null) {
         return null;
       }
 
       return _buildGuestBootstrap(seedBootstrap);
     }
+  }
+
+  Future<void> _activateGuestMode() async {
+    final publicBootstrap = await _loadPublicBootstrapFallback();
+    _bootstrap = publicBootstrap;
+    _currentIndex = 0;
+    _homeErrorMessage = null;
+    _stage = publicBootstrap == null ? AppStage.phoneEntry : AppStage.home;
   }
 
   AppBootstrap? _resolveStartupBootstrap({
@@ -864,17 +930,30 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       return _bootstrapWithSessionUser(source, cachedSession);
     }
 
+    if (_seedBootstrap != null) {
+      return _bootstrapWithSessionUser(_seedBootstrap!, cachedSession);
+    }
+
     return _buildPlaceholderBootstrap(cachedSession);
   }
 
   bool _showHomeFallback(PhoneAuthSession session) {
-    _bootstrap ??= _buildPlaceholderBootstrap(session);
+    _bootstrap ??= _buildSessionFallbackBootstrap(session);
     _currentIndex = 0;
     _stage = AppStage.home;
     _homeErrorMessage = null;
     _scheduleDailyRefresh();
     notifyListeners();
     return true;
+  }
+
+  AppBootstrap _buildSessionFallbackBootstrap(PhoneAuthSession session) {
+    final source = _bootstrap ?? _seedBootstrap;
+    if (source != null) {
+      return _bootstrapWithSessionUser(source, session);
+    }
+
+    return _buildPlaceholderBootstrap(session);
   }
 
   AppBootstrap _bootstrapWithSessionUser(
@@ -918,6 +997,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       shop: source.shop,
       bookings: source.bookings,
       admin: source.admin,
+      badges: source.badges,
     );
   }
 
@@ -959,6 +1039,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       shop: currentBootstrap.shop,
       bookings: nextBookings,
       admin: currentBootstrap.admin,
+      badges: currentBootstrap.badges,
     );
     notifyListeners();
   }
@@ -999,6 +1080,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       ),
       bookings: currentBootstrap.bookings,
       admin: currentBootstrap.admin,
+      badges: currentBootstrap.badges,
     );
     notifyListeners();
   }
@@ -1039,6 +1121,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       ),
       bookings: currentBootstrap.bookings,
       admin: currentBootstrap.admin,
+      badges: currentBootstrap.badges,
     );
     notifyListeners();
   }
@@ -1071,6 +1154,31 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       shop: currentBootstrap.shop,
       bookings: currentBootstrap.bookings,
       admin: currentBootstrap.admin,
+      badges: currentBootstrap.badges,
+    );
+    notifyListeners();
+  }
+
+  void _applyBadgeProfileSnapshot(BadgeProfileSummary badgeProfile) {
+    final currentBootstrap = _bootstrap;
+    if (currentBootstrap == null) {
+      return;
+    }
+
+    _bootstrap = AppBootstrap(
+      app: currentBootstrap.app,
+      user: currentBootstrap.user,
+      home: currentBootstrap.home,
+      plans: currentBootstrap.plans,
+      subscription: currentBootstrap.subscription,
+      payments: currentBootstrap.payments,
+      services: currentBootstrap.services,
+      specialists: currentBootstrap.specialists,
+      courses: currentBootstrap.courses,
+      shop: currentBootstrap.shop,
+      bookings: currentBootstrap.bookings,
+      admin: currentBootstrap.admin,
+      badges: badgeProfile,
     );
     notifyListeners();
   }
@@ -1243,6 +1351,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
         activeSpecialists: 0,
         openIncidents: 0,
       ),
+      badges: const BadgeProfileSummary.empty(),
     );
   }
 
@@ -1328,6 +1437,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
         activeSpecialists: source.specialists.length,
         openIncidents: 0,
       ),
+      badges: const BadgeProfileSummary.empty(),
     );
   }
 

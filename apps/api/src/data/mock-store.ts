@@ -1,7 +1,13 @@
 import { randomUUID } from "node:crypto";
 
+import {
+  getUserBadgeProfile,
+  recordBadgeAction,
+  type UserBadgeProfile,
+} from "./badge-store.js";
 import { buildDailyHomeContent } from "./home-daily.js";
 import {
+  buildShopSku,
   buildShopOrderDraft,
   buildShopStoreId,
   buildShopStoreName,
@@ -10,9 +16,10 @@ import {
   canManageShopOrder,
   filterShopOrdersForScope,
   filterShopProductsForScope,
+  normalizeShopImageUrls,
+  normalizeShopProductStatus,
   normalizeShopProductOwnership,
 } from "./shop-domain.js";
-import { buildTarotCardImagePath } from "./tarot-images.js";
 
 export type SessionMode = "chat" | "audio" | "video";
 export type AccountType = "client" | "specialist";
@@ -177,6 +184,7 @@ export interface Booking {
 }
 
 export type ShopOrderStatus = "pending" | "confirmed" | "preparing" | "shipped";
+export type ShopProductStatus = "active" | "draft" | "hidden" | "archived";
 
 export interface ShopProduct {
   id: string;
@@ -189,7 +197,10 @@ export interface ShopProduct {
   shortDescription: string;
   description: string;
   price: Money;
+  sku: string;
+  status: ShopProductStatus;
   imageUrl: string;
+  imageUrls: string[];
   artwork: string;
   badge: string;
   featured: boolean;
@@ -205,7 +216,10 @@ export interface CreateShopProductInput {
   shortDescription?: string;
   description?: string;
   price?: Partial<Money>;
+  sku?: string;
+  status?: ShopProductStatus;
   imageUrl?: string;
+  imageUrls?: string[];
   artwork?: string;
   badge?: string;
   featured?: boolean;
@@ -220,7 +234,10 @@ export interface UpdateShopProductInput {
   shortDescription?: string;
   description?: string;
   price?: Partial<Money>;
+  sku?: string;
+  status?: ShopProductStatus;
   imageUrl?: string;
+  imageUrls?: string[];
   artwork?: string;
   badge?: string;
   featured?: boolean;
@@ -333,6 +350,7 @@ export interface AppBootstrap {
   shop: ShopData;
   bookings: Booking[];
   admin: AdminSummary;
+  badges: UserBadgeProfile;
 }
 
 export interface CreateBookingInput {
@@ -1139,8 +1157,15 @@ const seedShopProducts = [
     description:
       "Vela pensada para aperturas, intenciones y limpiezas suaves del espacio.",
     price: { amount: 18, currency: "USD" },
+    sku: "VELA-LUNA-NUEVA-AMAYA",
+    status: "active",
     imageUrl:
       "https://upload.wikimedia.org/wikipedia/commons/d/db/Ritual-_Candles.jpg",
+    imageUrls: [
+      "https://upload.wikimedia.org/wikipedia/commons/d/db/Ritual-_Candles.jpg",
+      "https://upload.wikimedia.org/wikipedia/commons/f/f5/Candle_black.jpg",
+      "https://upload.wikimedia.org/wikipedia/commons/8/83/Tarot_cards_-_3_card_spread_with_candles.jpg",
+    ],
     artwork: "candle-moon",
     badge: "Ritual inicial",
     featured: true,
@@ -1155,8 +1180,15 @@ const seedShopProducts = [
     description:
       "Ideal para rituales de protección, límites y cierres de ciclo con humo suave.",
     price: { amount: 21, currency: "USD" },
+    sku: "VELA-OBSIDIANA-AMAYA",
+    status: "active",
     imageUrl:
       "https://upload.wikimedia.org/wikipedia/commons/f/f5/Candle_black.jpg",
+    imageUrls: [
+      "https://upload.wikimedia.org/wikipedia/commons/f/f5/Candle_black.jpg",
+      "https://upload.wikimedia.org/wikipedia/commons/d/db/Ritual-_Candles.jpg",
+      "https://upload.wikimedia.org/wikipedia/commons/8/83/Tarot_cards_-_3_card_spread_with_candles.jpg",
+    ],
     artwork: "candle-obsidian",
     badge: "Protección",
     featured: false,
@@ -1171,8 +1203,14 @@ const seedShopProducts = [
     description:
       "Tu carta natal en composición vertical con acentos dorados y datos de nacimiento.",
     price: { amount: 64, currency: "USD" },
+    sku: "CUADRO-NATAL-DORADA-ELIAN",
+    status: "active",
     imageUrl:
       "https://upload.wikimedia.org/wikipedia/commons/0/03/Astrological_birth_chart_for_1st_Duke_of_Albemarle_Wellcome_L0040335.jpg",
+    imageUrls: [
+      "https://upload.wikimedia.org/wikipedia/commons/0/03/Astrological_birth_chart_for_1st_Duke_of_Albemarle_Wellcome_L0040335.jpg",
+      "https://upload.wikimedia.org/wikipedia/commons/b/b5/12_star_charts_of_the_signs_of_the_Zodiac_by_John_Bevis.jpg",
+    ],
     artwork: "natal-gold",
     badge: "Personalizable",
     featured: true,
@@ -1187,8 +1225,14 @@ const seedShopProducts = [
     description:
       "Versión en paleta noche con círculos zodiacales y espacio para dedicatoria.",
     price: { amount: 58, currency: "USD" },
+    sku: "CUADRO-NATAL-NOCTURNA-ELIAN",
+    status: "active",
     imageUrl:
       "https://upload.wikimedia.org/wikipedia/commons/b/b5/12_star_charts_of_the_signs_of_the_Zodiac_by_John_Bevis.jpg",
+    imageUrls: [
+      "https://upload.wikimedia.org/wikipedia/commons/b/b5/12_star_charts_of_the_signs_of_the_Zodiac_by_John_Bevis.jpg",
+      "https://upload.wikimedia.org/wikipedia/commons/0/03/Astrological_birth_chart_for_1st_Duke_of_Albemarle_Wellcome_L0040335.jpg",
+    ],
     artwork: "natal-night",
     badge: "Edición estudio",
     featured: false,
@@ -1203,8 +1247,14 @@ const seedShopProducts = [
     description:
       "Pieza decorativa inspirada en la triple luna para espacios de práctica y contemplación.",
     price: { amount: 46, currency: "USD" },
+    sku: "ESTATUA-TRIPLE-LUNA-MILA",
+    status: "active",
     imageUrl:
       "https://upload.wikimedia.org/wikipedia/commons/b/bd/Moon_Statue.jpg",
+    imageUrls: [
+      "https://upload.wikimedia.org/wikipedia/commons/b/bd/Moon_Statue.jpg",
+      "https://upload.wikimedia.org/wikipedia/commons/3/34/Dhyana_buddha_statue_in_Amaravathi.jpg",
+    ],
     artwork: "statue-moon",
     badge: "Altar",
     featured: false,
@@ -1219,8 +1269,14 @@ const seedShopProducts = [
     description:
       "Acabado piedra suave para rincones de lectura, meditación y descanso.",
     price: { amount: 39, currency: "USD" },
+    sku: "ESTATUA-BUDA-LUNAR-MILA",
+    status: "active",
     imageUrl:
       "https://upload.wikimedia.org/wikipedia/commons/3/34/Dhyana_buddha_statue_in_Amaravathi.jpg",
+    imageUrls: [
+      "https://upload.wikimedia.org/wikipedia/commons/3/34/Dhyana_buddha_statue_in_Amaravathi.jpg",
+      "https://upload.wikimedia.org/wikipedia/commons/b/bd/Moon_Statue.jpg",
+    ],
     artwork: "statue-buddha",
     badge: "Calma",
     featured: false,
@@ -1235,8 +1291,14 @@ const seedShopProducts = [
     description:
       "Símbolo geométrico en acabado dorado mate para armonizar el espacio.",
     price: { amount: 27, currency: "USD" },
+    sku: "SIMBOLO-FLOR-VIDA-ELIAN",
+    status: "active",
     imageUrl:
       "https://upload.wikimedia.org/wikipedia/commons/f/f4/Flower_of_life_black.png",
+    imageUrls: [
+      "https://upload.wikimedia.org/wikipedia/commons/f/f4/Flower_of_life_black.png",
+      "https://upload.wikimedia.org/wikipedia/commons/8/87/Steel_pentagram_01.jpg",
+    ],
     artwork: "symbol-flower",
     badge: "Geometría sagrada",
     featured: false,
@@ -1251,8 +1313,14 @@ const seedShopProducts = [
     description:
       "Símbolo para mesa ritual, prácticas de enfoque e intención consciente.",
     price: { amount: 24, currency: "USD" },
+    sku: "SIMBOLO-PENTAGRAMA-ELIAN",
+    status: "active",
     imageUrl:
       "https://upload.wikimedia.org/wikipedia/commons/8/87/Steel_pentagram_01.jpg",
+    imageUrls: [
+      "https://upload.wikimedia.org/wikipedia/commons/8/87/Steel_pentagram_01.jpg",
+      "https://upload.wikimedia.org/wikipedia/commons/f/f4/Flower_of_life_black.png",
+    ],
     artwork: "symbol-pentacle",
     badge: "Mesa ritual",
     featured: false,
@@ -1267,8 +1335,15 @@ const seedShopProducts = [
     description:
       "Versión suave al tacto, ideal para práctica diaria y lecturas guiadas.",
     price: { amount: 33, currency: "USD" },
+    sku: "TAROT-RIDER-WAITE-AMAYA",
+    status: "active",
     imageUrl:
       "https://upload.wikimedia.org/wikipedia/commons/3/3e/Rider-Waite_Major_Arcana_full.png",
+    imageUrls: [
+      "https://upload.wikimedia.org/wikipedia/commons/3/3e/Rider-Waite_Major_Arcana_full.png",
+      "https://upload.wikimedia.org/wikipedia/commons/8/83/Tarot_cards_-_3_card_spread_with_candles.jpg",
+      "https://upload.wikimedia.org/wikipedia/commons/3/3f/Tarot_De_Marseille.jpg",
+    ],
     artwork: "tarot-rider",
     badge: "Clásico",
     featured: true,
@@ -1283,8 +1358,15 @@ const seedShopProducts = [
     description:
       "Mazo enfocado en lectura simbólica tradicional con colores renovados.",
     price: { amount: 37, currency: "USD" },
+    sku: "TAROT-MARSELLA-AMAYA",
+    status: "active",
     imageUrl:
       "https://upload.wikimedia.org/wikipedia/commons/3/3f/Tarot_De_Marseille.jpg",
+    imageUrls: [
+      "https://upload.wikimedia.org/wikipedia/commons/3/3f/Tarot_De_Marseille.jpg",
+      "https://upload.wikimedia.org/wikipedia/commons/3/3e/Rider-Waite_Major_Arcana_full.png",
+      "https://upload.wikimedia.org/wikipedia/commons/8/83/Tarot_cards_-_3_card_spread_with_candles.jpg",
+    ],
     artwork: "tarot-marsella",
     badge: "Marsella",
     featured: true,
@@ -1299,8 +1381,15 @@ const seedShopProducts = [
     description:
       "Mazo reducido con impresión nítida y estuche rígido para llevar contigo.",
     price: { amount: 29, currency: "USD" },
+    sku: "TAROT-THOTH-POCKET-AMAYA",
+    status: "active",
     imageUrl:
       "https://upload.wikimedia.org/wikipedia/commons/f/fb/Thoth_Tarot_Cards_in_the_Museum_of_Witchcraft_and_Magic.jpg",
+    imageUrls: [
+      "https://upload.wikimedia.org/wikipedia/commons/f/fb/Thoth_Tarot_Cards_in_the_Museum_of_Witchcraft_and_Magic.jpg",
+      "https://upload.wikimedia.org/wikipedia/commons/8/83/Tarot_cards_-_3_card_spread_with_candles.jpg",
+      "https://upload.wikimedia.org/wikipedia/commons/3/3e/Rider-Waite_Major_Arcana_full.png",
+    ],
     artwork: "tarot-thoth",
     badge: "Pocket",
     featured: false,
@@ -1315,8 +1404,15 @@ const seedShopProducts = [
     description:
       "Ideal para lecturas intuitivas, journaling y trabajo con fases lunares.",
     price: { amount: 41, currency: "USD" },
+    sku: "TAROT-LUNAR-VISION-AMAYA",
+    status: "active",
     imageUrl:
       "https://upload.wikimedia.org/wikipedia/commons/8/83/Tarot_cards_-_3_card_spread_with_candles.jpg",
+    imageUrls: [
+      "https://upload.wikimedia.org/wikipedia/commons/8/83/Tarot_cards_-_3_card_spread_with_candles.jpg",
+      "https://upload.wikimedia.org/wikipedia/commons/f/fb/Thoth_Tarot_Cards_in_the_Museum_of_Witchcraft_and_Magic.jpg",
+      "https://upload.wikimedia.org/wikipedia/commons/3/3f/Tarot_De_Marseille.jpg",
+    ],
     artwork: "tarot-lunar",
     badge: "Edición visual",
     featured: false,
@@ -1327,25 +1423,28 @@ const seedShopProducts = [
 
 function getShopSeedOwner(category: string, index: number): Specialist {
   if (category === "Velas" || category === "Tarot") {
-    return specialists.find((item) => item.id === "spec-amaya") ?? specialists[0];
+    return (
+      specialists.find((item) => item.id === "spec-amaya") ?? specialists[0]
+    );
   }
   if (category === "Cuadros" || category === "Símbolos") {
-    return specialists.find((item) => item.id === "spec-elian") ?? specialists[0];
+    return (
+      specialists.find((item) => item.id === "spec-elian") ?? specialists[0]
+    );
   }
 
   return specialists.find((item) => item.id === "spec-mila") ?? specialists[0];
 }
 
-const shopProducts: ShopProduct[] = seedShopProducts.map((product, index) => {
-  const owner = getShopSeedOwner(product.category, index);
-  const stockQuantity =
-    product.stockLabel === "Pocas unidades"
-      ? 3
-      : product.stockLabel === "Nueva llegada"
-        ? 7
-        : product.stockLabel === "Hecho a pedido"
-          ? 0
-          : 9;
+function createManagedShopProduct(
+  ownerId: string,
+  product: Omit<
+    ShopProduct,
+    "specialistId" | "specialistName" | "storeId" | "storeName"
+  >,
+): ShopProduct {
+  const owner =
+    specialists.find((item) => item.id === ownerId) ?? specialists[0];
 
   return normalizeShopProductOwnership(
     {
@@ -1354,55 +1453,242 @@ const shopProducts: ShopProduct[] = seedShopProducts.map((product, index) => {
       specialistName: owner.name,
       storeId: buildShopStoreId(owner.id),
       storeName: buildShopStoreName(owner.name),
-      stockQuantity,
-      madeToOrder: product.stockLabel === "Hecho a pedido",
     },
     owner.id,
     owner.name,
   );
-});
+}
+
+const demoManagementShopProducts: ShopProduct[] = [
+  createManagedShopProduct("spec-amaya", {
+    id: "shop-oraculo-sombras-lab",
+    name: "Oráculo Sombras · laboratorio",
+    category: "Tarot",
+    shortDescription:
+      "Mazo en preparación para la próxima vitrina de temporada.",
+    description:
+      "Producto interno para pruebas de catálogo. Sirve para validar borradores, filtros de estado y cards de inventario sin exponerlo al cliente final.",
+    price: { amount: 45, currency: "USD" },
+    sku: "ORACULO-SOMBRAS-LAB-AMAYA",
+    status: "draft",
+    imageUrl:
+      "https://upload.wikimedia.org/wikipedia/commons/f/fb/Thoth_Tarot_Cards_in_the_Museum_of_Witchcraft_and_Magic.jpg",
+    imageUrls: [
+      "https://upload.wikimedia.org/wikipedia/commons/f/fb/Thoth_Tarot_Cards_in_the_Museum_of_Witchcraft_and_Magic.jpg",
+      "https://upload.wikimedia.org/wikipedia/commons/8/83/Tarot_cards_-_3_card_spread_with_candles.jpg",
+    ],
+    artwork: "tarot-thoth",
+    badge: "Borrador interno",
+    featured: false,
+    stockLabel: "Disponible",
+    stockQuantity: 5,
+    madeToOrder: false,
+    tags: ["demo", "borrador", "curaduría"],
+  }),
+  createManagedShopProduct("spec-elian", {
+    id: "shop-placa-geometria-secreta",
+    name: "Placa Geometría Secreta",
+    category: "Símbolos",
+    shortDescription: "Pieza oculta para probar visibilidad comercial y stock.",
+    description:
+      "Producto reservado para testear estados ocultos, filtros de inventario y control de SKU dentro del panel admin.",
+    price: { amount: 31, currency: "USD" },
+    sku: "PLACA-GEOMETRIA-SECRETA-ELIAN",
+    status: "hidden",
+    imageUrl:
+      "https://upload.wikimedia.org/wikipedia/commons/f/f4/Flower_of_life_black.png",
+    imageUrls: [
+      "https://upload.wikimedia.org/wikipedia/commons/f/f4/Flower_of_life_black.png",
+      "https://upload.wikimedia.org/wikipedia/commons/8/87/Steel_pentagram_01.jpg",
+    ],
+    artwork: "symbol-flower",
+    badge: "Oculto",
+    featured: false,
+    stockLabel: "Disponible",
+    stockQuantity: 4,
+    madeToOrder: false,
+    tags: ["demo", "oculto", "inventario"],
+  }),
+  createManagedShopProduct("spec-elian", {
+    id: "shop-cuadro-archivo-celeste",
+    name: "Cuadro Archivo Celeste",
+    category: "Cuadros",
+    shortDescription: "Ficha archivada para validar estados no visibles.",
+    description:
+      "Usado para comprobar filtros de archivado, lectura de SKU y comportamiento de productos fuera del catálogo activo.",
+    price: { amount: 52, currency: "USD" },
+    sku: "CUADRO-ARCHIVO-CELESTE-ELIAN",
+    status: "archived",
+    imageUrl:
+      "https://upload.wikimedia.org/wikipedia/commons/b/b5/12_star_charts_of_the_signs_of_the_Zodiac_by_John_Bevis.jpg",
+    imageUrls: [
+      "https://upload.wikimedia.org/wikipedia/commons/b/b5/12_star_charts_of_the_signs_of_the_Zodiac_by_John_Bevis.jpg",
+      "https://upload.wikimedia.org/wikipedia/commons/0/03/Astrological_birth_chart_for_1st_Duke_of_Albemarle_Wellcome_L0040335.jpg",
+    ],
+    artwork: "natal-night",
+    badge: "Archivado",
+    featured: false,
+    stockLabel: "Agotado",
+    stockQuantity: 0,
+    madeToOrder: false,
+    tags: ["demo", "archivado", "backoffice"],
+  }),
+];
+
+const shopProducts: ShopProduct[] = [
+  ...seedShopProducts.map((product, index) => {
+    const owner = getShopSeedOwner(product.category, index);
+    const stockQuantity =
+      product.stockLabel === "Pocas unidades"
+        ? 3
+        : product.stockLabel === "Nueva llegada"
+          ? 7
+          : product.stockLabel === "Hecho a pedido"
+            ? 0
+            : 9;
+
+    return normalizeShopProductOwnership(
+      {
+        ...product,
+        sku: product.sku,
+        status: normalizeShopProductStatus(product.status),
+        specialistId: owner.id,
+        specialistName: owner.name,
+        storeId: buildShopStoreId(owner.id),
+        storeName: buildShopStoreName(owner.name),
+        stockQuantity,
+        madeToOrder: product.stockLabel === "Hecho a pedido",
+      },
+      owner.id,
+      owner.name,
+    );
+  }),
+  ...demoManagementShopProducts,
+];
+
+function buildShopOrderItem(
+  productId: string,
+  quantity: number,
+): ShopOrderItem {
+  const product = shopProducts.find((item) => item.id === productId);
+  if (!product) {
+    throw new Error(`No existe el producto ${productId} para el seed de Shop.`);
+  }
+
+  return {
+    productId: product.id,
+    productName: product.name,
+    category: product.category,
+    quantity,
+    imageUrl: product.imageUrl,
+    unitPrice: { ...product.price },
+    lineTotal: {
+      amount: Number((product.price.amount * quantity).toFixed(2)),
+      currency: product.price.currency,
+    },
+  };
+}
+
+function buildShopDemoOrder(input: {
+  id: string;
+  orderCode: string;
+  status: ShopOrderStatus;
+  createdAt: string;
+  specialistId: string;
+  specialistName: string;
+  deliveryAddress: string;
+  notes: string;
+  lines: Array<{ productId: string; quantity: number }>;
+}): ShopOrder {
+  const items = input.lines.map((line) =>
+    buildShopOrderItem(line.productId, line.quantity),
+  );
+  const subtotalAmount = items.reduce(
+    (sum, item) => sum + item.lineTotal.amount,
+    0,
+  );
+  const shippingAmount = subtotalAmount >= 120 ? 0 : 9;
+
+  return {
+    id: input.id,
+    userId: currentUser.id,
+    orderCode: input.orderCode,
+    status: input.status,
+    createdAt: input.createdAt,
+    specialistId: input.specialistId,
+    specialistName: input.specialistName,
+    storeId: buildShopStoreId(input.specialistId),
+    storeName: buildShopStoreName(input.specialistName),
+    deliveryAddress: input.deliveryAddress,
+    notes: input.notes,
+    subtotal: { amount: subtotalAmount, currency: "USD" },
+    shipping: { amount: shippingAmount, currency: "USD" },
+    total: {
+      amount: Number((subtotalAmount + shippingAmount).toFixed(2)),
+      currency: "USD",
+    },
+    itemCount: items.reduce((sum, item) => sum + item.quantity, 0),
+    items,
+  };
+}
 
 const shopOrdersByUserId = new Map<string, ShopOrder[]>([
   [
     currentUser.id,
     [
-      {
+      buildShopDemoOrder({
         id: "order-seed-1",
-        userId: currentUser.id,
         orderCode: "LR-2026-041",
+        status: "shipped",
+        createdAt: "2026-04-11T16:40:00-05:00",
+        specialistId: "spec-elian",
+        specialistName: "Elian Duarte",
+        deliveryAddress: "Miraflores, Lima, Perú",
+        notes: "Recibido por portería. Cliente pidió empaque discreto.",
+        lines: [
+          { productId: "shop-simbolo-flor-vida", quantity: 1 },
+          { productId: "shop-simbolo-pentagrama", quantity: 1 },
+        ],
+      }),
+      buildShopDemoOrder({
+        id: "order-seed-2",
+        orderCode: "LR-2026-042",
+        status: "preparing",
+        createdAt: "2026-04-15T10:15:00-05:00",
+        specialistId: "spec-elian",
+        specialistName: "Elian Duarte",
+        deliveryAddress: "Barranco, Lima, Perú",
+        notes: "Validar dedicatoria breve antes de cerrar la impresión.",
+        lines: [{ productId: "shop-cuadro-carta-dorada", quantity: 1 }],
+      }),
+      buildShopDemoOrder({
+        id: "order-seed-3",
+        orderCode: "LR-2026-043",
         status: "confirmed",
-        createdAt: "2026-03-18T16:40:00-05:00",
+        createdAt: "2026-04-18T14:20:00-05:00",
         specialistId: "spec-amaya",
         specialistName: "Amaya Rivas",
-        storeId: buildShopStoreId("spec-amaya"),
-        storeName: buildShopStoreName("Amaya Rivas"),
-        deliveryAddress: "Miraflores, Lima, Perú",
-        notes: "Entrega en portería.",
-        subtotal: { amount: 51, currency: "USD" },
-        shipping: { amount: 0, currency: "USD" },
-        total: { amount: 51, currency: "USD" },
-        itemCount: 2,
-        items: [
-          {
-            productId: "shop-vela-luna-nueva",
-            productName: "Vela ritual Luna Nueva",
-            category: "Velas",
-            quantity: 1,
-            imageUrl: "",
-            unitPrice: { amount: 18, currency: "USD" },
-            lineTotal: { amount: 18, currency: "USD" },
-          },
-          {
-            productId: "shop-tarot-rider-waite",
-            productName: "Tarot Rider Waite lino",
-            category: "Tarot",
-            quantity: 1,
-            imageUrl: buildTarotCardImagePath("La Fuerza") ?? "",
-            unitPrice: { amount: 33, currency: "USD" },
-            lineTotal: { amount: 33, currency: "USD" },
-          },
+        deliveryAddress: "Surco, Lima, Perú",
+        notes: "Coordinar envío luego de las 6 p. m.",
+        lines: [
+          { productId: "shop-vela-luna-nueva", quantity: 1 },
+          { productId: "shop-tarot-rider-waite", quantity: 1 },
         ],
-      },
+      }),
+      buildShopDemoOrder({
+        id: "order-seed-4",
+        orderCode: "LR-2026-044",
+        status: "pending",
+        createdAt: "2026-04-20T09:05:00-05:00",
+        specialistId: "spec-amaya",
+        specialistName: "Amaya Rivas",
+        deliveryAddress: "San Isidro, Lima, Perú",
+        notes: "Cliente pidió confirmar stock antes de coordinar pago.",
+        lines: [
+          { productId: "shop-vela-proteccion", quantity: 1 },
+          { productId: "shop-tarot-lunar-oracle", quantity: 1 },
+        ],
+      }),
     ],
   ],
 ]);
@@ -1768,13 +2054,74 @@ export function getSpecialists(): Specialist[] {
   return specialists;
 }
 
+function normalizeSpecialistLookup(value: string | undefined): string {
+  return (value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function resolveManagedSpecialistProfileId(
+  existingUser: UserProfile,
+  input: UpdateUserProfileInput,
+): string {
+  const requestedAccountType = input.accountType ?? existingUser.accountType;
+  const requestedSpecialistProfileId = input.specialistProfileId?.trim() ?? "";
+  const existingSpecialistProfileId = existingUser.specialistProfileId?.trim() ?? "";
+
+  if (requestedAccountType !== "specialist") {
+    return requestedSpecialistProfileId || existingSpecialistProfileId;
+  }
+
+  if (
+    requestedSpecialistProfileId.length > 0 &&
+    specialists.some((item) => item.id === requestedSpecialistProfileId)
+  ) {
+    return requestedSpecialistProfileId;
+  }
+
+  if (
+    existingSpecialistProfileId.length > 0 &&
+    specialists.some((item) => item.id === existingSpecialistProfileId)
+  ) {
+    return existingSpecialistProfileId;
+  }
+
+  const lookupTokens = [
+    existingUser.firstName,
+    existingUser.lastName,
+    input.firstName,
+    input.lastName,
+    existingUser.nickname,
+    input.nickname,
+    existingUser.email,
+    input.email,
+  ]
+    .map(normalizeSpecialistLookup)
+    .filter((value) => value.length > 0);
+
+  for (const specialist of specialists) {
+    const specialistKey = normalizeSpecialistLookup(specialist.name);
+    if (lookupTokens.some((token) => specialistKey.includes(token))) {
+      return specialist.id;
+    }
+  }
+
+  return specialists[0]?.id ?? "";
+}
+
 export function getCourses(): Course[] {
   return courses;
 }
 
 export function getShopOrders(userId?: string): ShopOrder[] {
   const user = getUserById(userId);
-  const scope = buildShopViewerScope(user, user.roles?.includes("admin") ?? false);
+  const scope = buildShopViewerScope(
+    user,
+    user.roles?.includes("admin") ?? false,
+  );
   const items = [...shopOrdersByUserId.values()].flat();
 
   return filterShopOrdersForScope(items, scope).sort((left, right) =>
@@ -1784,7 +2131,10 @@ export function getShopOrders(userId?: string): ShopOrder[] {
 
 export function getShopData(userId?: string): ShopData {
   const user = getUserById(userId);
-  const scope = buildShopViewerScope(user, user.roles?.includes("admin") ?? false);
+  const scope = buildShopViewerScope(
+    user,
+    user.roles?.includes("admin") ?? false,
+  );
   return {
     title: "Shop Renaciente",
     subtitle:
@@ -1792,7 +2142,7 @@ export function getShopData(userId?: string): ShopData {
     featuredNote:
       "Este catálogo inicial es seed y sirve para validar interés, ticket promedio y familias de producto.",
     supportNote:
-      "Las órdenes se generan dentro de la app y quedan listas para pago o coordinación manual.",
+      "Este seed incluye pedidos en todos los estados y productos de inventario/admin para testear trayecto, filtros y backoffice.",
     currency: "USD",
     products: filterShopProductsForScope(shopProducts, scope),
     orders: getShopOrders(userId),
@@ -1807,7 +2157,9 @@ export function createShopProduct(
   const category = input.category?.trim() ?? "";
   const amount = Number(input.price?.amount ?? 0);
   const ownerId =
-    specialistProfileId?.trim() || currentUser.specialistProfileId?.trim() || "";
+    specialistProfileId?.trim() ||
+    currentUser.specialistProfileId?.trim() ||
+    "";
   const owner = specialists.find((item) => item.id === ownerId);
 
   if (name.length < 3) {
@@ -1852,7 +2204,16 @@ export function createShopProduct(
         amount: Number(amount.toFixed(2)),
         currency: input.price?.currency?.trim() || "USD",
       },
+      sku:
+        input.sku?.trim() ||
+        buildShopSku({
+          name,
+          category,
+          specialistId: owner.id,
+        }),
+      status: normalizeShopProductStatus(input.status),
       imageUrl: input.imageUrl?.trim() ?? "",
+      imageUrls: input.imageUrls ?? [],
       artwork: input.artwork?.trim() || inferShopArtwork(category),
       badge: input.badge?.trim() || "Nuevo",
       featured: input.featured ?? false,
@@ -1895,6 +2256,12 @@ export function updateShopProduct(
     : input.stockQuantity === undefined
       ? existing.stockQuantity
       : Math.max(0, Math.round(Number(input.stockQuantity)));
+  const nextImageUrl = input.imageUrl?.trim() ?? existing.imageUrl;
+  const nextImageUrls =
+    input.imageUrls ??
+    (input.imageUrl == null
+      ? existing.imageUrls
+      : normalizeShopImageUrls(nextImageUrl, existing.imageUrls).imageUrls);
   const updated: ShopProduct = normalizeShopProductOwnership(
     {
       ...existing,
@@ -1907,7 +2274,17 @@ export function updateShopProduct(
         amount: Number(amount.toFixed(2)),
         currency: input.price?.currency?.trim() || existing.price.currency,
       },
-      imageUrl: input.imageUrl?.trim() ?? existing.imageUrl,
+      sku:
+        input.sku?.trim() ||
+        buildShopSku({
+          name: input.name?.trim() || existing.name,
+          category,
+          specialistId: existing.specialistId,
+          productId: existing.id,
+        }),
+      status: normalizeShopProductStatus(input.status ?? existing.status),
+      imageUrl: nextImageUrl,
+      imageUrls: nextImageUrls,
       artwork:
         input.artwork?.trim() || existing.artwork || inferShopArtwork(category),
       badge: input.badge?.trim() || existing.badge,
@@ -1916,7 +2293,9 @@ export function updateShopProduct(
       stockQuantity,
       madeToOrder,
       tags:
-        input.tags === undefined ? existing.tags : normalizeShopTags(input.tags),
+        input.tags === undefined
+          ? existing.tags
+          : normalizeShopTags(input.tags),
     },
     existing.specialistId,
     existing.specialistName,
@@ -1937,7 +2316,10 @@ export function updateShopOrderStatus(
   }
 
   const user = getUserById(userId);
-  const scope = buildShopViewerScope(user, user.roles?.includes("admin") ?? false);
+  const scope = buildShopViewerScope(
+    user,
+    user.roles?.includes("admin") ?? false,
+  );
   let ownerId: string | null = null;
   let index = -1;
 
@@ -2092,7 +2474,7 @@ export function createShopOrder(
   return result.order;
 }
 
-export function getBootstrap(userId?: string): AppBootstrap {
+export async function getBootstrap(userId?: string): Promise<AppBootstrap> {
   const user = getUserById(userId);
   const services =
     user.accountType === "specialist" &&
@@ -2101,6 +2483,9 @@ export function getBootstrap(userId?: string): AppBootstrap {
           service.specialistIds.includes(user.specialistProfileId ?? ""),
         )
       : getServices();
+  await recordBadgeAction(user.id, {
+    actionKey: "app_opened",
+  });
 
   return {
     app: {
@@ -2120,6 +2505,7 @@ export function getBootstrap(userId?: string): AppBootstrap {
     shop: getShopData(user.id),
     bookings: getBookings(user.id),
     admin: getAdminSummary(),
+    badges: await getUserBadgeProfile(user.id),
   };
 }
 
@@ -2167,6 +2553,10 @@ export function updateCurrentUser(
       }
     : undefined;
   const requestedZodiacSign = input.zodiacSign?.trim();
+  const specialistProfileId = resolveManagedSpecialistProfileId(
+    existingUser,
+    input,
+  );
   const updatedUser: UserProfile = {
     ...existingUser,
     firstName: input.firstName ?? existingUser.firstName,
@@ -2176,8 +2566,7 @@ export function updateCurrentUser(
     avatarUrl: input.avatarUrl ?? existingUser.avatarUrl,
     location: input.location ?? existingUser.location,
     accountType: input.accountType ?? existingUser.accountType,
-    specialistProfileId:
-      input.specialistProfileId ?? existingUser.specialistProfileId,
+    specialistProfileId: specialistProfileId,
     timezone: input.natalChart?.timeZoneId?.trim() || existingUser.timezone,
     zodiacSign:
       requestedZodiacSign == null
@@ -2325,7 +2714,6 @@ export function completePhoneProfile(
       email: input.email?.trim(),
       location: normalizedLocation,
       accountType: input.accountType ?? "client",
-      specialistProfileId: "",
       zodiacSign: input.zodiacSign?.trim() || inferZodiacSign(input.birthDate),
       natalChart: {
         subjectName: input.subjectName?.trim(),

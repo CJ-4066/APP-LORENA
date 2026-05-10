@@ -30,19 +30,30 @@ class LoRenacienteApp extends StatefulWidget {
   State<LoRenacienteApp> createState() => _LoRenacienteAppState();
 }
 
-class _LoRenacienteAppState extends State<LoRenacienteApp> {
+class _LoRenacienteAppState extends State<LoRenacienteApp>
+    with WidgetsBindingObserver {
   late final AppController _controller;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _controller = AppController();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _controller.dispose();
     super.dispose();
+  }
+
+  @override
+  void didHaveMemoryPressure() {
+    final imageCache = PaintingBinding.instance.imageCache;
+    imageCache.clear();
+    imageCache.clearLiveImages();
+    super.didHaveMemoryPressure();
   }
 
   @override
@@ -166,6 +177,7 @@ class _AuthenticatedShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final shellRouteIsCurrent = ModalRoute.of(context)?.isCurrent ?? true;
 
     Future<void> openAstralChart() async {
       await Navigator.of(context).push(
@@ -203,6 +215,7 @@ class _AuthenticatedShell extends StatelessWidget {
             onCreateBooking: openBooking,
             onLoadGuide: controller.loadNumerologyGuide,
             onGenerate: controller.generateNumerologyProfile,
+            onTrackCourseStarted: controller.trackCourseStartedBadge,
           ),
         ),
       );
@@ -389,6 +402,7 @@ class _AuthenticatedShell extends StatelessWidget {
                   data: data,
                   onRefresh: controller.refreshHome,
                   onCreateBooking: openBooking,
+                  onTrackTarotDraw: controller.trackTarotDrawBadge,
                 ),
                 ShopScreen(
                   data: data,
@@ -444,7 +458,15 @@ class _AuthenticatedShell extends StatelessWidget {
     return Scaffold(
       body: IndexedStack(
         index: selectedIndex,
-        children: screens,
+        children: List.generate(
+          screens.length,
+          (index) => TickerMode(
+            enabled: shellRouteIsCurrent && index == selectedIndex,
+            child: RepaintBoundary(
+              child: screens[index],
+            ),
+          ),
+        ),
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: selectedIndex,

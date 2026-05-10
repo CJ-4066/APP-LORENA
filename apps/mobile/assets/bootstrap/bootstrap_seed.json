@@ -350,6 +350,500 @@
       ]
     }
   ],
+  "shop": {
+    "title": "Shop Renaciente",
+    "subtitle": "Una selección cuidada de productos para acompañar tu espacio y tu práctica.",
+    "featuredNote": "Catálogo seed para mantener visible la tienda mientras la API se reconecta.",
+    "supportNote": "Este seed incluye productos y pedidos demo para validar trayecto, filtros y detalle de Shop incluso si la API se cae.",
+    "currency": "USD",
+    "products": [
+      {
+        "id": "shop-vela-luna-nueva",
+        "name": "Vela ritual Luna Nueva",
+        "category": "Velas",
+        "specialistId": "spec-amaya",
+        "specialistName": "Amaya Rivas",
+        "storeId": "store-spec-amaya",
+        "storeName": "Tienda de Amaya Rivas",
+        "shortDescription": "Cera vegetal con notas de mirra y jazmín.",
+        "description": "Vela pensada para aperturas, intenciones y limpiezas suaves del espacio.",
+        "price": {
+          "amount": 18,
+          "currency": "USD"
+        },
+        "sku": "VELA-LUNA-NUEVA-AMAYA",
+        "status": "active",
+        "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/d/db/Ritual-_Candles.jpg",
+        "imageUrls": [
+          "https://upload.wikimedia.org/wikipedia/commons/d/db/Ritual-_Candles.jpg",
+          "https://upload.wikimedia.org/wikipedia/commons/f/f5/Candle_black.jpg",
+          "https://upload.wikimedia.org/wikipedia/commons/8/83/Tarot_cards_-_3_card_spread_with_candles.jpg"
+        ],
+        "artwork": "candle-moon",
+        "badge": "Ritual inicial",
+        "featured": true,
+        "stockLabel": "Disponible",
+        "stockQuantity": 9,
+        "madeToOrder": false,
+        "tags": ["cera vegetal", "intención", "altar"]
+      },
+      {
+        "id": "shop-vela-proteccion",
+        "name": "Vela Protección Obsidiana",
+        "category": "Velas",
+        "specialistId": "spec-amaya",
+        "specialistName": "Amaya Rivas",
+        "storeId": "store-spec-amaya",
+        "storeName": "Tienda de Amaya Rivas",
+        "shortDescription": "Blend oscuro para cierres y contención energética.",
+        "description": "Ideal para rituales de protección, límites y cierres de ciclo con humo suave.",
+        "price": {
+          "amount": 21,
+          "currency": "USD"
+        },
+        "sku": "VELA-OBSIDIANA-AMAYA",
+        "status": "active",
+        "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/f/f5/Candle_black.jpg",
+        "imageUrls": [
+          "https://upload.wikimedia.org/wikipedia/commons/f/f5/Candle_black.jpg",
+          "https://upload.wikimedia.org/wikipedia/commons/d/db/Ritual-_Candles.jpg",
+          "https://upload.wikimedia.org/wikipedia/commons/8/83/Tarot_cards_-_3_card_spread_with_candles.jpg"
+        ],
+        "artwork": "candle-obsidian",
+        "badge": "Protección",
+        "featured": false,
+        "stockLabel": "Pocas unidades",
+        "stockQuantity": 3,
+        "madeToOrder": false,
+        "tags": ["obsidiana", "protección", "limpieza"]
+      },
+      {
+        "id": "shop-cuadro-carta-dorada",
+        "name": "Cuadro carta natal dorada",
+        "category": "Cuadros",
+        "specialistId": "spec-elian",
+        "specialistName": "Elian Duarte",
+        "storeId": "store-spec-elian",
+        "storeName": "Tienda de Elian Duarte",
+        "shortDescription": "Impresión premium con mapa natal en foil.",
+        "description": "Tu carta natal en composición vertical con acentos dorados y datos de nacimiento.",
+        "price": {
+          "amount": 64,
+          "currency": "USD"
+        },
+        "sku": "CUADRO-NATAL-DORADA-ELIAN",
+        "status": "active",
+        "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/0/03/Astrological_birth_chart_for_1st_Duke_of_Albemarle_Wellcome_L0040335.jpg",
+        "imageUrls": [
+          "https://upload.wikimedia.org/wikipedia/commons/0/03/Astrological_birth_chart_for_1st_Duke_of_Albemarle_Wellcome_L0040335.jpg",
+          "https://upload.wikimedia.org/wikipedia/commons/b/b5/12_star_charts_of_the_signs_of_the_Zodiac_by_John_Bevis.jpg"
+        ],
+        "artwork": "natal-gold",
+        "badge": "Personalizable",
+        "featured": true,
+        "stockLabel": "Hecho a pedido",
+        "stockQuantity": 0,
+        "madeToOrder": true,
+        "tags": ["carta natal", "foil", "decoración"]
+      },
+      {
+        "id": "shop-estatua-buda-lunar",
+        "name": "Estatua Buda lunar",
+        "category": "Estatuas",
+        "specialistId": "spec-mila",
+        "specialistName": "Mila Sol",
+        "storeId": "store-spec-mila",
+        "storeName": "Tienda de Mila Sol",
+        "shortDescription": "Figura pequeña para meditación y calma visual.",
+        "description": "Acabado piedra suave para rincones de lectura, meditación y descanso.",
+        "price": {
+          "amount": 39,
+          "currency": "USD"
+        },
+        "sku": "ESTATUA-BUDA-LUNAR-MILA",
+        "status": "active",
+        "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/3/34/Dhyana_buddha_statue_in_Amaravathi.jpg",
+        "imageUrls": [
+          "https://upload.wikimedia.org/wikipedia/commons/3/34/Dhyana_buddha_statue_in_Amaravathi.jpg",
+          "https://upload.wikimedia.org/wikipedia/commons/b/bd/Moon_Statue.jpg"
+        ],
+        "artwork": "statue-buddha",
+        "badge": "Calma",
+        "featured": false,
+        "stockLabel": "Disponible",
+        "stockQuantity": 9,
+        "madeToOrder": false,
+        "tags": ["meditación", "hogar", "serenidad"]
+      },
+      {
+        "id": "shop-simbolo-flor-vida",
+        "name": "Símbolo Flor de la Vida",
+        "category": "Símbolos",
+        "specialistId": "spec-elian",
+        "specialistName": "Elian Duarte",
+        "storeId": "store-spec-elian",
+        "storeName": "Tienda de Elian Duarte",
+        "shortDescription": "Placa metálica para pared o altar.",
+        "description": "Símbolo geométrico en acabado dorado mate para armonizar el espacio.",
+        "price": {
+          "amount": 27,
+          "currency": "USD"
+        },
+        "sku": "SIMBOLO-FLOR-VIDA-ELIAN",
+        "status": "active",
+        "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/f/f4/Flower_of_life_black.png",
+        "imageUrls": [
+          "https://upload.wikimedia.org/wikipedia/commons/f/f4/Flower_of_life_black.png",
+          "https://upload.wikimedia.org/wikipedia/commons/8/87/Steel_pentagram_01.jpg"
+        ],
+        "artwork": "symbol-flower",
+        "badge": "Geometría sagrada",
+        "featured": false,
+        "stockLabel": "Disponible",
+        "stockQuantity": 9,
+        "madeToOrder": false,
+        "tags": ["geometría", "armonía", "pared"]
+      },
+      {
+        "id": "shop-tarot-rider-waite",
+        "name": "Tarot Rider Waite lino",
+        "category": "Tarot",
+        "specialistId": "spec-amaya",
+        "specialistName": "Amaya Rivas",
+        "storeId": "store-spec-amaya",
+        "storeName": "Tienda de Amaya Rivas",
+        "shortDescription": "Mazo clásico con acabado mate texturizado.",
+        "description": "Versión suave al tacto, ideal para práctica diaria y lecturas guiadas.",
+        "price": {
+          "amount": 33,
+          "currency": "USD"
+        },
+        "sku": "TAROT-RIDER-WAITE-AMAYA",
+        "status": "active",
+        "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/3/3e/Rider-Waite_Major_Arcana_full.png",
+        "imageUrls": [
+          "https://upload.wikimedia.org/wikipedia/commons/3/3e/Rider-Waite_Major_Arcana_full.png",
+          "https://upload.wikimedia.org/wikipedia/commons/8/83/Tarot_cards_-_3_card_spread_with_candles.jpg",
+          "https://upload.wikimedia.org/wikipedia/commons/3/3f/Tarot_De_Marseille.jpg"
+        ],
+        "artwork": "tarot-rider",
+        "badge": "Clásico",
+        "featured": true,
+        "stockLabel": "Disponible",
+        "stockQuantity": 9,
+        "madeToOrder": false,
+        "tags": ["78 cartas", "clásico", "aprendizaje"]
+      },
+      {
+        "id": "shop-simbolo-pentagrama",
+        "name": "Pentagrama ceremonial",
+        "category": "Símbolos",
+        "specialistId": "spec-elian",
+        "specialistName": "Elian Duarte",
+        "storeId": "store-spec-elian",
+        "storeName": "Tienda de Elian Duarte",
+        "shortDescription": "Pieza de altar en madera oscura y latón.",
+        "description": "Símbolo para mesa ritual, prácticas de enfoque e intención consciente.",
+        "price": {
+          "amount": 24,
+          "currency": "USD"
+        },
+        "sku": "SIMBOLO-PENTAGRAMA-ELIAN",
+        "status": "active",
+        "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/8/87/Steel_pentagram_01.jpg",
+        "imageUrls": [
+          "https://upload.wikimedia.org/wikipedia/commons/8/87/Steel_pentagram_01.jpg",
+          "https://upload.wikimedia.org/wikipedia/commons/f/f4/Flower_of_life_black.png"
+        ],
+        "artwork": "symbol-pentacle",
+        "badge": "Mesa ritual",
+        "featured": false,
+        "stockLabel": "Disponible",
+        "stockQuantity": 9,
+        "madeToOrder": false,
+        "tags": ["latón", "altar", "foco"]
+      },
+      {
+        "id": "shop-tarot-marsella",
+        "name": "Tarot de Marsella restaurado",
+        "category": "Tarot",
+        "specialistId": "spec-amaya",
+        "specialistName": "Amaya Rivas",
+        "storeId": "store-spec-amaya",
+        "storeName": "Tienda de Amaya Rivas",
+        "shortDescription": "Paleta restaurada con guía breve incluida.",
+        "description": "Mazo enfocado en lectura simbólica tradicional con colores renovados.",
+        "price": {
+          "amount": 37,
+          "currency": "USD"
+        },
+        "sku": "TAROT-MARSELLA-AMAYA",
+        "status": "active",
+        "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/3/3f/Tarot_De_Marseille.jpg",
+        "imageUrls": [
+          "https://upload.wikimedia.org/wikipedia/commons/3/3f/Tarot_De_Marseille.jpg",
+          "https://upload.wikimedia.org/wikipedia/commons/3/3e/Rider-Waite_Major_Arcana_full.png",
+          "https://upload.wikimedia.org/wikipedia/commons/8/83/Tarot_cards_-_3_card_spread_with_candles.jpg"
+        ],
+        "artwork": "tarot-marsella",
+        "badge": "Marsella",
+        "featured": true,
+        "stockLabel": "Disponible",
+        "stockQuantity": 9,
+        "madeToOrder": false,
+        "tags": ["tradicional", "restaurado", "guía"]
+      },
+      {
+        "id": "shop-tarot-lunar-oracle",
+        "name": "Tarot Lunar Vision",
+        "category": "Tarot",
+        "specialistId": "spec-amaya",
+        "specialistName": "Amaya Rivas",
+        "storeId": "store-spec-amaya",
+        "storeName": "Tienda de Amaya Rivas",
+        "shortDescription": "Mazo ilustrado con tono místico contemporáneo.",
+        "description": "Ideal para lecturas intuitivas, journaling y trabajo con fases lunares.",
+        "price": {
+          "amount": 41,
+          "currency": "USD"
+        },
+        "sku": "TAROT-LUNAR-VISION-AMAYA",
+        "status": "active",
+        "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/8/83/Tarot_cards_-_3_card_spread_with_candles.jpg",
+        "imageUrls": [
+          "https://upload.wikimedia.org/wikipedia/commons/8/83/Tarot_cards_-_3_card_spread_with_candles.jpg",
+          "https://upload.wikimedia.org/wikipedia/commons/f/fb/Thoth_Tarot_Cards_in_the_Museum_of_Witchcraft_and_Magic.jpg",
+          "https://upload.wikimedia.org/wikipedia/commons/3/3f/Tarot_De_Marseille.jpg"
+        ],
+        "artwork": "tarot-lunar",
+        "badge": "Edición visual",
+        "featured": false,
+        "stockLabel": "Nueva llegada",
+        "stockQuantity": 7,
+        "madeToOrder": false,
+        "tags": ["luna", "intuición", "journaling"]
+      }
+    ],
+    "orders": [
+      {
+        "id": "order-seed-1",
+        "userId": "user-mark",
+        "orderCode": "LR-2026-041",
+        "status": "shipped",
+        "createdAt": "2026-04-11T16:40:00-05:00",
+        "specialistId": "spec-elian",
+        "specialistName": "Elian Duarte",
+        "storeId": "store-spec-elian",
+        "storeName": "Tienda de Elian Duarte",
+        "deliveryAddress": "Miraflores, Lima, Perú",
+        "notes": "Recibido por portería. Cliente pidió empaque discreto.",
+        "subtotal": {
+          "amount": 51,
+          "currency": "USD"
+        },
+        "shipping": {
+          "amount": 9,
+          "currency": "USD"
+        },
+        "total": {
+          "amount": 60,
+          "currency": "USD"
+        },
+        "itemCount": 2,
+        "items": [
+          {
+            "productId": "shop-simbolo-flor-vida",
+            "productName": "Símbolo Flor de la Vida",
+            "category": "Símbolos",
+            "quantity": 1,
+            "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/f/f4/Flower_of_life_black.png",
+            "unitPrice": {
+              "amount": 27,
+              "currency": "USD"
+            },
+            "lineTotal": {
+              "amount": 27,
+              "currency": "USD"
+            }
+          },
+          {
+            "productId": "shop-simbolo-pentagrama",
+            "productName": "Pentagrama ceremonial",
+            "category": "Símbolos",
+            "quantity": 1,
+            "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/8/87/Steel_pentagram_01.jpg",
+            "unitPrice": {
+              "amount": 24,
+              "currency": "USD"
+            },
+            "lineTotal": {
+              "amount": 24,
+              "currency": "USD"
+            }
+          }
+        ]
+      },
+      {
+        "id": "order-seed-2",
+        "userId": "user-mark",
+        "orderCode": "LR-2026-042",
+        "status": "preparing",
+        "createdAt": "2026-04-15T10:15:00-05:00",
+        "specialistId": "spec-elian",
+        "specialistName": "Elian Duarte",
+        "storeId": "store-spec-elian",
+        "storeName": "Tienda de Elian Duarte",
+        "deliveryAddress": "Barranco, Lima, Perú",
+        "notes": "Validar dedicatoria breve antes de cerrar la impresión.",
+        "subtotal": {
+          "amount": 64,
+          "currency": "USD"
+        },
+        "shipping": {
+          "amount": 9,
+          "currency": "USD"
+        },
+        "total": {
+          "amount": 73,
+          "currency": "USD"
+        },
+        "itemCount": 1,
+        "items": [
+          {
+            "productId": "shop-cuadro-carta-dorada",
+            "productName": "Cuadro carta natal dorada",
+            "category": "Cuadros",
+            "quantity": 1,
+            "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/0/03/Astrological_birth_chart_for_1st_Duke_of_Albemarle_Wellcome_L0040335.jpg",
+            "unitPrice": {
+              "amount": 64,
+              "currency": "USD"
+            },
+            "lineTotal": {
+              "amount": 64,
+              "currency": "USD"
+            }
+          }
+        ]
+      },
+      {
+        "id": "order-seed-3",
+        "userId": "user-mark",
+        "orderCode": "LR-2026-043",
+        "status": "confirmed",
+        "createdAt": "2026-04-18T14:20:00-05:00",
+        "specialistId": "spec-amaya",
+        "specialistName": "Amaya Rivas",
+        "storeId": "store-spec-amaya",
+        "storeName": "Tienda de Amaya Rivas",
+        "deliveryAddress": "Surco, Lima, Perú",
+        "notes": "Coordinar envío luego de las 6 p. m.",
+        "subtotal": {
+          "amount": 51,
+          "currency": "USD"
+        },
+        "shipping": {
+          "amount": 9,
+          "currency": "USD"
+        },
+        "total": {
+          "amount": 60,
+          "currency": "USD"
+        },
+        "itemCount": 2,
+        "items": [
+          {
+            "productId": "shop-vela-luna-nueva",
+            "productName": "Vela ritual Luna Nueva",
+            "category": "Velas",
+            "quantity": 1,
+            "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/d/db/Ritual-_Candles.jpg",
+            "unitPrice": {
+              "amount": 18,
+              "currency": "USD"
+            },
+            "lineTotal": {
+              "amount": 18,
+              "currency": "USD"
+            }
+          },
+          {
+            "productId": "shop-tarot-rider-waite",
+            "productName": "Tarot Rider Waite lino",
+            "category": "Tarot",
+            "quantity": 1,
+            "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/3/3e/Rider-Waite_Major_Arcana_full.png",
+            "unitPrice": {
+              "amount": 33,
+              "currency": "USD"
+            },
+            "lineTotal": {
+              "amount": 33,
+              "currency": "USD"
+            }
+          }
+        ]
+      },
+      {
+        "id": "order-seed-4",
+        "userId": "user-mark",
+        "orderCode": "LR-2026-044",
+        "status": "pending",
+        "createdAt": "2026-04-20T09:05:00-05:00",
+        "specialistId": "spec-amaya",
+        "specialistName": "Amaya Rivas",
+        "storeId": "store-spec-amaya",
+        "storeName": "Tienda de Amaya Rivas",
+        "deliveryAddress": "San Isidro, Lima, Perú",
+        "notes": "Cliente pidió confirmar stock antes de coordinar pago.",
+        "subtotal": {
+          "amount": 62,
+          "currency": "USD"
+        },
+        "shipping": {
+          "amount": 9,
+          "currency": "USD"
+        },
+        "total": {
+          "amount": 71,
+          "currency": "USD"
+        },
+        "itemCount": 2,
+        "items": [
+          {
+            "productId": "shop-vela-proteccion",
+            "productName": "Vela Protección Obsidiana",
+            "category": "Velas",
+            "quantity": 1,
+            "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/f/f5/Candle_black.jpg",
+            "unitPrice": {
+              "amount": 21,
+              "currency": "USD"
+            },
+            "lineTotal": {
+              "amount": 21,
+              "currency": "USD"
+            }
+          },
+          {
+            "productId": "shop-tarot-lunar-oracle",
+            "productName": "Tarot Lunar Vision",
+            "category": "Tarot",
+            "quantity": 1,
+            "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/8/83/Tarot_cards_-_3_card_spread_with_candles.jpg",
+            "unitPrice": {
+              "amount": 41,
+              "currency": "USD"
+            },
+            "lineTotal": {
+              "amount": 41,
+              "currency": "USD"
+            }
+          }
+        ]
+      }
+    ]
+  },
   "bookings": [
     {
       "id": "booking-1",

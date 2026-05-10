@@ -292,6 +292,7 @@ const _localizedValues = <String, Map<String, String>>{
     'tarotSuggestedSpecialists': 'Especialistas sugeridos',
     'tarotRecommendedCourses': 'Cursos recomendados',
     'tarotDoSpread': 'Hacer tirada',
+    'tarotDrawThreeCards': 'Tirar 3 cartas',
     'tarotDrawAgain': 'Tirar de nuevo',
     'tarotNoSpreadTitle': 'Todavía no tiraste las cartas',
     'tarotNoSpreadSubtitle':
@@ -495,6 +496,7 @@ const _localizedValues = <String, Map<String, String>>{
     'tarotSuggestedSpecialists': 'Suggested specialists',
     'tarotRecommendedCourses': 'Recommended courses',
     'tarotDoSpread': 'Draw spread',
+    'tarotDrawThreeCards': 'Draw 3 cards',
     'tarotDrawAgain': 'Draw again',
     'tarotNoSpreadTitle': 'You have not drawn the cards yet',
     'tarotNoSpreadSubtitle':
@@ -697,6 +699,7 @@ const _localizedValues = <String, Map<String, String>>{
     'tarotSuggestedSpecialists': 'Especialistas sugeridos',
     'tarotRecommendedCourses': 'Cursos recomendados',
     'tarotDoSpread': 'Fazer tiragem',
+    'tarotDrawThreeCards': 'Tirar 3 cartas',
     'tarotDrawAgain': 'Tirar novamente',
     'tarotNoSpreadTitle': 'Você ainda não tirou as cartas',
     'tarotNoSpreadSubtitle':
@@ -900,6 +903,7 @@ const _localizedValues = <String, Map<String, String>>{
     'tarotSuggestedSpecialists': 'Spécialistes suggérés',
     'tarotRecommendedCourses': 'Cours recommandés',
     'tarotDoSpread': 'Faire le tirage',
+    'tarotDrawThreeCards': 'Tirer 3 cartes',
     'tarotDrawAgain': 'Tirer à nouveau',
     'tarotNoSpreadTitle': 'Vous n’avez pas encore tiré les cartes',
     'tarotNoSpreadSubtitle':
@@ -1105,6 +1109,7 @@ const _localizedValues = <String, Map<String, String>>{
     'tarotSuggestedSpecialists': 'Specialisti consigliati',
     'tarotRecommendedCourses': 'Corsi consigliati',
     'tarotDoSpread': 'Fai la stesa',
+    'tarotDrawThreeCards': 'Tira 3 carte',
     'tarotDrawAgain': 'Tira di nuovo',
     'tarotNoSpreadTitle': 'Non hai ancora tirato le carte',
     'tarotNoSpreadSubtitle':
@@ -1312,6 +1317,7 @@ const _localizedValues = <String, Map<String, String>>{
     'tarotSuggestedSpecialists': 'Empfohlene Spezialisten',
     'tarotRecommendedCourses': 'Empfohlene Kurse',
     'tarotDoSpread': 'Legung ziehen',
+    'tarotDrawThreeCards': '3 Karten ziehen',
     'tarotDrawAgain': 'Erneut ziehen',
     'tarotNoSpreadTitle': 'Du hast die Karten noch nicht gezogen',
     'tarotNoSpreadSubtitle':

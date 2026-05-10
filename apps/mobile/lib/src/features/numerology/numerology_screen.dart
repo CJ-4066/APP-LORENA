@@ -1,19 +1,25 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
 
+import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
+
+import '../../core/config/app_config.dart';
 import '../../core/i18n/app_i18n.dart';
+import '../../core/theme/app_palette.dart';
 import '../../core/utils/formatters.dart';
+import '../../core/widgets/in_app_webview_screen.dart';
 import '../../core/widgets/mystic_ui.dart';
 import '../../core/widgets/specialist_rating_badge.dart';
+import '../courses/course_pdf_viewer_screen.dart';
 import '../../models/app_models.dart';
 import '../../models/numerology_models.dart';
 
-const _numerologyInk = Color(0xFF182127);
-const _numerologyAccent = Color(0xFFB96C3D);
-const _numerologyAccentAlt = Color(0xFF5C7A72);
-const _numerologyAccentSoft = Color(0xFFF4E7D3);
-const _numerologyBorder = Color(0xFFE8DAC7);
-const _numerologySurface = Colors.white;
-const _numerologyPaper = Color(0xFFFFFAF4);
+const _numerologyInk = AppPalette.butterflyInk;
+const _numerologyAccent = AppPalette.flameGold;
+const _numerologyAccentAlt = AppPalette.success;
+const _numerologyAccentSoft = AppPalette.candleGlow;
+const _numerologyBorder = AppPalette.border;
+const _numerologySurface = AppPalette.moonIvory;
 
 enum _NumerologyMenu {
   panorama,
@@ -31,6 +37,7 @@ class NumerologyScreen extends StatefulWidget {
     required this.onCreateBooking,
     required this.onLoadGuide,
     required this.onGenerate,
+    this.onTrackCourseStarted,
   });
 
   final AppBootstrap data;
@@ -39,6 +46,10 @@ class NumerologyScreen extends StatefulWidget {
   final Future<NumerologyGuideData> Function() onLoadGuide;
   final Future<NumerologyProfileData> Function(NumerologyRequestInput input)
       onGenerate;
+  final Future<void> Function({
+    required String courseId,
+    required String courseTitle,
+  })? onTrackCourseStarted;
 
   @override
   State<NumerologyScreen> createState() => _NumerologyScreenState();
@@ -172,6 +183,73 @@ class _NumerologyScreenState extends State<NumerologyScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final baseTheme = Theme.of(context);
+    final numerologyTheme = baseTheme.copyWith(
+      cardTheme: baseTheme.cardTheme.copyWith(
+        color: _numerologySurface,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(26),
+          side: const BorderSide(color: _numerologyBorder),
+        ),
+        margin: EdgeInsets.zero,
+      ),
+      inputDecorationTheme: baseTheme.inputDecorationTheme.copyWith(
+        filled: true,
+        fillColor: AppPalette.petalSoft,
+        labelStyle: const TextStyle(color: _numerologyInk),
+        hintStyle: const TextStyle(color: AppPalette.mutedLavender),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: const BorderSide(color: _numerologyBorder),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: const BorderSide(color: _numerologyBorder),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: const BorderSide(color: _numerologyAccent, width: 1.4),
+        ),
+      ),
+      chipTheme: baseTheme.chipTheme.copyWith(
+        backgroundColor: _numerologyAccentSoft,
+        secondarySelectedColor: _numerologyAccentSoft,
+        side: const BorderSide(color: _numerologyBorder),
+        labelStyle: const TextStyle(
+          color: _numerologyInk,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: _numerologyAccent,
+          foregroundColor: AppPalette.midnight,
+          textStyle: const TextStyle(fontWeight: FontWeight.w800),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+        ),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: _numerologyInk,
+          side: const BorderSide(color: _numerologyBorder),
+          textStyle: const TextStyle(fontWeight: FontWeight.w700),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: _numerologyAccent,
+          textStyle: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+      ),
+    );
     final mediaQuery = MediaQuery.of(context);
     final textScale = mediaQuery.textScaler.scale(1).clamp(1.0, 1.02);
     final menuFlow = <MysticFlowOption>[
@@ -219,214 +297,320 @@ class _NumerologyScreenState extends State<NumerologyScreen> {
 
     return MediaQuery(
       data: mediaQuery.copyWith(textScaler: TextScaler.linear(textScale)),
-      child: DefaultTextStyle.merge(
-        style: const TextStyle(
-          decoration: TextDecoration.none,
-          color: _numerologyInk,
-        ),
-        child: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Color(0xFFFFF7EE),
-                _numerologyPaper,
-              ],
-            ),
+      child: Theme(
+        data: numerologyTheme,
+        child: DefaultTextStyle.merge(
+          style: const TextStyle(
+            decoration: TextDecoration.none,
+            color: _numerologyInk,
           ),
-          child: SafeArea(
-            child: RefreshIndicator(
-              onRefresh: () async {
-                await widget.onRefresh();
-                await _loadGuide();
-              },
-              child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(22),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(30),
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          Color(0xFF2A241E),
-                          Color(0xFF6A4A36),
-                          Color(0xFF5C7A72),
-                        ],
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          l10n.ts('Numerología'),
-                          style: Theme.of(context)
-                              .textTheme
-                              .headlineMedium
-                              ?.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w800,
-                                decoration: TextDecoration.none,
-                              ),
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          l10n.ts(
-                            'Calcula tus números nucleares, tus ciclos y la lectura de tu nombre natal dentro del sistema pitagórico.',
-                          ),
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 15,
-                            height: 1.45,
-                            decoration: TextDecoration.none,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        MysticFlowNavigator(
-                          items: menuFlow,
-                          selectedIndex:
-                              _NumerologyMenu.values.indexOf(_selectedMenu),
-                          onSelect: (index) {
-                            setState(() {
-                              _selectedMenu = _NumerologyMenu.values[index];
-                            });
-                          },
-                          accent: _numerologyAccent,
-                        ),
-                        if (_profile != null) ...[
-                          const SizedBox(height: 18),
-                          Wrap(
-                            spacing: 10,
-                            runSpacing: 10,
-                            children: [
-                              _HeroMetricPill(
-                                label: l10n.ts('Sendero'),
-                                value:
-                                    _profile!.coreNumbers.lifePath.displayValue,
-                              ),
-                              _HeroMetricPill(
-                                label: l10n.ts('Expresión'),
-                                value: _profile!
-                                    .coreNumbers.expression.displayValue,
-                              ),
-                              _HeroMetricPill(
-                                label: l10n.ts('Año'),
-                                value:
-                                    _profile!.cycles.personalYear.displayValue,
-                              ),
-                            ],
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  _SectionCard(
-                    title: l10n.ts('Generar perfil numerológico'),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        TextField(
-                          controller: _birthNameController,
-                          textCapitalization: TextCapitalization.words,
-                          decoration: InputDecoration(
-                            labelText: l10n.ts('Nombre completo al nacer'),
-                            hintText: l10n.ts('Ejemplo: Maria Fernanda Quispe'),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: _currentNameController,
-                          textCapitalization: TextCapitalization.words,
-                          decoration: InputDecoration(
-                            labelText: l10n.ts('Nombre actual o social'),
-                            hintText: l10n.ts('Opcional, para matiz actual'),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        TextField(
-                          controller: _birthDateController,
-                          keyboardType: TextInputType.datetime,
-                          decoration: InputDecoration(
-                            labelText: l10n.ts('Fecha de nacimiento'),
-                            hintText: 'DD-MM-YYYY',
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        if (_errorMessage != null)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: Text(
-                              _errorMessage!,
-                              style: const TextStyle(
-                                color: _numerologyAccent,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        Wrap(
-                          spacing: 12,
-                          runSpacing: 12,
-                          children: [
-                            FilledButton.icon(
-                              onPressed:
-                                  _isGenerating ? null : _generateProfile,
-                              icon: _isGenerating
-                                  ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                          strokeWidth: 2),
-                                    )
-                                  : const Icon(Icons.calculate_outlined),
-                              label: Text(
-                                _isGenerating
-                                    ? l10n.ts('Calculando...')
-                                    : l10n.ts('Generar numerología'),
-                              ),
-                            ),
-                            OutlinedButton.icon(
-                              onPressed: numerologyServices.isEmpty
-                                  ? null
-                                  : () => widget.onCreateBooking(
-                                        numerologyServices.first.id,
-                                      ),
-                              icon: const Icon(Icons.calendar_month_outlined),
-                              label: Text(l10n.ts('Agendar consulta')),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  if (_isGuideLoading)
-                    const Center(
-                      child: Padding(
-                        padding: EdgeInsets.all(24),
-                        child: CircularProgressIndicator(),
-                      ),
-                    )
-                  else
-                    MysticSlideSwitcher(
-                      child: _NumerologySectionBody(
-                        key: ValueKey(_selectedMenu),
-                        selectedMenu: _selectedMenu,
-                        guide: _guide,
-                        profile: _profile,
-                        numerologyServices: numerologyServices,
-                        numerologySpecialists: numerologySpecialists,
-                        numerologyCourses: numerologyCourses,
-                      ),
-                    ),
+          child: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  AppPalette.shellGradientTop,
+                  AppPalette.shellGradientMid,
+                  AppPalette.shellGradientBottom,
                 ],
+              ),
+            ),
+            child: SafeArea(
+              child: RefreshIndicator(
+                onRefresh: () async {
+                  await widget.onRefresh();
+                  await _loadGuide();
+                },
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+                  children: [
+                    _NumerologyHeroPanel(
+                      menuFlow: menuFlow,
+                      selectedMenu: _selectedMenu,
+                      profile: _profile,
+                      onSelectMenu: (menu) {
+                        setState(() {
+                          _selectedMenu = menu;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 18),
+                    _NumerologyIntakeCard(
+                      birthNameController: _birthNameController,
+                      currentNameController: _currentNameController,
+                      birthDateController: _birthDateController,
+                      errorMessage: _errorMessage,
+                      isGenerating: _isGenerating,
+                      hasConsultation: numerologyServices.isNotEmpty,
+                      onGenerate: _generateProfile,
+                      onBookConsultation: numerologyServices.isEmpty
+                          ? null
+                          : () => widget.onCreateBooking(
+                                numerologyServices.first.id,
+                              ),
+                    ),
+                    const SizedBox(height: 18),
+                    if (_isGuideLoading)
+                      const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(24),
+                          child: CircularProgressIndicator(),
+                        ),
+                      )
+                    else
+                      MysticSlideSwitcher(
+                        child: _NumerologySectionBody(
+                          key: ValueKey(_selectedMenu),
+                          selectedMenu: _selectedMenu,
+                          guide: _guide,
+                          profile: _profile,
+                          numerologyServices: numerologyServices,
+                          numerologySpecialists: numerologySpecialists,
+                          numerologyCourses: numerologyCourses,
+                          onTrackCourseStarted: widget.onTrackCourseStarted,
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _NumerologyHeroPanel extends StatelessWidget {
+  const _NumerologyHeroPanel({
+    required this.menuFlow,
+    required this.selectedMenu,
+    required this.profile,
+    required this.onSelectMenu,
+  });
+
+  final List<MysticFlowOption> menuFlow;
+  final _NumerologyMenu selectedMenu;
+  final NumerologyProfileData? profile;
+  final ValueChanged<_NumerologyMenu> onSelectMenu;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+
+    return Container(
+      padding: const EdgeInsets.all(22),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(32),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppPalette.midnight,
+            AppPalette.indigo,
+            AppPalette.royalViolet,
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppPalette.indigo.withValues(alpha: 0.18),
+            blurRadius: 26,
+            offset: const Offset(0, 16),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: Colors.white24),
+            ),
+            child: Text(
+              l10n.ts('Mapa vibracional'),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.35,
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Text(
+            l10n.ts('Numerología'),
+            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                  decoration: TextDecoration.none,
+                ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            l10n.ts(
+              'Explora tus números esenciales, tus ciclos y la lectura de tu nombre dentro de una experiencia más clara y guiada.',
+            ),
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 15,
+              height: 1.45,
+              decoration: TextDecoration.none,
+            ),
+          ),
+          const SizedBox(height: 18),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: Colors.white10),
+            ),
+            child: MysticFlowNavigator(
+              items: menuFlow,
+              selectedIndex: _NumerologyMenu.values.indexOf(selectedMenu),
+              onSelect: (index) => onSelectMenu(_NumerologyMenu.values[index]),
+              accent: _numerologyAccent,
+            ),
+          ),
+          if (profile != null) ...[
+            const SizedBox(height: 18),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                _HeroMetricPill(
+                  label: l10n.ts('Sendero'),
+                  value: profile!.coreNumbers.lifePath.displayValue,
+                ),
+                _HeroMetricPill(
+                  label: l10n.ts('Expresión'),
+                  value: profile!.coreNumbers.expression.displayValue,
+                ),
+                _HeroMetricPill(
+                  label: l10n.ts('Año'),
+                  value: profile!.cycles.personalYear.displayValue,
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _NumerologyIntakeCard extends StatelessWidget {
+  const _NumerologyIntakeCard({
+    required this.birthNameController,
+    required this.currentNameController,
+    required this.birthDateController,
+    required this.errorMessage,
+    required this.isGenerating,
+    required this.hasConsultation,
+    required this.onGenerate,
+    required this.onBookConsultation,
+  });
+
+  final TextEditingController birthNameController;
+  final TextEditingController currentNameController;
+  final TextEditingController birthDateController;
+  final String? errorMessage;
+  final bool isGenerating;
+  final bool hasConsultation;
+  final VoidCallback onGenerate;
+  final VoidCallback? onBookConsultation;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+
+    return _SectionCard(
+      title: l10n.ts('Generar perfil numerológico'),
+      eyebrow: l10n.ts('Tu punto de entrada'),
+      subtitle: l10n.ts(
+        'Completa tus datos base y obtén una lectura con el mismo lenguaje visual del resto de la app.',
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: birthNameController,
+            textCapitalization: TextCapitalization.words,
+            decoration: InputDecoration(
+              labelText: l10n.ts('Nombre completo al nacer'),
+              hintText: l10n.ts('Ejemplo: Maria Fernanda Quispe'),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: currentNameController,
+            textCapitalization: TextCapitalization.words,
+            decoration: InputDecoration(
+              labelText: l10n.ts('Nombre actual o social'),
+              hintText: l10n.ts('Opcional, para matiz actual'),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: birthDateController,
+            keyboardType: TextInputType.datetime,
+            decoration: InputDecoration(
+              labelText: l10n.ts('Fecha de nacimiento'),
+              hintText: 'DD-MM-YYYY',
+            ),
+          ),
+          const SizedBox(height: 14),
+          if (errorMessage != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: _numerologyAccentSoft,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: _numerologyBorder),
+                ),
+                child: Text(
+                  errorMessage!,
+                  style: const TextStyle(
+                    color: _numerologyInk,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          Wrap(
+            spacing: 12,
+            runSpacing: 12,
+            children: [
+              FilledButton.icon(
+                onPressed: isGenerating ? null : onGenerate,
+                icon: isGenerating
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.calculate_outlined),
+                label: Text(
+                  isGenerating
+                      ? l10n.ts('Calculando...')
+                      : l10n.ts('Generar numerología'),
+                ),
+              ),
+              OutlinedButton.icon(
+                onPressed: hasConsultation ? onBookConsultation : null,
+                icon: const Icon(Icons.calendar_month_outlined),
+                label: Text(l10n.ts('Agendar consulta')),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -481,6 +665,7 @@ class _NumerologySectionBody extends StatelessWidget {
     required this.numerologyServices,
     required this.numerologySpecialists,
     required this.numerologyCourses,
+    required this.onTrackCourseStarted,
   });
 
   final _NumerologyMenu selectedMenu;
@@ -489,6 +674,90 @@ class _NumerologySectionBody extends StatelessWidget {
   final List<ServiceOffer> numerologyServices;
   final List<Specialist> numerologySpecialists;
   final List<Course> numerologyCourses;
+  final Future<void> Function({
+    required String courseId,
+    required String courseTitle,
+  })? onTrackCourseStarted;
+
+  bool _isLorena(Specialist specialist) {
+    return _foldAccents(specialist.name).contains('lorena');
+  }
+
+  int _effectiveReviewCount(Specialist specialist) {
+    return _isLorena(specialist) ? 45 : specialist.reviewCount;
+  }
+
+  int? _effectiveApprovalPercent(Specialist specialist) {
+    return _isLorena(specialist) ? 100 : null;
+  }
+
+  bool _isPdfUrl(String url) {
+    final normalized = url.trim().toLowerCase();
+    return normalized.endsWith('.pdf') || normalized.contains('.pdf?');
+  }
+
+  Future<void> _openReference(
+    BuildContext context, {
+    required String title,
+    required String url,
+  }) async {
+    final normalized = url.trim();
+    if (normalized.isEmpty) {
+      return;
+    }
+
+    final uri = Uri.tryParse(normalized);
+    if (uri == null) {
+      return;
+    }
+
+    final wantsInApp = _isPdfUrl(normalized);
+    if (wantsInApp) {
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => InAppWebViewScreen(title: title, url: normalized),
+        ),
+      );
+      return;
+    }
+
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  Future<void> _openCourseViewer(
+    BuildContext context, {
+    required Course course,
+  }) async {
+    unawaited(
+      onTrackCourseStarted?.call(
+        courseId: course.id,
+        courseTitle: course.title,
+      ),
+    );
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => CoursePdfViewerScreen(course: course),
+      ),
+    );
+  }
+
+  Future<void> _openSharedLibrary(BuildContext context) async {
+    final url = AppConfig.sharedLibraryUrl.trim();
+    if (url.isEmpty) {
+      return;
+    }
+
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const InAppWebViewScreen(
+          title: 'Biblioteca compartida',
+          url: AppConfig.sharedLibraryUrl,
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -505,11 +774,19 @@ class _NumerologySectionBody extends StatelessWidget {
             if (profile != null) ...[
               _SectionCard(
                 title: l10n.ts('Mapa central'),
+                eyebrow: l10n.ts('Panorama'),
+                subtitle: l10n.ts(
+                  'Tus frecuencias base reunidas en una lectura rápida y visual.',
+                ),
                 child: _NumerologyHeroMatrix(profile: profile!),
               ),
               const SizedBox(height: 16),
               _SectionCard(
                 title: l10n.ts('Lectura integrada'),
+                eyebrow: l10n.ts('Síntesis'),
+                subtitle: l10n.ts(
+                  'Una visión compacta del tono principal de tu mapa y de los números que hoy dominan tu energía.',
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -546,6 +823,10 @@ class _NumerologySectionBody extends StatelessWidget {
               const SizedBox(height: 16),
               _SectionCard(
                 title: l10n.ts('Aplicación real'),
+                eyebrow: l10n.ts('Vida diaria'),
+                subtitle: l10n.ts(
+                  'Baja la numerología a decisiones concretas, vínculos y movimiento personal.',
+                ),
                 child: Wrap(
                   spacing: 12,
                   runSpacing: 12,
@@ -557,12 +838,20 @@ class _NumerologySectionBody extends StatelessWidget {
               const SizedBox(height: 16),
               _SectionCard(
                 title: l10n.ts('Alineación del nombre y del mapa'),
+                eyebrow: l10n.ts('Identidad'),
+                subtitle: l10n.ts(
+                  'Qué se mantiene y qué se ajusta entre tu nombre base y la vibración que usas hoy.',
+                ),
                 child: _AlignmentNarrative(profile: profile!),
               ),
               const SizedBox(height: 16),
             ],
             _SectionCard(
               title: l10n.ts('Conceptos base'),
+              eyebrow: l10n.ts('Glosario'),
+              subtitle: l10n.ts(
+                'Una guía simple para entender el lenguaje de la sección sin perder contexto.',
+              ),
               child: Column(
                 children: guide?.concepts
                         .map(
@@ -612,11 +901,19 @@ class _NumerologySectionBody extends StatelessWidget {
               const SizedBox(height: 16),
               _SectionCard(
                 title: l10n.ts('Enfoque profesional'),
+                eyebrow: l10n.ts('Vocación'),
+                subtitle: l10n.ts(
+                  'Cómo se expresa tu energía cuando trabajas, lideras y materializas.',
+                ),
                 child: Text(_buildLocalizedNumerologyVocation(profile!, l10n)),
               ),
               const SizedBox(height: 16),
               _SectionCard(
                 title: l10n.ts('Vinculos y deseo'),
+                eyebrow: l10n.ts('Relaciones'),
+                subtitle: l10n.ts(
+                  'El pulso afectivo del mapa y la forma en que pides, das y sostienes energía.',
+                ),
                 child: Text(
                   _buildLocalizedNumerologyRelationships(profile!, l10n),
                 ),
@@ -624,6 +921,10 @@ class _NumerologySectionBody extends StatelessWidget {
               const SizedBox(height: 16),
               _SectionCard(
                 title: l10n.ts('Radar del momento'),
+                eyebrow: l10n.ts('Timing'),
+                subtitle: l10n.ts(
+                  'Una lectura corta de tus ritmos actuales para moverte con más precisión.',
+                ),
                 child: _TimingRadar(profile: profile!),
               ),
             ],
@@ -665,6 +966,10 @@ class _NumerologySectionBody extends StatelessWidget {
             ),
             _SectionCard(
               title: l10n.ts('Patrones del nombre'),
+              eyebrow: l10n.ts('Arquitectura interna'),
+              subtitle: l10n.ts(
+                'Repeticiones, letras clave y pulsos escondidos dentro de tu nombre.',
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -781,11 +1086,19 @@ class _NumerologySectionBody extends StatelessWidget {
             const SizedBox(height: 16),
             _SectionCard(
               title: l10n.ts('Timing del momento'),
+              eyebrow: l10n.ts('Pulso actual'),
+              subtitle: l10n.ts(
+                'Lo que marca el año, el mes y el día para leer tu momento con claridad.',
+              ),
               child: Text(_buildLocalizedNumerologyTiming(profile!, l10n)),
             ),
             const SizedBox(height: 16),
             _SectionCard(
               title: l10n.ts('Pináculos'),
+              eyebrow: l10n.ts('Grandes etapas'),
+              subtitle: l10n.ts(
+                'Tus ciclos largos de expansión, aprendizaje y construcción.',
+              ),
               child: Column(
                 children: profile!.cycles.pinnacleCycles
                     .map(
@@ -800,6 +1113,10 @@ class _NumerologySectionBody extends StatelessWidget {
             const SizedBox(height: 16),
             _SectionCard(
               title: l10n.ts('Desafíos'),
+              eyebrow: l10n.ts('Aprendizajes'),
+              subtitle: l10n.ts(
+                'Los retos que tallan carácter y afinan tu proceso de evolución.',
+              ),
               child: Column(
                 children: profile!.cycles.challengeCycles
                     .map(
@@ -815,6 +1132,10 @@ class _NumerologySectionBody extends StatelessWidget {
               const SizedBox(height: 16),
               _SectionCard(
                 title: l10n.ts('Lecciones kármicas'),
+                eyebrow: l10n.ts('Integración'),
+                subtitle: l10n.ts(
+                  'Temas que el mapa pide trabajar con más consciencia y constancia.',
+                ),
                 child: Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -840,11 +1161,11 @@ class _NumerologySectionBody extends StatelessWidget {
                   padding: const EdgeInsets.only(bottom: 12),
                   child: _SectionCard(
                     title: specialist.name,
+                    eyebrow: l10n.ts('Especialista en numerología'),
+                    subtitle: l10n.ts(specialist.headline),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(l10n.ts(specialist.headline)),
-                        const SizedBox(height: 12),
                         Text(l10n.ts(specialist.bio)),
                         const SizedBox(height: 12),
                         Wrap(
@@ -859,7 +1180,13 @@ class _NumerologySectionBody extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            SpecialistRatingBadge(rating: specialist.rating),
+                            SpecialistRatingBadge(
+                              rating: specialist.rating,
+                              maxStars: 5,
+                              approvalPercent:
+                                  _effectiveApprovalPercent(specialist),
+                              reviewCount: _effectiveReviewCount(specialist),
+                            ),
                             ...specialist.specialties.take(3).map(
                                   (item) => Chip(label: Text(l10n.ts(item))),
                                 ),
@@ -890,6 +1217,10 @@ class _NumerologySectionBody extends StatelessWidget {
                 padding: const EdgeInsets.only(bottom: 12),
                 child: _SectionCard(
                   title: l10n.ts(item.title),
+                  eyebrow: l10n.ts(item.category),
+                  subtitle: l10n.ts(
+                    'Curso guiado con acceso directo al visualizador interno.',
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -911,6 +1242,15 @@ class _NumerologySectionBody extends StatelessWidget {
                       ),
                       const SizedBox(height: 12),
                       Text(l10n.ts(item.description)),
+                      const SizedBox(height: 14),
+                      FilledButton.icon(
+                        onPressed: () => _openCourseViewer(
+                          context,
+                          course: item,
+                        ),
+                        icon: const Icon(Icons.picture_as_pdf_outlined),
+                        label: Text(l10n.ts('Visualizar curso')),
+                      ),
                     ],
                   ),
                 ),
@@ -918,35 +1258,190 @@ class _NumerologySectionBody extends StatelessWidget {
             ),
             if (guide != null)
               _SectionCard(
-                title: l10n.ts('Referencias online'),
+                title: l10n.ts('Biblioteca'),
+                eyebrow: l10n.ts('Material complementario'),
+                subtitle: l10n.ts(
+                  'Accesos rápidos a la carpeta compartida, PDFs y referencias de estudio.',
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: guide!.references
-                      .map(
-                        (reference) => Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                reference.label,
-                                style: Theme.of(context).textTheme.titleMedium,
+                  children: [
+                    InkWell(
+                      borderRadius: BorderRadius.circular(18),
+                      onTap: () => _openSharedLibrary(context),
+                      child: Ink(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: AppPalette.petalSoft,
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(color: _numerologyBorder),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 42,
+                              height: 42,
+                              decoration: BoxDecoration(
+                                color: _numerologyAccentSoft,
+                                borderRadius: BorderRadius.circular(14),
                               ),
-                              const SizedBox(height: 4),
-                              Text(l10n.ts(reference.note)),
-                              const SizedBox(height: 4),
-                              Text(
+                              child: const Icon(
+                                Icons.folder_shared_outlined,
+                                color: _numerologyInk,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    l10n.ts('Biblioteca compartida'),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleSmall
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.w800,
+                                        ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    l10n.ts(
+                                      'Abre la carpeta pública de Drive para ver todos los cursos y materiales compartidos.',
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            const Icon(
+                              Icons.chevron_right_rounded,
+                              color: _numerologyInk,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    if (numerologyCourses.isNotEmpty) ...[
+                      Text(
+                        l10n.ts('Cursos disponibles'),
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 10),
+                      ...numerologyCourses.map(
+                        (course) => Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(18),
+                            onTap: () => _openCourseViewer(
+                              context,
+                              course: course,
+                            ),
+                            child: Ink(
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: AppPalette.petalSoft,
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(color: _numerologyBorder),
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 42,
+                                    height: 42,
+                                    decoration: BoxDecoration(
+                                      color: _numerologyAccentSoft,
+                                      borderRadius: BorderRadius.circular(14),
+                                    ),
+                                    child: const Icon(
+                                      Icons.picture_as_pdf_outlined,
+                                      color: _numerologyInk,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          l10n.ts(course.title),
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .titleSmall
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.w800,
+                                              ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          l10n.ts(
+                                            '{count} lecciones · {hours} h',
+                                            {
+                                              'count': '${course.lessonCount}',
+                                              'hours': course.estimatedHours
+                                                  .toStringAsFixed(1),
+                                            },
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  const Icon(
+                                    Icons.chevron_right_rounded,
+                                    color: _numerologyInk,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                    ],
+                    ...guide!.references.map(
+                      (reference) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              reference.label,
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(l10n.ts(reference.note)),
+                            const SizedBox(height: 4),
+                            TextButton.icon(
+                              style: TextButton.styleFrom(
+                                foregroundColor: _numerologyAccent,
+                                padding: EdgeInsets.zero,
+                              ),
+                              onPressed: () => _openReference(
+                                context,
+                                title: reference.label,
+                                url: reference.url,
+                              ),
+                              icon: Icon(
+                                _isPdfUrl(reference.url)
+                                    ? Icons.picture_as_pdf_outlined
+                                    : Icons.link_rounded,
+                                size: 18,
+                              ),
+                              label: Text(
                                 reference.url,
                                 style: const TextStyle(
-                                  color: _numerologyAccent,
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
-                      )
-                      .toList(),
+                      ),
+                    ),
+                  ],
                 ),
               ),
           ],
@@ -1020,7 +1515,7 @@ class _NumerologyHeroMatrix extends StatelessWidget {
             'La base del mapa se organiza entre tu sendero, tu forma de expresarte y el deseo interno que empuja tus decisiones.',
           ),
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: const Color(0xFF5F6E72),
+                color: AppPalette.mutedLavender,
                 height: 1.4,
               ),
         ),
@@ -1089,12 +1584,10 @@ class _AppliedCoreNumberCard extends StatelessWidget {
         children: [
           Text(
             title,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF6A6157),
-              decoration: TextDecoration.none,
-            ),
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: AppPalette.mutedLavender,
+                ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -1118,11 +1611,10 @@ class _AppliedCoreNumberCard extends StatelessWidget {
               l10n.ts(subtitle),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Color(0xFF4F5E63),
-                height: 1.25,
-                decoration: TextDecoration.none,
-              ),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppPalette.mutedLavender,
+                    height: 1.25,
+                  ),
             ),
           ),
         ],
@@ -1196,7 +1688,7 @@ class _AppliedInsightCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             l10n.ts('Cuida: {caution}', {'caution': item.caution}),
-            style: const TextStyle(color: Colors.black54),
+            style: const TextStyle(color: AppPalette.mutedLavender),
           ),
         ],
       ),
@@ -1310,7 +1802,7 @@ class _TimingRadar extends StatelessWidget {
               title: l10n.ts('Día personal'),
               value: day.displayValue,
               description: day.archetype,
-              accent: const Color(0xFF5E819A),
+              accent: AppPalette.orchid,
             ),
           ],
         ),
@@ -1337,7 +1829,7 @@ class _TimingRadar extends StatelessWidget {
                   year.shadows.take(2).map(l10n.ts).join(' ${l10n.ts('y')} '),
             },
           ),
-          style: const TextStyle(color: Colors.black54),
+          style: const TextStyle(color: AppPalette.mutedLavender),
         ),
       ],
     );
@@ -1348,24 +1840,73 @@ class _SectionCard extends StatelessWidget {
   const _SectionCard({
     required this.title,
     required this.child,
+    this.eyebrow,
+    this.subtitle,
   });
 
   final String title;
   final Widget child;
+  final String? eyebrow;
+  final String? subtitle;
 
   @override
   Widget build(BuildContext context) {
     return Card(
       child: Padding(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (eyebrow != null && eyebrow!.trim().isNotEmpty) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: _numerologyAccentSoft,
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: _numerologyBorder),
+                ),
+                child: Text(
+                  eyebrow!,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.3,
+                    color: _numerologyInk,
+                    decoration: TextDecoration.none,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
             Text(
               title,
-              style: Theme.of(context).textTheme.titleLarge,
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: _numerologyInk,
+                    fontWeight: FontWeight.w900,
+                  ),
             ),
+            if (subtitle != null && subtitle!.trim().isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                subtitle!,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppPalette.mutedLavender,
+                      height: 1.45,
+                    ),
+              ),
+            ],
             const SizedBox(height: 14),
+            Container(
+              height: 1,
+              decoration: BoxDecoration(
+                color: AppPalette.borderSoft,
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+            const SizedBox(height: 16),
             child,
           ],
         ),
@@ -1555,7 +2096,7 @@ class _StatCard extends StatelessWidget {
             style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w700,
-              color: Colors.black54,
+              color: AppPalette.mutedLavender,
               decoration: TextDecoration.none,
             ),
             maxLines: 1,
@@ -1605,29 +2146,63 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            const Icon(
-              Icons.auto_graph_outlined,
-              size: 44,
-              color: _numerologyAccent,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.titleLarge,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-            ),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(28),
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppPalette.midnight,
+            AppPalette.indigo,
+            AppPalette.royalViolet,
           ],
         ),
+        boxShadow: [
+          BoxShadow(
+            color: AppPalette.indigo.withValues(alpha: 0.16),
+            blurRadius: 22,
+            offset: const Offset(0, 14),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.white24),
+            ),
+            child: const Icon(
+              Icons.auto_graph_outlined,
+              size: 32,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            title,
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            subtitle,
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Colors.white.withValues(alpha: 0.78),
+                  height: 1.45,
+                ),
+          ),
+        ],
       ),
     );
   }

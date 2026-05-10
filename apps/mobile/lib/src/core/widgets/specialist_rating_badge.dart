@@ -7,7 +7,9 @@ class SpecialistRatingBadge extends StatelessWidget {
   const SpecialistRatingBadge({
     super.key,
     required this.rating,
-    this.maxStars = 4,
+    this.maxStars = 5,
+    this.reviewCount,
+    this.approvalPercent,
     this.backgroundColor = AppPalette.moonIvory,
     this.borderColor = AppPalette.border,
     this.filledStarColor = AppPalette.flameGold,
@@ -17,6 +19,8 @@ class SpecialistRatingBadge extends StatelessWidget {
 
   final double rating;
   final int maxStars;
+  final int? reviewCount;
+  final int? approvalPercent;
   final Color backgroundColor;
   final Color borderColor;
   final Color filledStarColor;
@@ -25,8 +29,11 @@ class SpecialistRatingBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final filledStars = specialistRatingStars(rating, maxStars: maxStars);
-    final percent = specialistRatingPercent(rating);
+    final percent = (approvalPercent ?? specialistRatingPercent(rating))
+        .clamp(0, 100)
+        .toInt();
+    final normalized = (rating / 5).clamp(0.0, 1.0);
+    final starsFill = normalized * maxStars;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -43,26 +50,53 @@ class SpecialistRatingBadge extends StatelessWidget {
             children: List.generate(
               maxStars,
               (index) {
-                final isFilled = index < filledStars;
+                final starIndex = index + 1;
+                final isFull = starsFill >= starIndex;
+                final isHalf = !isFull && starsFill >= (starIndex - 0.5);
                 return Padding(
                   padding:
                       EdgeInsets.only(right: index == maxStars - 1 ? 0 : 2),
                   child: Icon(
-                    isFilled ? Icons.star_rounded : Icons.star_border_rounded,
+                    isFull
+                        ? Icons.star_rounded
+                        : isHalf
+                            ? Icons.star_half_rounded
+                            : Icons.star_border_rounded,
                     size: 16,
-                    color: isFilled ? filledStarColor : emptyStarColor,
+                    color: (isFull || isHalf) ? filledStarColor : emptyStarColor,
                   ),
                 );
               },
             ),
           ),
           const SizedBox(width: 8),
-          Text(
-            '$percent%',
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '$percent%',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: textColor,
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+              if (reviewCount != null) ...[
+                const SizedBox(width: 6),
+                Icon(
+                  Icons.stars_rounded,
+                  size: 14,
                   color: textColor,
-                  fontWeight: FontWeight.w800,
                 ),
+                const SizedBox(width: 2),
+                Text(
+                  '${reviewCount!.clamp(0, 999)}',
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: textColor,
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+              ],
+            ],
           ),
         ],
       ),

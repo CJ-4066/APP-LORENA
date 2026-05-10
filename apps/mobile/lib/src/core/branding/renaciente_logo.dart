@@ -125,130 +125,132 @@ class _RenacienteAnimatedLogoMarkState extends State<RenacienteAnimatedLogoMark>
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, _) {
-        final orbit = _controller.value * math.pi * 2;
-        final flapWave = math.sin(orbit * 3.8);
-        final flapProgress = 0.5 + 0.5 * flapWave;
-        final bodyLift = math.sin(orbit * 1.4) * widget.size * 0.018;
-        final bodyYaw = math.sin(orbit * 0.8) * 0.08;
-        final bodyRoll = math.sin(orbit * 1.2) * 0.025;
-        final bodyPitch = -(0.02 + flapProgress * 0.08);
-        final auraColor =
-            Color.lerp(widget.glowColor, widget.surfaceColor, 0.32) ??
-                widget.glowColor;
-        final auraOpacity = 0.06 + flapProgress * 0.12;
-        final shadowWidth = widget.size * (0.36 + (1 - flapProgress) * 0.2);
-        final shadowBlur = 10 + (1 - flapProgress) * 12;
-        final shadowColor = widget.accentColor.withValues(alpha: 0.18);
-        final leftWingMatrix = Matrix4.identity()
-          ..setEntry(3, 2, 0.0022)
-          ..rotateX(-(0.1 + flapProgress * 0.34))
-          ..rotateY(0.12 + flapProgress * 0.82)
-          ..rotateZ(-(0.03 + flapProgress * 0.14));
-        final rightWingMatrix = Matrix4.identity()
-          ..setEntry(3, 2, 0.0022)
-          ..rotateX(-(0.1 + flapProgress * 0.34))
-          ..rotateY(-(0.12 + flapProgress * 0.82))
-          ..rotateZ(0.03 + flapProgress * 0.14);
+    return RepaintBoundary(
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, _) {
+          final orbit = _controller.value * math.pi * 2;
+          final flapWave = math.sin(orbit * 3.8);
+          final flapProgress = 0.5 + 0.5 * flapWave;
+          final bodyLift = math.sin(orbit * 1.4) * widget.size * 0.018;
+          final bodyYaw = math.sin(orbit * 0.8) * 0.08;
+          final bodyRoll = math.sin(orbit * 1.2) * 0.025;
+          final bodyPitch = -(0.02 + flapProgress * 0.08);
+          final auraColor =
+              Color.lerp(widget.glowColor, widget.surfaceColor, 0.32) ??
+                  widget.glowColor;
+          final auraOpacity = 0.06 + flapProgress * 0.12;
+          final shadowWidth = widget.size * (0.36 + (1 - flapProgress) * 0.2);
+          final shadowBlur = 10 + (1 - flapProgress) * 12;
+          final shadowColor = widget.accentColor.withValues(alpha: 0.18);
+          final leftWingMatrix = Matrix4.identity()
+            ..setEntry(3, 2, 0.0022)
+            ..rotateX(-(0.1 + flapProgress * 0.34))
+            ..rotateY(0.12 + flapProgress * 0.82)
+            ..rotateZ(-(0.03 + flapProgress * 0.14));
+          final rightWingMatrix = Matrix4.identity()
+            ..setEntry(3, 2, 0.0022)
+            ..rotateX(-(0.1 + flapProgress * 0.34))
+            ..rotateY(-(0.12 + flapProgress * 0.82))
+            ..rotateZ(0.03 + flapProgress * 0.14);
 
-        return SizedBox(
-          width: widget.size,
-          height: widget.size,
-          child: Stack(
-            alignment: Alignment.center,
-            clipBehavior: Clip.none,
-            children: [
-              Positioned(
-                bottom: widget.size * 0.02,
-                child: Container(
-                  width: shadowWidth,
-                  height: widget.size * 0.14,
+          return SizedBox(
+            width: widget.size,
+            height: widget.size,
+            child: Stack(
+              alignment: Alignment.center,
+              clipBehavior: Clip.none,
+              children: [
+                Positioned(
+                  bottom: widget.size * 0.02,
+                  child: Container(
+                    width: shadowWidth,
+                    height: widget.size * 0.14,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(widget.size),
+                      boxShadow: [
+                        BoxShadow(
+                          color: shadowColor,
+                          blurRadius: shadowBlur,
+                          spreadRadius: 1.5,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Container(
+                  width: widget.size * 1.08,
+                  height: widget.size * 1.08,
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(widget.size),
-                    boxShadow: [
-                      BoxShadow(
-                        color: shadowColor,
-                        blurRadius: shadowBlur,
-                        spreadRadius: 1.5,
-                      ),
-                    ],
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        auraColor.withValues(alpha: auraOpacity),
+                        widget.glowColor.withValues(alpha: auraOpacity * 0.42),
+                        Colors.transparent,
+                      ],
+                      stops: const [0, 0.56, 1],
+                    ),
                   ),
                 ),
-              ),
-              Container(
-                width: widget.size * 1.08,
-                height: widget.size * 1.08,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: RadialGradient(
-                    colors: [
-                      auraColor.withValues(alpha: auraOpacity),
-                      widget.glowColor.withValues(alpha: auraOpacity * 0.42),
-                      Colors.transparent,
-                    ],
-                    stops: const [0, 0.56, 1],
-                  ),
-                ),
-              ),
-              Transform.translate(
-                offset: Offset(0, bodyLift),
-                child: Transform(
-                  alignment: Alignment.center,
-                  transform: Matrix4.identity()
-                    ..setEntry(3, 2, 0.0018)
-                    ..rotateX(bodyPitch)
-                    ..rotateY(bodyYaw)
-                    ..rotateZ(bodyRoll),
-                  child: Stack(
+                Transform.translate(
+                  offset: Offset(0, bodyLift),
+                  child: Transform(
                     alignment: Alignment.center,
-                    children: [
-                      Transform(
-                        alignment: const Alignment(-0.04, 0.02),
-                        transform: leftWingMatrix,
-                        child: CustomPaint(
-                          size: Size.square(widget.size),
-                          painter: _RenacienteWingPainter(
-                            side: _WingSide.left,
-                            accentColor: widget.accentColor,
-                            insetColor: widget.wingInsetColor,
-                          ),
-                        ),
-                      ),
-                      Transform(
-                        alignment: const Alignment(0.04, 0.02),
-                        transform: rightWingMatrix,
-                        child: CustomPaint(
-                          size: Size.square(widget.size),
-                          painter: _RenacienteWingPainter(
-                            side: _WingSide.right,
-                            accentColor: widget.accentColor,
-                            insetColor: widget.wingInsetColor,
-                          ),
-                        ),
-                      ),
-                      Transform.translate(
-                        offset: Offset(
-                            0, -widget.size * (0.004 + flapProgress * 0.01)),
-                        child: Transform.scale(
-                          scale: 0.99 + flapProgress * 0.025,
+                    transform: Matrix4.identity()
+                      ..setEntry(3, 2, 0.0018)
+                      ..rotateX(bodyPitch)
+                      ..rotateY(bodyYaw)
+                      ..rotateZ(bodyRoll),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Transform(
+                          alignment: const Alignment(-0.04, 0.02),
+                          transform: leftWingMatrix,
                           child: CustomPaint(
                             size: Size.square(widget.size),
-                            painter: _RenacienteBodyPainter(
+                            painter: _RenacienteWingPainter(
+                              side: _WingSide.left,
                               accentColor: widget.accentColor,
+                              insetColor: widget.wingInsetColor,
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                        Transform(
+                          alignment: const Alignment(0.04, 0.02),
+                          transform: rightWingMatrix,
+                          child: CustomPaint(
+                            size: Size.square(widget.size),
+                            painter: _RenacienteWingPainter(
+                              side: _WingSide.right,
+                              accentColor: widget.accentColor,
+                              insetColor: widget.wingInsetColor,
+                            ),
+                          ),
+                        ),
+                        Transform.translate(
+                          offset: Offset(
+                              0, -widget.size * (0.004 + flapProgress * 0.01)),
+                          child: Transform.scale(
+                            scale: 0.99 + flapProgress * 0.025,
+                            child: CustomPaint(
+                              size: Size.square(widget.size),
+                              painter: _RenacienteBodyPainter(
+                                accentColor: widget.accentColor,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
-        );
-      },
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 }

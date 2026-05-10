@@ -2003,28 +2003,31 @@ class _AnimatedModuleGlyphState extends State<_AnimatedModuleGlyph>
   Widget build(BuildContext context) {
     final canvasSize = widget.size * 1.34;
 
-    return SizedBox(
-      width: canvasSize,
-      height: canvasSize,
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, _) {
-          final phase = _controller.value * math.pi * 2;
+    return RepaintBoundary(
+      child: SizedBox(
+        width: canvasSize,
+        height: canvasSize,
+        child: AnimatedBuilder(
+          animation: _controller,
+          builder: (context, _) {
+            final phase = _controller.value * math.pi * 2;
 
-          return Stack(
-            alignment: Alignment.center,
-            clipBehavior: Clip.none,
-            children: [
-              ...switch (widget.variant) {
-                _ModuleGlyphMotionVariant.astral => _buildAstralDecor(phase),
-                _ModuleGlyphMotionVariant.numerology =>
-                  _buildNumerologyDecor(phase),
-                _ModuleGlyphMotionVariant.transit => _buildTransitDecor(phase),
-              },
-              _buildBadge(phase),
-            ],
-          );
-        },
+            return Stack(
+              alignment: Alignment.center,
+              clipBehavior: Clip.none,
+              children: [
+                ...switch (widget.variant) {
+                  _ModuleGlyphMotionVariant.astral => _buildAstralDecor(phase),
+                  _ModuleGlyphMotionVariant.numerology =>
+                    _buildNumerologyDecor(phase),
+                  _ModuleGlyphMotionVariant.transit =>
+                    _buildTransitDecor(phase),
+                },
+                _buildBadge(phase),
+              ],
+            );
+          },
+        ),
       ),
     );
   }

@@ -8,6 +8,7 @@ import { registerAdminRoutes } from "./modules/admin/routes.js";
 import { registerAstroRoutes } from "./modules/astro/routes.js";
 import { registerAuthRoutes } from "./modules/auth/routes.js";
 import { registerBookingRoutes } from "./modules/bookings/routes.js";
+import { registerBadgeRoutes } from "./modules/badges/routes.js";
 import { registerBootstrapRoutes } from "./modules/bootstrap/routes.js";
 import { registerChatRoutes } from "./modules/chat/routes.js";
 import { registerContentRoutes } from "./modules/content/routes.js";
@@ -80,6 +81,7 @@ export async function buildServer() {
   await app.register(registerNumerologyRoutes, { prefix: "/api/numerology" });
   await app.register(registerPlaceRoutes, { prefix: "/api/places" });
   await app.register(registerBootstrapRoutes, { prefix: "/api/bootstrap" });
+  await app.register(registerBadgeRoutes, { prefix: "/api/badges" });
   await app.register(registerProfileRoutes, { prefix: "/api/profile" });
   await app.register(registerBookingRoutes, { prefix: "/api/bookings" });
   await app.register(registerChatRoutes, { prefix: "/api/chat" });

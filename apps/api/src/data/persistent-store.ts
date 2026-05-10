@@ -7,6 +7,10 @@ import {
   getPaymentsConfig as getPaymentsConfigBilling,
 } from "./billing-store.js";
 import {
+  getUserBadgeProfile,
+  recordBadgeAction,
+} from "./badge-store.js";
+import {
   isDatabaseConfigured,
   query,
   withTransaction,
@@ -20,6 +24,7 @@ import {
 import { getUserRoles, userHasRole } from "./authz-store.js";
 import { buildDailyHomeContent } from "./home-daily.js";
 import {
+  buildShopSku,
   buildShopOrderDraft,
   buildShopStockLabel,
   buildShopViewerScope,
@@ -27,6 +32,8 @@ import {
   canManageShopProduct,
   filterShopOrdersForScope,
   filterShopProductsForScope,
+  normalizeShopImageUrls,
+  normalizeShopProductStatus,
   normalizeShopProductOwnership,
 } from "./shop-domain.js";
 import {
@@ -209,6 +216,8 @@ interface ShopProductOverrideRow extends QueryResultRow {
   description: string;
   price_amount: string | number;
   price_currency: string;
+  sku: string;
+  status: string;
   image_url: string;
   artwork: string;
   badge: string;
@@ -444,6 +453,9 @@ function cloneShopProduct(product: ShopProduct): ShopProduct {
   return {
     ...product,
     price: cloneMoney(product.price),
+    sku: product.sku,
+    status: product.status,
+    imageUrls: [...product.imageUrls],
     tags: [...product.tags],
   };
 }
@@ -471,6 +483,7 @@ function mapServiceWithOverride(
 }
 
 function mapShopProductOverrideRow(row: ShopProductOverrideRow): ShopProduct {
+  const gallery = normalizeShopImageUrls(row.image_url, [row.image_url]);
   return {
     id: row.product_id,
     name: row.name,
@@ -482,7 +495,10 @@ function mapShopProductOverrideRow(row: ShopProductOverrideRow): ShopProduct {
     shortDescription: row.short_description,
     description: row.description,
     price: mapMoney(row.price_amount, row.price_currency),
-    imageUrl: row.image_url,
+    sku: row.sku,
+    status: normalizeShopProductStatus(row.status),
+    imageUrl: gallery.imageUrl,
+    imageUrls: gallery.imageUrls,
     artwork: row.artwork,
     badge: row.badge,
     featured: row.featured,
@@ -616,6 +632,66 @@ function buildDefaultUser(): UserProfile {
   };
 }
 
+function normalizeSpecialistLookup(value: string | undefined): string {
+  return (value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function resolveManagedSpecialistProfileId(
+  existingUser: UserProfile,
+  input: UpdateUserProfileInput,
+): string {
+  const requestedAccountType = input.accountType ?? existingUser.accountType;
+  const requestedSpecialistProfileId = input.specialistProfileId?.trim() ?? "";
+  const existingSpecialistProfileId =
+    existingUser.specialistProfileId?.trim() ?? "";
+  const specialists = getSpecialists();
+
+  if (requestedAccountType !== "specialist") {
+    return requestedSpecialistProfileId || existingSpecialistProfileId;
+  }
+
+  if (
+    requestedSpecialistProfileId.length > 0 &&
+    specialists.some((item) => item.id === requestedSpecialistProfileId)
+  ) {
+    return requestedSpecialistProfileId;
+  }
+
+  if (
+    existingSpecialistProfileId.length > 0 &&
+    specialists.some((item) => item.id === existingSpecialistProfileId)
+  ) {
+    return existingSpecialistProfileId;
+  }
+
+  const lookupTokens = [
+    existingUser.firstName,
+    existingUser.lastName,
+    input.firstName,
+    input.lastName,
+    existingUser.nickname,
+    input.nickname,
+    existingUser.email,
+    input.email,
+  ]
+    .map(normalizeSpecialistLookup)
+    .filter((value) => value.length > 0);
+
+  for (const specialist of specialists) {
+    const specialistKey = normalizeSpecialistLookup(specialist.name);
+    if (lookupTokens.some((token) => specialistKey.includes(token))) {
+      return specialist.id;
+    }
+  }
+
+  return specialists[0]?.id ?? "";
+}
+
 function mergeUserProfile(
   existingUser: UserProfile,
   input: UpdateUserProfileInput,
@@ -630,6 +706,10 @@ function mergeUserProfile(
       }
     : undefined;
   const requestedZodiacSign = input.zodiacSign?.trim();
+  const specialistProfileId = resolveManagedSpecialistProfileId(
+    existingUser,
+    input,
+  );
 
   return {
     ...existingUser,
@@ -640,8 +720,7 @@ function mergeUserProfile(
     avatarUrl: input.avatarUrl ?? existingUser.avatarUrl,
     location: input.location ?? existingUser.location,
     accountType: input.accountType ?? existingUser.accountType,
-    specialistProfileId:
-      input.specialistProfileId ?? existingUser.specialistProfileId,
+    specialistProfileId,
     timezone: input.natalChart?.timeZoneId?.trim() || existingUser.timezone,
     zodiacSign:
       requestedZodiacSign == null
@@ -1391,12 +1470,12 @@ export async function getBookings(userId?: string): Promise<Booking[]> {
       order by scheduled_at asc
     `,
     isAdmin
-        ? []
-        : [
-            specialistScope
-                ? user.specialistProfileId?.trim() ?? user.id
-                : user.id,
-          ],
+      ? []
+      : [
+          specialistScope
+            ? (user.specialistProfileId?.trim() ?? user.id)
+            : user.id,
+        ],
   );
 
   return result.rows.map(mapBookingRow);
@@ -1505,7 +1584,7 @@ export async function updateBooking(
     user.accountType === "specialist" &&
     Boolean(user.specialistProfileId?.trim());
   const scopeValue = specialistScope
-    ? user.specialistProfileId?.trim() ?? user.id
+    ? (user.specialistProfileId?.trim() ?? user.id)
     : user.id;
   const result = await runQuery<BookingRow>(
     `
@@ -1615,6 +1694,8 @@ async function listShopProducts(): Promise<ShopProduct[]> {
         description,
         price_amount,
         price_currency,
+        sku,
+        status,
         image_url,
         artwork,
         badge,
@@ -1645,11 +1726,22 @@ async function listShopProducts(): Promise<ShopProduct[]> {
         return product;
       }
 
-      return {
-        ...override,
-        imageUrl: override.imageUrl.trim() || product.imageUrl,
-        artwork: override.artwork.trim() || product.artwork,
-      };
+      const primaryImageUrl = override.imageUrl.trim() || product.imageUrl;
+
+      return normalizeShopProductOwnership(
+        {
+          ...product,
+          ...override,
+          imageUrl: primaryImageUrl,
+          imageUrls: normalizeShopImageUrls(primaryImageUrl, [
+            ...override.imageUrls,
+            ...product.imageUrls,
+          ]).imageUrls,
+          artwork: override.artwork.trim() || product.artwork,
+        },
+        override.specialistId,
+        override.specialistName,
+      );
     }),
   ];
 }
@@ -1658,6 +1750,15 @@ async function upsertShopProductOverride(
   product: ShopProduct,
   runner?: QueryRunner,
 ): Promise<void> {
+  const gallery = normalizeShopImageUrls(product.imageUrl, product.imageUrls);
+  const normalizedProduct: ShopProduct = {
+    ...product,
+    imageUrl: gallery.imageUrl,
+    imageUrls: gallery.imageUrls,
+    tags: [...product.tags],
+    price: cloneMoney(product.price),
+  };
+
   await runQuery(
     `
       insert into shop_product_overrides (
@@ -1672,6 +1773,8 @@ async function upsertShopProductOverride(
         description,
         price_amount,
         price_currency,
+        sku,
+        status,
         image_url,
         artwork,
         badge,
@@ -1682,7 +1785,7 @@ async function upsertShopProductOverride(
         tags,
         updated_at
       ) values (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19::jsonb, now()
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21::jsonb, now()
       )
       on conflict (product_id) do update set
         name = excluded.name,
@@ -1695,6 +1798,8 @@ async function upsertShopProductOverride(
         description = excluded.description,
         price_amount = excluded.price_amount,
         price_currency = excluded.price_currency,
+        sku = excluded.sku,
+        status = excluded.status,
         image_url = excluded.image_url,
         artwork = excluded.artwork,
         badge = excluded.badge,
@@ -1715,19 +1820,21 @@ async function upsertShopProductOverride(
       product.storeName,
       product.shortDescription,
       product.description,
-      product.price.amount,
-      product.price.currency,
-      product.imageUrl,
-      product.artwork,
-      product.badge,
-      product.featured,
-      product.stockLabel,
-        product.stockQuantity,
-        product.madeToOrder,
-        JSON.stringify(product.tags),
-      ],
-      runner,
-    );
+      normalizedProduct.price.amount,
+      normalizedProduct.price.currency,
+      normalizedProduct.sku,
+      normalizedProduct.status,
+      normalizedProduct.imageUrl,
+      normalizedProduct.artwork,
+      normalizedProduct.badge,
+      normalizedProduct.featured,
+      normalizedProduct.stockLabel,
+      normalizedProduct.stockQuantity,
+      normalizedProduct.madeToOrder,
+      JSON.stringify(normalizedProduct.tags),
+    ],
+    runner,
+  );
 }
 
 export async function getShopData(userId?: string): Promise<ShopData> {
@@ -2075,7 +2182,16 @@ export async function createShopProduct(
         amount: Number(amount.toFixed(2)),
         currency: input.price?.currency?.trim() || "USD",
       },
+      sku:
+        input.sku?.trim() ||
+        buildShopSku({
+          name,
+          category,
+          specialistId: owner.id,
+        }),
+      status: normalizeShopProductStatus(input.status),
       imageUrl: input.imageUrl?.trim() ?? "",
+      imageUrls: input.imageUrls ?? [],
       artwork: input.artwork?.trim() || inferShopArtwork(category),
       badge: input.badge?.trim() || "Nuevo",
       featured: input.featured ?? false,
@@ -2125,7 +2241,9 @@ export async function updateShopProduct(
       isAdmin: Boolean(managerScope.isAdmin),
     })
   ) {
-    throw new Error("No puedes editar un producto de otra tienda especialista.");
+    throw new Error(
+      "No puedes editar un producto de otra tienda especialista.",
+    );
   }
 
   const category = input.category?.trim() || existing.category;
@@ -2135,6 +2253,12 @@ export async function updateShopProduct(
     : input.stockQuantity === undefined
       ? existing.stockQuantity
       : Math.max(0, Math.round(Number(input.stockQuantity)));
+  const nextImageUrl = input.imageUrl?.trim() ?? existing.imageUrl;
+  const nextImageUrls =
+    input.imageUrls ??
+    (input.imageUrl == null
+      ? existing.imageUrls
+      : normalizeShopImageUrls(nextImageUrl, existing.imageUrls).imageUrls);
   const updated: ShopProduct = normalizeShopProductOwnership(
     {
       ...existing,
@@ -2147,7 +2271,17 @@ export async function updateShopProduct(
         amount: Number(amount.toFixed(2)),
         currency: input.price?.currency?.trim() || existing.price.currency,
       },
-      imageUrl: input.imageUrl?.trim() ?? existing.imageUrl,
+      sku:
+        input.sku?.trim() ||
+        buildShopSku({
+          name: input.name?.trim() || existing.name,
+          category,
+          specialistId: existing.specialistId,
+          productId: existing.id,
+        }),
+      status: normalizeShopProductStatus(input.status ?? existing.status),
+      imageUrl: nextImageUrl,
+      imageUrls: nextImageUrls,
       artwork:
         input.artwork?.trim() || existing.artwork || inferShopArtwork(category),
       badge: input.badge?.trim() || existing.badge,
@@ -2156,7 +2290,9 @@ export async function updateShopProduct(
       stockQuantity,
       madeToOrder,
       tags:
-        input.tags === undefined ? existing.tags : normalizeShopTags(input.tags),
+        input.tags === undefined
+          ? existing.tags
+          : normalizeShopTags(input.tags),
     },
     existing.specialistId,
     existing.specialistName,
@@ -2291,12 +2427,17 @@ export async function getBootstrap(userId?: string): Promise<AppBootstrap> {
   }
 
   const user = await getDatabaseUser(userId);
+  await recordBadgeAction(user.id, {
+    actionKey: "app_opened",
+  });
   const services = await listServices();
   const specialistScopedServices =
     user.accountType === "specialist" &&
     Boolean(user.specialistProfileId?.trim())
       ? services.filter((service) =>
-          service.specialistIds.includes(user.specialistProfileId?.trim() ?? ""),
+          service.specialistIds.includes(
+            user.specialistProfileId?.trim() ?? "",
+          ),
         )
       : services;
 
@@ -2318,5 +2459,6 @@ export async function getBootstrap(userId?: string): Promise<AppBootstrap> {
     shop: await getShopData(user.id),
     bookings: await getBookings(user.id),
     admin: getAdminSummary(),
+    badges: await getUserBadgeProfile(user.id),
   };
 }

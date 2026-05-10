@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 
+import '../../core/config/app_config.dart';
 import '../../core/i18n/app_i18n.dart';
 import '../../core/theme/app_palette.dart';
+import '../../core/widgets/in_app_webview_screen.dart';
 import '../../core/widgets/mystic_ui.dart';
 import '../../models/app_models.dart';
-
-enum _LibrarySection {
-  rituals,
-  courses,
-}
+import 'shared_drive_library_service.dart';
 
 class CoursesScreen extends StatefulWidget {
   const CoursesScreen({
@@ -27,11 +25,8 @@ class CoursesScreen extends StatefulWidget {
 }
 
 class _CoursesScreenState extends State<CoursesScreen> {
-  _LibrarySection _selectedSection = _LibrarySection.rituals;
-
   @override
   Widget build(BuildContext context) {
-    final l10n = context.l10n;
     if (widget.canManageCourses) {
       return _CourseManagerView(
         data: widget.data,
@@ -56,39 +51,9 @@ class _CoursesScreenState extends State<CoursesScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
             children: [
-              Wrap(
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  _MenuChip(
-                    label: l10n.ts('Rituales'),
-                    selected: _selectedSection == _LibrarySection.rituals,
-                    onTap: () {
-                      setState(() {
-                        _selectedSection = _LibrarySection.rituals;
-                      });
-                    },
-                  ),
-                  _MenuChip(
-                    label: l10n.ts('Cursos'),
-                    selected: _selectedSection == _LibrarySection.courses,
-                    onTap: () {
-                      setState(() {
-                        _selectedSection = _LibrarySection.courses;
-                      });
-                    },
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              AnimatedSwitcher(
-                duration: const Duration(milliseconds: 220),
-                child: _selectedSection == _LibrarySection.rituals
-                    ? _RitualsPanel(key: const ValueKey('rituals'))
-                    : _CoursesPanel(
-                        key: const ValueKey('courses'),
-                        courses: widget.data.courses,
-                      ),
+              _CoursesPanel(
+                key: const ValueKey('courses'),
+                courses: widget.data.courses,
               ),
             ],
           ),
@@ -440,100 +405,7 @@ class _CourseStatusPill extends StatelessWidget {
   }
 }
 
-class _MenuChip extends StatelessWidget {
-  const _MenuChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = selected ? AppPalette.indigo : AppPalette.mutedLavender;
-
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: selected ? AppPalette.softLilac : AppPalette.moonIvory,
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(
-            color: selected ? AppPalette.borderStrong : AppPalette.border,
-          ),
-        ),
-        child: Text(
-          label,
-          style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                color: accent,
-                fontWeight: FontWeight.w700,
-              ),
-        ),
-      ),
-    );
-  }
-}
-
-class _RitualsPanel extends StatelessWidget {
-  const _RitualsPanel({
-    super.key,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final rituals = [
-      (
-        l10n.ts('Apertura suave'),
-        l10n.ts(
-          'Respira, enciende una vela y escribe una intención concreta para el día.',
-        ),
-      ),
-      (
-        l10n.ts('Cierre de ruido'),
-        l10n.ts(
-          'Haz una pausa de 5 minutos, ordena tu mesa y anota qué energía no quieres arrastrar.',
-        ),
-      ),
-      (
-        l10n.ts('Ritual lunar breve'),
-        l10n.ts(
-          'Observa la fase actual, formula una pregunta y deja un solo gesto simbólico.',
-        ),
-      ),
-      (
-        l10n.ts('Protección simple'),
-        l10n.ts(
-          'Define un límite claro para hoy y repítelo antes de entrar a conversaciones intensas.',
-        ),
-      ),
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: rituals
-          .map(
-            (ritual) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: MysticMiniBanner(
-                title: ritual.$1,
-                subtitle: ritual.$2,
-                glyphKind: MysticGlyphKind.ritual,
-                accent: AppPalette.flameGold,
-              ),
-            ),
-          )
-          .toList(),
-    );
-  }
-}
-
-class _CoursesPanel extends StatelessWidget {
+class _CoursesPanel extends StatefulWidget {
   const _CoursesPanel({
     super.key,
     required this.courses,
@@ -542,36 +414,396 @@ class _CoursesPanel extends StatelessWidget {
   final List<Course> courses;
 
   @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    if (courses.isEmpty) {
-      return MysticMiniBanner(
-        title: l10n.ts('No hay cursos cargados'),
-        subtitle: l10n.ts(
-          'Cuando quieras volver a expandir esta pestaña, aquí puede entrar el catálogo completo.',
-        ),
-        glyphKind: MysticGlyphKind.course,
-        accent: AppPalette.indigo,
+  State<_CoursesPanel> createState() => _CoursesPanelState();
+}
+
+class _CoursesPanelState extends State<_CoursesPanel> {
+  final SharedDriveLibraryService _libraryService = SharedDriveLibraryService();
+  late Future<List<SharedDriveCategory>> _categoriesFuture;
+  Future<List<SharedDriveDocument>>? _documentsFuture;
+  SharedDriveCategory? _selectedCategory;
+
+  @override
+  void initState() {
+    super.initState();
+    _categoriesFuture = _loadCategories();
+  }
+
+  Future<List<SharedDriveCategory>> _loadCategories() async {
+    final categories = await _libraryService.fetchRootCategories();
+    if (categories.isNotEmpty) {
+      _selectedCategory = categories.first;
+      _documentsFuture = _libraryService.fetchDocumentsForCategory(
+        categories.first.id,
       );
     }
+    return categories;
+  }
 
+  void _selectCategory(SharedDriveCategory category) {
+    if (_selectedCategory?.id == category.id) {
+      return;
+    }
+
+    setState(() {
+      _selectedCategory = category;
+      _documentsFuture = _libraryService.fetchDocumentsForCategory(category.id);
+    });
+  }
+
+  void _openSharedLibrary(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const InAppWebViewScreen(
+          title: 'Biblioteca compartida',
+          url: AppConfig.sharedLibraryUrl,
+        ),
+      ),
+    );
+  }
+
+  void _openDocument(BuildContext context, SharedDriveDocument document) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => InAppWebViewScreen(
+          title: document.title,
+          url: document.previewUrl,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: courses
-          .take(4)
-          .map(
-            (course) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: MysticMiniBanner(
-                title: course.title,
-                subtitle:
-                    '${course.subtitle}\n${l10n.ts('{count} lecciones', {'count': '${course.lessonCount}'})} · ${l10n.ts('{hours} h', {'hours': course.estimatedHours.toStringAsFixed(1)})}',
-                glyphKind: MysticGlyphKind.course,
-                accent: AppPalette.indigo,
+      children: [
+        MysticBannerCard(
+          eyebrow: l10n.ts('Biblioteca premium'),
+          title: l10n.ts('Cursos en PDF'),
+          subtitle: l10n.ts(
+            'Explora tu biblioteca por categorías y abre cada libro como una experiencia de lectura cuidada dentro de la app.',
+          ),
+          glyphKind: MysticGlyphKind.course,
+          gradient: const [
+            AppPalette.midnight,
+            AppPalette.indigo,
+            AppPalette.royalViolet,
+          ],
+          tags: [
+            l10n.ts('Drive sincronizado'),
+            l10n.ts('Lectura en PDF'),
+            l10n.ts('Galería curada'),
+          ],
+          primaryLabel: l10n.ts('Abrir carpeta completa'),
+          onPrimaryTap: () => _openSharedLibrary(context),
+        ),
+        const SizedBox(height: 18),
+        _DriveLibrarySection(
+          categoriesFuture: _categoriesFuture,
+          documentsFuture: _documentsFuture,
+          selectedCategory: _selectedCategory,
+          onSelectCategory: _selectCategory,
+          onOpenDocument: (document) => _openDocument(context, document),
+        ),
+      ],
+    );
+  }
+}
+
+class _DriveLibrarySection extends StatelessWidget {
+  const _DriveLibrarySection({
+    required this.categoriesFuture,
+    required this.documentsFuture,
+    required this.selectedCategory,
+    required this.onSelectCategory,
+    required this.onOpenDocument,
+  });
+
+  final Future<List<SharedDriveCategory>> categoriesFuture;
+  final Future<List<SharedDriveDocument>>? documentsFuture;
+  final SharedDriveCategory? selectedCategory;
+  final ValueChanged<SharedDriveCategory> onSelectCategory;
+  final ValueChanged<SharedDriveDocument> onOpenDocument;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    return FutureBuilder<List<SharedDriveCategory>>(
+      future: categoriesFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        if (snapshot.hasError || (snapshot.data?.isEmpty ?? true)) {
+          return MysticMiniBanner(
+            title: l10n.ts('No pudimos leer la biblioteca'),
+            subtitle: l10n.ts(
+              'La carpeta compartida existe, pero no pudimos cargar sus categorías públicas en este momento.',
+            ),
+            glyphKind: MysticGlyphKind.course,
+            accent: AppPalette.indigo,
+          );
+        }
+
+        final categories = snapshot.data!;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: AppPalette.moonIvory,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: AppPalette.border),
+              ),
+              child: Text(
+                l10n.ts(
+                  'Selecciona una categoría para abrir su galería de libros y documentos.',
+                ),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppPalette.butterflyInk,
+                      height: 1.45,
+                    ),
               ),
             ),
-          )
-          .toList(),
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: categories.map((category) {
+                final selected = selectedCategory?.id == category.id;
+                return FilterChip(
+                  selected: selected,
+                  label: Text(category.title),
+                  onSelected: (_) => onSelectCategory(category),
+                  selectedColor: AppPalette.candleGlow,
+                  checkmarkColor: AppPalette.butterflyInk,
+                  labelStyle: TextStyle(
+                    color: AppPalette.butterflyInk,
+                    fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                  ),
+                  side: const BorderSide(color: AppPalette.border),
+                );
+              }).toList(),
+            ),
+            if (selectedCategory != null) ...[
+              const SizedBox(height: 14),
+              Text(
+                selectedCategory!.title,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: AppPalette.butterflyInk,
+                      fontWeight: FontWeight.w900,
+                    ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                l10n.ts('Galería visual de la categoría'),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: AppPalette.mutedLavender,
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+              const SizedBox(height: 14),
+            ],
+            FutureBuilder<List<SharedDriveDocument>>(
+              future: documentsFuture,
+              builder: (context, documentsSnapshot) {
+                if (documentsSnapshot.connectionState != ConnectionState.done) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+
+                if (documentsSnapshot.hasError ||
+                    (documentsSnapshot.data?.isEmpty ?? true)) {
+                  return MysticMiniBanner(
+                    title: l10n.ts('No encontramos PDFs en esta categoría'),
+                    subtitle: l10n.ts(
+                      'Si la carpeta está vacía o cambió permisos, no podremos armar la galería de libros.',
+                    ),
+                    glyphKind: MysticGlyphKind.course,
+                    accent: AppPalette.indigo,
+                  );
+                }
+
+                final documents = documentsSnapshot.data!;
+                return GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: documents.length,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 12,
+                    childAspectRatio: 0.64,
+                  ),
+                  itemBuilder: (context, index) {
+                    final document = documents[index];
+                    return _DriveBookCard(
+                      document: document,
+                      onTap: () => onOpenDocument(document),
+                    );
+                  },
+                );
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _DriveBookCard extends StatelessWidget {
+  const _DriveBookCard({
+    required this.document,
+    required this.onTap,
+  });
+
+  final SharedDriveDocument document;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(22),
+        onTap: onTap,
+        child: Ink(
+          decoration: BoxDecoration(
+            color: AppPalette.moonIvory,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: AppPalette.border),
+            boxShadow: [
+              BoxShadow(
+                color: AppPalette.indigo.withValues(alpha: 0.08),
+                blurRadius: 16,
+                offset: const Offset(0, 12),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(22),
+                  ),
+                  child: document.thumbnailUrl.isNotEmpty
+                      ? Image.network(
+                          document.thumbnailUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) =>
+                              _DriveBookCoverFallback(title: document.title),
+                        )
+                      : _DriveBookCoverFallback(title: document.title),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      document.title,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            color: AppPalette.butterflyInk,
+                            fontWeight: FontWeight.w800,
+                            height: 1.25,
+                          ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Row(
+                      children: [
+                        Icon(
+                          Icons.picture_as_pdf_outlined,
+                          size: 16,
+                          color: AppPalette.flameGold,
+                        ),
+                        SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'Abrir PDF',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: AppPalette.mutedLavender,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DriveBookCoverFallback extends StatelessWidget {
+  const _DriveBookCoverFallback({
+    required this.title,
+  });
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppPalette.midnight,
+            AppPalette.indigo,
+            AppPalette.royalViolet,
+          ],
+        ),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Align(
+            alignment: Alignment.topRight,
+            child: Icon(
+              Icons.menu_book_rounded,
+              color: AppPalette.candleGlow,
+            ),
+          ),
+          const Spacer(),
+          Text(
+            title,
+            maxLines: 4,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                  height: 1.2,
+                ),
+          ),
+        ],
+      ),
     );
   }
 }

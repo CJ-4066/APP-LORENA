@@ -4,6 +4,7 @@ import type {
   ShopOrder,
   ShopOrderItem,
   ShopProduct,
+  ShopProductStatus,
   UserProfile,
 } from "./mock-store.js";
 
@@ -59,6 +60,78 @@ export function buildShopStockLabel(
   return "Disponible";
 }
 
+export function normalizeShopProductStatus(status?: string): ShopProductStatus {
+  switch ((status ?? "").trim()) {
+    case "draft":
+    case "hidden":
+    case "archived":
+      return status as ShopProductStatus;
+    default:
+      return "active";
+  }
+}
+
+export function buildShopSku(input: {
+  name: string;
+  category: string;
+  specialistId?: string;
+  productId?: string;
+}): string {
+  const rawParts = [
+    input.category,
+    input.name,
+    input.specialistId,
+    input.productId,
+  ]
+    .filter((value): value is string => Boolean(value?.trim()))
+    .join("-");
+
+  const cleaned = rawParts
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  return cleaned.slice(0, 28) || "SHOP-PRODUCT";
+}
+
+export function normalizeShopImageUrls(
+  imageUrl: string,
+  imageUrls?: readonly string[],
+): { imageUrl: string; imageUrls: string[] } {
+  const normalized: string[] = [];
+  const seen = new Set<string>();
+
+  const addUrl = (value?: string) => {
+    const trimmed = value?.trim() ?? "";
+    if (trimmed.length === 0 || seen.has(trimmed)) {
+      return;
+    }
+    seen.add(trimmed);
+    normalized.push(trimmed);
+  };
+
+  addUrl(imageUrl);
+  for (const value of imageUrls ?? []) {
+    addUrl(value);
+  }
+
+  if (normalized.length > 0 && normalized.length < 3) {
+    const base = [...normalized];
+    let index = 0;
+    while (normalized.length < 3) {
+      normalized.push(base[index % base.length]);
+      index += 1;
+    }
+  }
+
+  return {
+    imageUrl: normalized[0] ?? imageUrl.trim(),
+    imageUrls: normalized,
+  };
+}
+
 export function normalizeShopProductOwnership(
   product: ShopProduct,
   specialistId: string,
@@ -70,6 +143,17 @@ export function normalizeShopProductOwnership(
   const stockQuantity = madeToOrder
     ? 0
     : Math.max(0, Math.round(Number(product.stockQuantity ?? 0)));
+  const gallery = normalizeShopImageUrls(product.imageUrl, product.imageUrls);
+  const status = normalizeShopProductStatus(product.status);
+  const sku =
+    product.sku.trim().length > 0
+      ? product.sku.trim()
+      : buildShopSku({
+          name: product.name,
+          category: product.category,
+          specialistId: normalizedSpecialistId,
+          productId: product.id,
+        });
 
   return {
     ...product,
@@ -77,6 +161,10 @@ export function normalizeShopProductOwnership(
     specialistName: normalizedSpecialistName,
     storeId: buildShopStoreId(normalizedSpecialistId),
     storeName: buildShopStoreName(normalizedSpecialistName),
+    sku,
+    status,
+    imageUrl: gallery.imageUrl,
+    imageUrls: gallery.imageUrls,
     madeToOrder,
     stockQuantity,
     stockLabel: buildShopStockLabel(stockQuantity, madeToOrder),
@@ -87,8 +175,12 @@ export function filterShopProductsForScope(
   products: ShopProduct[],
   scope: ShopViewerScope,
 ): ShopProduct[] {
-  if (scope.isAdmin || scope.accountType !== "specialist") {
+  if (scope.isAdmin) {
     return [...products];
+  }
+
+  if (scope.accountType !== "specialist") {
+    return products.filter((product) => product.status === "active");
   }
 
   const specialistProfileId = scope.specialistProfileId?.trim() ?? "";
@@ -96,7 +188,9 @@ export function filterShopProductsForScope(
     return [];
   }
 
-  return products.filter((product) => product.specialistId === specialistProfileId);
+  return products.filter(
+    (product) => product.specialistId === specialistProfileId,
+  );
 }
 
 export function filterShopOrdersForScope(
@@ -128,7 +222,10 @@ export function canManageShopProduct(
   }
 
   const specialistProfileId = scope.specialistProfileId?.trim() ?? "";
-  return specialistProfileId.length > 0 && product.specialistId === specialistProfileId;
+  return (
+    specialistProfileId.length > 0 &&
+    product.specialistId === specialistProfileId
+  );
 }
 
 export function canManageShopOrder(
@@ -140,7 +237,9 @@ export function canManageShopOrder(
   }
 
   const specialistProfileId = scope.specialistProfileId?.trim() ?? "";
-  return specialistProfileId.length > 0 && order.specialistId === specialistProfileId;
+  return (
+    specialistProfileId.length > 0 && order.specialistId === specialistProfileId
+  );
 }
 
 export function buildShopViewerScope(
@@ -169,7 +268,9 @@ export function buildShopOrderDraft({
     throw new Error("Agrega al menos un producto al carrito.");
   }
 
-  const inventoryByProductId = new Map(products.map((product) => [product.id, product]));
+  const inventoryByProductId = new Map(
+    products.map((product) => [product.id, product]),
+  );
   const touchedProducts = new Map<string, ShopProduct>();
   const items: ShopOrderItem[] = [];
 
@@ -185,7 +286,8 @@ export function buildShopOrderDraft({
       throw new Error("El carrito contiene un producto inválido.");
     }
 
-    const sourceProduct = touchedProducts.get(productId) ?? inventoryByProductId.get(productId);
+    const sourceProduct =
+      touchedProducts.get(productId) ?? inventoryByProductId.get(productId);
     if (!sourceProduct) {
       throw new Error("Uno de los productos ya no está disponible.");
     }
@@ -210,17 +312,16 @@ export function buildShopOrderDraft({
       );
     }
 
-    const nextProduct =
-      sourceProduct.madeToOrder
-        ? sourceProduct
-        : {
-            ...sourceProduct,
-            stockQuantity: sourceProduct.stockQuantity - quantity,
-            stockLabel: buildShopStockLabel(
-              sourceProduct.stockQuantity - quantity,
-              sourceProduct.madeToOrder,
-            ),
-          };
+    const nextProduct = sourceProduct.madeToOrder
+      ? sourceProduct
+      : {
+          ...sourceProduct,
+          stockQuantity: sourceProduct.stockQuantity - quantity,
+          stockLabel: buildShopStockLabel(
+            sourceProduct.stockQuantity - quantity,
+            sourceProduct.madeToOrder,
+          ),
+        };
 
     touchedProducts.set(productId, nextProduct);
 
@@ -238,7 +339,10 @@ export function buildShopOrderDraft({
     });
   }
 
-  const subtotalAmount = items.reduce((sum, item) => sum + item.lineTotal.amount, 0);
+  const subtotalAmount = items.reduce(
+    (sum, item) => sum + item.lineTotal.amount,
+    0,
+  );
   const shippingAmount = subtotalAmount >= 120 ? 0 : 9;
   const subtotal = buildMoney(subtotalAmount);
   const shipping = buildMoney(shippingAmount);

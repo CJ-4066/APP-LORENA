@@ -5,6 +5,7 @@ import {
   buildShopOrderDraft,
   filterShopOrdersForScope,
   filterShopProductsForScope,
+  normalizeShopImageUrls,
   normalizeShopProductOwnership,
   type ShopViewerScope,
 } from "./shop-domain.js";
@@ -31,7 +32,10 @@ function buildProduct(
         amount: 40,
         currency: "USD",
       },
+      sku: `SKU-${id}`,
+      status: "active",
       imageUrl: "",
+      imageUrls: [],
       artwork: "tarot",
       badge: "Nuevo",
       featured: false,
@@ -117,16 +121,45 @@ test("filterShopProductsForScope segments catalog by specialist and admin", () =
   };
 
   assert.deepEqual(
-    filterShopProductsForScope(products, specialistScope).map((product) => product.id),
+    filterShopProductsForScope(products, specialistScope).map(
+      (product) => product.id,
+    ),
     ["amaya-deck"],
   );
   assert.deepEqual(
-    filterShopProductsForScope(products, adminScope).map((product) => product.id),
+    filterShopProductsForScope(products, adminScope).map(
+      (product) => product.id,
+    ),
     ["amaya-deck", "mila-candle"],
   );
   assert.deepEqual(
-    filterShopProductsForScope(products, clientScope).map((product) => product.id),
+    filterShopProductsForScope(products, clientScope).map(
+      (product) => product.id,
+    ),
     ["amaya-deck", "mila-candle"],
+  );
+});
+
+test("normalizeShopImageUrls guarantees at least three gallery images", () => {
+  assert.deepEqual(
+    normalizeShopImageUrls("https://example.com/a.jpg", []).imageUrls,
+    [
+      "https://example.com/a.jpg",
+      "https://example.com/a.jpg",
+      "https://example.com/a.jpg",
+    ],
+  );
+
+  assert.deepEqual(
+    normalizeShopImageUrls("https://example.com/a.jpg", [
+      "https://example.com/a.jpg",
+      "https://example.com/b.jpg",
+    ]).imageUrls,
+    [
+      "https://example.com/a.jpg",
+      "https://example.com/b.jpg",
+      "https://example.com/a.jpg",
+    ],
   );
 });
 
@@ -203,7 +236,9 @@ test("buildShopOrderDraft associates the order to one store and decrements stock
   assert.equal(result.order.shipping.amount, 0);
   assert.equal(result.order.total.amount, 120);
 
-  const updatedDeck = result.updatedProducts.find((product) => product.id == deck.id);
+  const updatedDeck = result.updatedProducts.find(
+    (product) => product.id == deck.id,
+  );
   const updatedCandle = result.updatedProducts.find(
     (product) => product.id == candle.id,
   );

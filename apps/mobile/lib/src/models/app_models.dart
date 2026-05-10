@@ -12,6 +12,7 @@ class AppBootstrap {
     required this.shop,
     required this.bookings,
     required this.admin,
+    required this.badges,
   });
 
   final AppMeta app;
@@ -26,6 +27,7 @@ class AppBootstrap {
   final ShopData shop;
   final List<Booking> bookings;
   final AdminSummary admin;
+  final BadgeProfileSummary badges;
 
   factory AppBootstrap.fromJson(Map<String, dynamic> json) {
     return AppBootstrap(
@@ -47,6 +49,142 @@ class AppBootstrap {
       ),
       bookings: _mapList(json['bookings'], Booking.fromJson),
       admin: AdminSummary.fromJson(json['admin'] as Map<String, dynamic>),
+      badges: BadgeProfileSummary.fromJson(
+        json['badges'] as Map<String, dynamic>? ?? const <String, dynamic>{},
+      ),
+    );
+  }
+}
+
+class BadgeProfileSummary {
+  const BadgeProfileSummary({
+    required this.totalCount,
+    required this.unlockedCount,
+    required this.lockedCount,
+    required this.hiddenCount,
+    required this.categories,
+    required this.badges,
+  });
+
+  const BadgeProfileSummary.empty()
+      : totalCount = 0,
+        unlockedCount = 0,
+        lockedCount = 0,
+        hiddenCount = 0,
+        categories = const [],
+        badges = const [];
+
+  final int totalCount;
+  final int unlockedCount;
+  final int lockedCount;
+  final int hiddenCount;
+  final List<BadgeCategorySummary> categories;
+  final List<UserBadgeEntry> badges;
+
+  List<UserBadgeEntry> get unlockedBadges =>
+      badges.where((item) => item.unlocked).toList(growable: false);
+
+  List<UserBadgeEntry> get visibleLockedBadges => badges
+      .where((item) => !item.unlocked && !(item.isSecret && item.displayLocked))
+      .toList(growable: false);
+
+  List<UserBadgeEntry> get hiddenBadges => badges
+      .where((item) => !item.unlocked && item.isSecret && item.displayLocked)
+      .toList(growable: false);
+
+  factory BadgeProfileSummary.fromJson(Map<String, dynamic> json) {
+    return BadgeProfileSummary(
+      totalCount: json['totalCount'] as int? ?? 0,
+      unlockedCount: json['unlockedCount'] as int? ?? 0,
+      lockedCount: json['lockedCount'] as int? ?? 0,
+      hiddenCount: json['hiddenCount'] as int? ?? 0,
+      categories: _mapList(
+        json['categories'],
+        BadgeCategorySummary.fromJson,
+      ),
+      badges: _mapList(json['badges'], UserBadgeEntry.fromJson),
+    );
+  }
+}
+
+class BadgeCategorySummary {
+  const BadgeCategorySummary({
+    required this.category,
+    required this.totalCount,
+    required this.unlockedCount,
+  });
+
+  final String category;
+  final int totalCount;
+  final int unlockedCount;
+
+  factory BadgeCategorySummary.fromJson(Map<String, dynamic> json) {
+    return BadgeCategorySummary(
+      category: json['category'] as String? ?? '',
+      totalCount: json['totalCount'] as int? ?? 0,
+      unlockedCount: json['unlockedCount'] as int? ?? 0,
+    );
+  }
+}
+
+class UserBadgeEntry {
+  const UserBadgeEntry({
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.displayName,
+    required this.displayDescription,
+    required this.category,
+    required this.rarity,
+    required this.type,
+    required this.iconUrl,
+    required this.displayIconUrl,
+    required this.isSecret,
+    required this.isActive,
+    required this.unlocked,
+    required this.unlockedAt,
+    required this.source,
+    required this.metadata,
+  });
+
+  final String id;
+  final String name;
+  final String description;
+  final String displayName;
+  final String displayDescription;
+  final String category;
+  final String rarity;
+  final String type;
+  final String iconUrl;
+  final String displayIconUrl;
+  final bool isSecret;
+  final bool isActive;
+  final bool unlocked;
+  final String? unlockedAt;
+  final String? source;
+  final Map<String, dynamic> metadata;
+
+  bool get displayLocked => isSecret && !unlocked;
+
+  factory UserBadgeEntry.fromJson(Map<String, dynamic> json) {
+    return UserBadgeEntry(
+      id: json['id'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      description: json['description'] as String? ?? '',
+      displayName: json['displayName'] as String? ?? '',
+      displayDescription: json['displayDescription'] as String? ?? '',
+      category: json['category'] as String? ?? '',
+      rarity: json['rarity'] as String? ?? '',
+      type: json['type'] as String? ?? '',
+      iconUrl: json['iconUrl'] as String? ?? '',
+      displayIconUrl: json['displayIconUrl'] as String? ?? '',
+      isSecret: json['isSecret'] as bool? ?? false,
+      isActive: json['isActive'] as bool? ?? false,
+      unlocked: json['unlocked'] as bool? ?? false,
+      unlockedAt: json['unlockedAt'] as String?,
+      source: json['source'] as String?,
+      metadata: (json['metadata'] as Map<String, dynamic>?) ??
+          const <String, dynamic>{},
     );
   }
 }
@@ -782,7 +920,10 @@ class ShopProduct {
     required this.shortDescription,
     required this.description,
     required this.price,
+    required this.sku,
+    required this.status,
     required this.imageUrl,
+    required this.imageUrls,
     required this.artwork,
     required this.badge,
     required this.featured,
@@ -802,7 +943,10 @@ class ShopProduct {
   final String shortDescription;
   final String description;
   final Money price;
+  final String sku;
+  final String status;
   final String imageUrl;
+  final List<String> imageUrls;
   final String artwork;
   final String badge;
   final bool featured;
@@ -812,6 +956,7 @@ class ShopProduct {
   final List<String> tags;
 
   factory ShopProduct.fromJson(Map<String, dynamic> json) {
+    final imageUrl = json['imageUrl'] as String? ?? '';
     return ShopProduct(
       id: json['id'] as String? ?? '',
       name: json['name'] as String? ?? '',
@@ -823,7 +968,10 @@ class ShopProduct {
       shortDescription: json['shortDescription'] as String? ?? '',
       description: json['description'] as String? ?? '',
       price: Money.fromJson(json['price'] as Map<String, dynamic>),
-      imageUrl: json['imageUrl'] as String? ?? '',
+      sku: json['sku'] as String? ?? '',
+      status: json['status'] as String? ?? 'active',
+      imageUrl: imageUrl,
+      imageUrls: _galleryList(json['imageUrls'], fallback: imageUrl),
       artwork: json['artwork'] as String? ?? '',
       badge: json['badge'] as String? ?? '',
       featured: json['featured'] as bool? ?? false,
@@ -980,6 +1128,42 @@ List<T> _mapList<T>(
 List<String> _stringList(Object? raw) {
   final list = raw as List<dynamic>? ?? const [];
   return list.map((item) => item as String).toList();
+}
+
+List<String> _galleryList(
+  Object? raw, {
+  String fallback = '',
+}) {
+  final urls = <String>[];
+  final seen = <String>{};
+
+  void addUrl(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty || !seen.add(trimmed)) {
+      return;
+    }
+    urls.add(trimmed);
+  }
+
+  addUrl(fallback);
+
+  final list = raw as List<dynamic>? ?? const [];
+  for (final item in list) {
+    if (item is String) {
+      addUrl(item);
+    }
+  }
+
+  if (urls.isNotEmpty && urls.length < 3) {
+    final base = List<String>.from(urls);
+    var index = 0;
+    while (urls.length < 3) {
+      urls.add(base[index % base.length]);
+      index += 1;
+    }
+  }
+
+  return urls;
 }
 
 List<Course> _parseCourses(Map<String, dynamic> json) {

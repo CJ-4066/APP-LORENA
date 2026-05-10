@@ -42,6 +42,8 @@ class CreateShopProductInput {
     required this.shortDescription,
     required this.description,
     required this.priceAmount,
+    required this.sku,
+    required this.status,
     required this.imageUrl,
     required this.badge,
     required this.stockQuantity,
@@ -55,6 +57,8 @@ class CreateShopProductInput {
   final String shortDescription;
   final String description;
   final double priceAmount;
+  final String sku;
+  final String status;
   final String imageUrl;
   final String badge;
   final int stockQuantity;
@@ -68,6 +72,8 @@ class CreateShopProductInput {
       'category': category,
       'shortDescription': shortDescription,
       'description': description,
+      'sku': sku,
+      'status': status,
       'imageUrl': imageUrl,
       'price': {
         'amount': priceAmount,
@@ -89,6 +95,8 @@ class UpdateShopProductInput {
     this.shortDescription,
     this.description,
     this.priceAmount,
+    this.sku,
+    this.status,
     this.imageUrl,
     this.badge,
     this.stockQuantity,
@@ -102,6 +110,8 @@ class UpdateShopProductInput {
   final String? shortDescription;
   final String? description;
   final double? priceAmount;
+  final String? sku;
+  final String? status;
   final String? imageUrl;
   final String? badge;
   final int? stockQuantity;
@@ -115,6 +125,8 @@ class UpdateShopProductInput {
       if (category != null) 'category': category,
       if (shortDescription != null) 'shortDescription': shortDescription,
       if (description != null) 'description': description,
+      if (sku != null) 'sku': sku,
+      if (status != null) 'status': status,
       if (imageUrl != null) 'imageUrl': imageUrl,
       if (priceAmount != null)
         'price': {

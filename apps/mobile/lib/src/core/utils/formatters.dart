@@ -8,16 +8,28 @@ String formatMoney(Money amount) {
 }
 
 String formatSchedule(String isoString) {
+  final parsed = DateTime.tryParse(isoString)?.toLocal();
+  if (parsed == null) {
+    final fallback = isoString.trim();
+    return fallback.isEmpty ? 'Fecha sin confirmar' : fallback;
+  }
+
   return _formatCalendarMoment(
-    DateTime.parse(isoString).toLocal(),
+    parsed,
     includeTime: true,
     includeYear: false,
   );
 }
 
 String formatTransitWindow(String startsAt, String endsAt) {
-  final start = DateTime.parse(startsAt).toLocal();
-  final end = DateTime.parse(endsAt).toLocal();
+  final start = DateTime.tryParse(startsAt)?.toLocal();
+  final end = DateTime.tryParse(endsAt)?.toLocal();
+  if (start == null || end == null) {
+    final startFallback = startsAt.trim().isEmpty ? 'sin fecha' : startsAt;
+    final endFallback = endsAt.trim().isEmpty ? 'sin fecha' : endsAt;
+    return 'Vigente del $startFallback al $endFallback';
+  }
+
   final now = DateTime.now();
   final spansDifferentYears = start.year != end.year;
   final showStartYear = spansDifferentYears || start.year != now.year;

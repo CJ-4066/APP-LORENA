@@ -286,10 +286,7 @@ class ApiClient {
     );
 
     final item = response['item'] as Map<String, dynamic>;
-    final imageUrl = item['imageUrl'];
-    if (imageUrl is String) {
-      item['imageUrl'] = _resolveAssetUrl(imageUrl);
-    }
+    _normalizeShopProductPayload(item);
     return ShopProduct.fromJson(item);
   }
 
@@ -306,10 +303,7 @@ class ApiClient {
     );
 
     final item = response['item'] as Map<String, dynamic>;
-    final imageUrl = item['imageUrl'];
-    if (imageUrl is String) {
-      item['imageUrl'] = _resolveAssetUrl(imageUrl);
-    }
+    _normalizeShopProductPayload(item);
     return ShopProduct.fromJson(item);
   }
 
@@ -364,6 +358,28 @@ class ApiClient {
         .whereType<Map<String, dynamic>>()
         .map(CommunityChatMessage.fromJson)
         .toList();
+  }
+
+  Future<BadgeProfileSummary> trackBadgeAction({
+    required String accessToken,
+    required String actionKey,
+    int value = 1,
+    Map<String, dynamic>? metadata,
+  }) async {
+    final response = await _send(
+      method: 'POST',
+      path: '/api/profile/badges/track',
+      accessToken: accessToken,
+      body: {
+        'actionKey': actionKey,
+        'value': value,
+        if (metadata != null) 'metadata': metadata,
+      },
+    );
+
+    return BadgeProfileSummary.fromJson(
+      response['item'] as Map<String, dynamic>,
+    );
   }
 
   Future<AstroNatalChartResult> fetchNatalChart({
@@ -600,10 +616,7 @@ class ApiClient {
       final products = shopJson['products'] as List<dynamic>? ?? const [];
       for (final product in products) {
         if (product is Map<String, dynamic>) {
-          final imageUrl = product['imageUrl'];
-          if (imageUrl is String) {
-            product['imageUrl'] = _resolveAssetUrl(imageUrl);
-          }
+          _normalizeShopProductPayload(product);
         }
       }
 
@@ -614,6 +627,20 @@ class ApiClient {
         }
       }
     }
+  }
+
+  void _normalizeShopProductPayload(Map<String, dynamic> productJson) {
+    final imageUrl = productJson['imageUrl'];
+    if (imageUrl is String) {
+      productJson['imageUrl'] = _resolveAssetUrl(imageUrl);
+    }
+
+    final imageUrls = productJson['imageUrls'] as List<dynamic>? ?? const [];
+    productJson['imageUrls'] = imageUrls
+        .whereType<String>()
+        .map(_resolveAssetUrl)
+        .where((value) => value.trim().isNotEmpty)
+        .toList();
   }
 
   void _normalizeShopOrderPayload(Map<String, dynamic> orderJson) {

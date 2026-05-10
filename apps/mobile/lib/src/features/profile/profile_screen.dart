@@ -45,7 +45,8 @@ class ProfileScreen extends StatelessWidget {
     final canOpenSupport = data.admin.activeUsers >= 0;
     final isGuestMode = data.user.id.trim().isEmpty;
     final isAdmin = data.user.roles.contains('admin');
-    final badgeCenter = buildBadgeCenterData(data);
+    final badgeProfile = data.badges;
+    final unlockedBadges = badgeProfile.unlockedBadges;
 
     return SafeArea(
       child: RefreshIndicator(
@@ -110,7 +111,7 @@ class ProfileScreen extends StatelessWidget {
                                       borderRadius: BorderRadius.circular(999),
                                     ),
                                     child: Text(
-                                      '${badgeCenter.currentRank.title} · ${badgeCenter.xp} XP',
+                                      '${badgeProfile.unlockedCount}/${badgeProfile.totalCount} insignias',
                                       style: Theme.of(context)
                                           .textTheme
                                           .labelMedium
@@ -250,6 +251,121 @@ class ProfileScreen extends StatelessWidget {
               onEditProfile: onEditProfile,
               onEnterSpecialistMode: onEnterSpecialistMode,
               onExitSpecialistMode: onExitSpecialistMode,
+            ),
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(18),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                l10n.ts('Insignias'),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleMedium
+                                    ?.copyWith(fontWeight: FontWeight.w900),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                l10n.ts(
+                                  'Desbloqueadas: {count} · ocultas: {hidden}',
+                                  {
+                                    'count': '${badgeProfile.unlockedCount}',
+                                    'hidden': '${badgeProfile.hiddenCount}',
+                                  },
+                                ),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.copyWith(
+                                      color: AppPalette.mutedLavender,
+                                    ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        FilledButton.tonalIcon(
+                          onPressed: () async {
+                            await Navigator.of(context).push(
+                              MaterialPageRoute<void>(
+                                builder: (_) => ProfileBadgesScreen(data: data),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.auto_awesome_outlined),
+                          label: Text(l10n.ts('Ver todas')),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    if (unlockedBadges.isEmpty)
+                      Text(
+                        l10n.ts(
+                          'Todavía no has desbloqueado insignias. Las primeras se activan con uso real de la app.',
+                        ),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: AppPalette.mutedLavender,
+                              height: 1.45,
+                            ),
+                      )
+                    else
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: unlockedBadges.take(3).map((badge) {
+                          return Container(
+                            constraints: const BoxConstraints(minWidth: 108),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _badgeRarityTint(badge.rarity),
+                              borderRadius: BorderRadius.circular(18),
+                              border: Border.all(
+                                color: _badgeRarityColor(badge.rarity)
+                                    .withValues(alpha: 0.28),
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  badge.displayName,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .labelLarge
+                                      ?.copyWith(
+                                        color: AppPalette.butterflyInk,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  badge.rarity,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .labelSmall
+                                      ?.copyWith(
+                                        color: _badgeRarityColor(badge.rarity),
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                  ],
+                ),
+              ),
             ),
             const SizedBox(height: 16),
             Card(
@@ -452,10 +568,10 @@ class ProfileScreen extends StatelessWidget {
                     title: Text(l10n.ts('Insignias')),
                     subtitle: Text(
                       l10n.ts(
-                        '{rank} · {count} activas',
+                        '{count} desbloqueadas · {hidden} ocultas',
                         {
-                          'rank': l10n.ts(badgeCenter.currentRank.title),
-                          'count': '${badgeCenter.unlockedCount}',
+                          'count': '${badgeProfile.unlockedCount}',
+                          'hidden': '${badgeProfile.hiddenCount}',
                         },
                       ),
                     ),
@@ -492,53 +608,87 @@ class ProfileScreen extends StatelessWidget {
                         );
                       },
                     ),
-                  if (!isGuestMode) ...[
-                    if (canOpenSupport) const Divider(height: 1),
-                    ListTile(
-                      leading: const Icon(Icons.logout),
-                      title: Text(l10n.ts('Cerrar sesión')),
-                      textColor: AppPalette.berry,
-                      iconColor: AppPalette.berry,
-                      onTap: () async {
-                        final confirmed = await showDialog<bool>(
-                              context: context,
-                              builder: (dialogContext) {
-                                return AlertDialog(
-                                  title: Text(l10n.ts('Cerrar sesión')),
-                                  content: Text(
-                                    l10n.ts(
-                                      'Se cerrará tu sesión en este dispositivo.',
-                                    ),
-                                  ),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () {
-                                        Navigator.of(dialogContext).pop(false);
-                                      },
-                                      child: Text(l10n.ts('Cancelar')),
-                                    ),
-                                    FilledButton(
-                                      onPressed: () {
-                                        Navigator.of(dialogContext).pop(true);
-                                      },
-                                      child: Text(l10n.ts('Cerrar sesión')),
-                                    ),
-                                  ],
-                                );
-                              },
-                            ) ??
-                            false;
-                        if (!confirmed) {
-                          return;
-                        }
-
-                        await onLogout();
-                      },
-                    ),
-                  ],
                 ],
               ),
             ),
+            if (!isGuestMode) ...[
+              const SizedBox(height: 16),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        l10n.ts('Sesión'),
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        l10n.ts(
+                          'Cierra tu sesión en este dispositivo cuando termines de usar la app.',
+                        ),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: AppPalette.mutedLavender,
+                            ),
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () async {
+                            final confirmed = await showDialog<bool>(
+                                  context: context,
+                                  builder: (dialogContext) {
+                                    return AlertDialog(
+                                      title: Text(l10n.ts('Cerrar sesión')),
+                                      content: Text(
+                                        l10n.ts(
+                                          'Se cerrará tu sesión en este dispositivo.',
+                                        ),
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () {
+                                            Navigator.of(dialogContext)
+                                                .pop(false);
+                                          },
+                                          child: Text(l10n.ts('Cancelar')),
+                                        ),
+                                        FilledButton(
+                                          onPressed: () {
+                                            Navigator.of(dialogContext)
+                                                .pop(true);
+                                          },
+                                          child: Text(
+                                            l10n.ts('Cerrar sesión'),
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                ) ??
+                                false;
+                            if (!confirmed) {
+                              return;
+                            }
+
+                            await onLogout();
+                          },
+                          icon: const Icon(Icons.logout_rounded),
+                          label: Text(l10n.ts('Cerrar sesión')),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppPalette.berry,
+                            side: const BorderSide(color: AppPalette.berry),
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -567,7 +717,6 @@ class _SpecialistModeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final isSpecialist = user.accountType == 'specialist';
-    final hasRequiredProfileData = _hasRequiredSpecialistProfileData(user);
     final buttonLabel =
         isSpecialist ? l10n.ts('Usuario') : l10n.ts('Especialista');
 
@@ -657,16 +806,12 @@ class _SpecialistModeCard extends StatelessWidget {
               _SpecialistModePill(label: l10n.ts('Comunidad')),
             ],
           ),
-          if (!hasRequiredProfileData && !isSpecialist) ...[
+          if (!isGuestMode && !_hasRecommendedSpecialistProfileData(user)) ...[
             const SizedBox(height: 12),
             Text(
-              isGuestMode
-                  ? l10n.ts(
-                      'Para administrar primero necesitas registrarte con teléfono y completar tu perfil.',
-                    )
-                  : l10n.ts(
-                      'Antes de administrar necesitamos nombre, nacimiento, ciudad, país, zona horaria y coordenadas.',
-                    ),
+              l10n.ts(
+                'Puedes activar la vista especialista ahora. Completar nacimiento, ciudad, país y zona horaria mejora la ficha pública y la experiencia operativa.',
+              ),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: AppPalette.moonIvory,
                     fontWeight: FontWeight.w700,
@@ -733,38 +878,6 @@ class _SpecialistModeCard extends StatelessWidget {
       return;
     }
 
-    if (!_hasRequiredSpecialistProfileData(user)) {
-      final shouldEdit = await showDialog<bool>(
-            context: context,
-            builder: (dialogContext) {
-              return AlertDialog(
-                title: Text(l10n.ts('Completa tus datos')),
-                content: Text(
-                  l10n.ts(
-                    'Antes de activar la vista especialista necesitamos tus datos base completos. Así podrás administrar cursos, productos, citas, precios y comunidad con una cuenta identificada.',
-                  ),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(dialogContext).pop(false),
-                    child: Text(l10n.ts('Luego')),
-                  ),
-                  FilledButton(
-                    onPressed: () => Navigator.of(dialogContext).pop(true),
-                    child: Text(l10n.ts('Completar perfil')),
-                  ),
-                ],
-              );
-            },
-          ) ??
-          false;
-
-      if (shouldEdit && context.mounted) {
-        await onEditProfile();
-      }
-      return;
-    }
-
     if (user.accountType != 'specialist') {
       final confirmed = await showDialog<bool>(
             context: context,
@@ -773,7 +886,7 @@ class _SpecialistModeCard extends StatelessWidget {
                 title: Text(l10n.ts('Activar vista especialista')),
                 content: Text(
                   l10n.ts(
-                    'Se usará este mismo perfil para habilitar el panel de administración de cursos, productos, citas, precios y comunidad.',
+                    'Se usará este mismo perfil para habilitar el panel de administración de cursos, productos, citas, precios y comunidad. Luego podrás completar o ajustar tus datos sin perder acceso.',
                   ),
                 ),
                 actions: [
@@ -889,7 +1002,39 @@ class _SpecialistModePill extends StatelessWidget {
   }
 }
 
-bool _hasRequiredSpecialistProfileData(UserProfile user) {
+Color _badgeRarityColor(String rarity) {
+  switch (rarity.toUpperCase()) {
+    case 'MYTHIC':
+      return AppPalette.moonIvory;
+    case 'LEGENDARY':
+      return AppPalette.roseQuartz;
+    case 'EPIC':
+      return AppPalette.orchid;
+    case 'RARE':
+      return AppPalette.royalViolet;
+    case 'COMMON':
+    default:
+      return AppPalette.indigo;
+  }
+}
+
+Color _badgeRarityTint(String rarity) {
+  switch (rarity.toUpperCase()) {
+    case 'MYTHIC':
+      return AppPalette.candleGlow;
+    case 'LEGENDARY':
+      return AppPalette.petal;
+    case 'EPIC':
+      return AppPalette.softLilac;
+    case 'RARE':
+      return AppPalette.mistLilac;
+    case 'COMMON':
+    default:
+      return AppPalette.petalSoft;
+  }
+}
+
+bool _hasRecommendedSpecialistProfileData(UserProfile user) {
   return user.id.trim().isNotEmpty &&
       user.firstName.trim().isNotEmpty &&
       user.lastName.trim().isNotEmpty &&
