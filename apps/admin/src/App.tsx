@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type CSSProperties, type FormEvent } from "react";
 
 import "./App.css";
 import { AdminFileUploader } from "./components/AdminFileUploader";
@@ -498,18 +498,336 @@ const adminBuildStamp = "reset-2026-06-11";
 type CourseWorkspaceTab = "data" | "modules" | "lessons" | "resources" | "library" | "publication" | "history";
 
 function AuthParticles() {
+  const particles: Array<{
+    className: string;
+    style: Record<string, string>;
+  }> = [
+    {
+      className: "auth-particle-spark",
+      style: {
+        top: "8%",
+        left: "6%",
+        width: "5px",
+        height: "5px",
+        animationDuration: "11s",
+        animationDelay: "-1.4s",
+        ["--drift" as never]: "-36px",
+        ["--peak-opacity" as never]: "0.6",
+        ["--scale-start" as never]: "0.38",
+        ["--scale-end" as never]: "0.92",
+      },
+    },
+    {
+      className: "auth-particle-orb",
+      style: {
+        top: "14%",
+        left: "18%",
+        width: "12px",
+        height: "12px",
+        animationDuration: "18s",
+        animationDelay: "-5s",
+        ["--drift" as never]: "28px",
+        ["--peak-opacity" as never]: "0.52",
+        ["--scale-start" as never]: "0.72",
+        ["--scale-end" as never]: "1.12",
+      },
+    },
+    {
+      className: "auth-particle-spark",
+      style: {
+        top: "22%",
+        right: "10%",
+        width: "4px",
+        height: "4px",
+        animationDuration: "10s",
+        animationDelay: "-6s",
+        ["--drift" as never]: "30px",
+        ["--peak-opacity" as never]: "0.48",
+        ["--scale-start" as never]: "0.32",
+        ["--scale-end" as never]: "0.88",
+      },
+    },
+    {
+      className: "auth-particle-orb",
+      style: {
+        top: "9%",
+        right: "20%",
+        width: "15px",
+        height: "15px",
+        animationDuration: "20s",
+        animationDelay: "-8s",
+        ["--drift" as never]: "-64px",
+        ["--peak-opacity" as never]: "0.42",
+        ["--scale-start" as never]: "0.76",
+        ["--scale-end" as never]: "1.16",
+      },
+    },
+    {
+      className: "auth-particle-glint",
+      style: {
+        top: "28%",
+        left: "2%",
+        width: "3px",
+        height: "3px",
+        animationDuration: "8.5s",
+        animationDelay: "-2.8s",
+        ["--drift" as never]: "18px",
+        ["--peak-opacity" as never]: "0.7",
+        ["--scale-start" as never]: "0.3",
+        ["--scale-end" as never]: "0.82",
+      },
+    },
+    {
+      className: "auth-particle-spark",
+      style: {
+        top: "34%",
+        right: "2%",
+        width: "5px",
+        height: "5px",
+        animationDuration: "12s",
+        animationDelay: "-7.5s",
+        ["--drift" as never]: "-22px",
+        ["--peak-opacity" as never]: "0.58",
+        ["--scale-start" as never]: "0.34",
+        ["--scale-end" as never]: "0.9",
+      },
+    },
+    {
+      className: "auth-particle-orb",
+      style: {
+        top: "44%",
+        left: "-1%",
+        width: "18px",
+        height: "18px",
+        animationDuration: "22s",
+        animationDelay: "-11s",
+        ["--drift" as never]: "36px",
+        ["--peak-opacity" as never]: "0.36",
+        ["--scale-start" as never]: "0.82",
+        ["--scale-end" as never]: "1.2",
+      },
+    },
+    {
+      className: "auth-particle-glint",
+      style: {
+        top: "52%",
+        right: "14%",
+        width: "4px",
+        height: "4px",
+        animationDuration: "9.5s",
+        animationDelay: "-3.8s",
+        ["--drift" as never]: "-20px",
+        ["--peak-opacity" as never]: "0.68",
+        ["--scale-start" as never]: "0.28",
+        ["--scale-end" as never]: "0.84",
+      },
+    },
+    {
+      className: "auth-particle-spark",
+      style: {
+        bottom: "22%",
+        left: "10%",
+        width: "7px",
+        height: "7px",
+        animationDuration: "14s",
+        animationDelay: "-4.2s",
+        ["--drift" as never]: "40px",
+        ["--peak-opacity" as never]: "0.54",
+        ["--scale-start" as never]: "0.52",
+        ["--scale-end" as never]: "1.04",
+      },
+    },
+    {
+      className: "auth-particle-orb",
+      style: {
+        bottom: "10%",
+        left: "24%",
+        width: "14px",
+        height: "14px",
+        animationDuration: "19s",
+        animationDelay: "-9s",
+        ["--drift" as never]: "-46px",
+        ["--peak-opacity" as never]: "0.46",
+        ["--scale-start" as never]: "0.72",
+        ["--scale-end" as never]: "1.1",
+      },
+    },
+    {
+      className: "auth-particle-glint",
+      style: {
+        bottom: "18%",
+        right: "8%",
+        width: "3px",
+        height: "3px",
+        animationDuration: "8s",
+        animationDelay: "-1.1s",
+        ["--drift" as never]: "-14px",
+        ["--peak-opacity" as never]: "0.74",
+        ["--scale-start" as never]: "0.26",
+        ["--scale-end" as never]: "0.8",
+      },
+    },
+    {
+      className: "auth-particle-spark",
+      style: {
+        bottom: "32%",
+        left: "38%",
+        width: "4px",
+        height: "4px",
+        animationDuration: "10.5s",
+        animationDelay: "-5.7s",
+        ["--drift" as never]: "16px",
+        ["--peak-opacity" as never]: "0.64",
+        ["--scale-start" as never]: "0.3",
+        ["--scale-end" as never]: "0.86",
+      },
+    },
+    {
+      className: "auth-particle-orb",
+      style: {
+        bottom: "40%",
+        right: "22%",
+        width: "10px",
+        height: "10px",
+        animationDuration: "17s",
+        animationDelay: "-2.2s",
+        ["--drift" as never]: "56px",
+        ["--peak-opacity" as never]: "0.5",
+        ["--scale-start" as never]: "0.62",
+        ["--scale-end" as never]: "1.04",
+      },
+    },
+    {
+      className: "auth-particle-glint",
+      style: {
+        top: "60%",
+        left: "16%",
+        width: "3px",
+        height: "3px",
+        animationDuration: "9.2s",
+        animationDelay: "-6.4s",
+        ["--drift" as never]: "12px",
+        ["--peak-opacity" as never]: "0.76",
+        ["--scale-start" as never]: "0.22",
+        ["--scale-end" as never]: "0.78",
+      },
+    },
+    {
+      className: "auth-particle-spark",
+      style: {
+        top: "70%",
+        right: "10%",
+        width: "6px",
+        height: "6px",
+        animationDuration: "13s",
+        animationDelay: "-8.8s",
+        ["--drift" as never]: "-30px",
+        ["--peak-opacity" as never]: "0.56",
+        ["--scale-start" as never]: "0.42",
+        ["--scale-end" as never]: "0.94",
+      },
+    },
+    {
+      className: "auth-particle-orb",
+      style: {
+        top: "76%",
+        left: "52%",
+        width: "16px",
+        height: "16px",
+        animationDuration: "21s",
+        animationDelay: "-12s",
+        ["--drift" as never]: "-58px",
+        ["--peak-opacity" as never]: "0.4",
+        ["--scale-start" as never]: "0.74",
+        ["--scale-end" as never]: "1.14",
+      },
+    },
+    {
+      className: "auth-particle-glint",
+      style: {
+        top: "18%",
+        left: "46%",
+        width: "4px",
+        height: "4px",
+        animationDuration: "8.8s",
+        animationDelay: "-4.4s",
+        ["--drift" as never]: "14px",
+        ["--peak-opacity" as never]: "0.72",
+        ["--scale-start" as never]: "0.28",
+        ["--scale-end" as never]: "0.8",
+      },
+    },
+    {
+      className: "auth-particle-spark",
+      style: {
+        top: "48%",
+        right: "30%",
+        width: "5px",
+        height: "5px",
+        animationDuration: "11.5s",
+        animationDelay: "-9.1s",
+        ["--drift" as never]: "20px",
+        ["--peak-opacity" as never]: "0.6",
+        ["--scale-start" as never]: "0.32",
+        ["--scale-end" as never]: "0.88",
+      },
+    },
+    {
+      className: "auth-particle-orb",
+      style: {
+        top: "58%",
+        right: "40%",
+        width: "11px",
+        height: "11px",
+        animationDuration: "16s",
+        animationDelay: "-1.8s",
+        ["--drift" as never]: "-26px",
+        ["--peak-opacity" as never]: "0.46",
+        ["--scale-start" as never]: "0.68",
+        ["--scale-end" as never]: "1.06",
+      },
+    },
+    {
+      className: "auth-particle-glint",
+      style: {
+        bottom: "54%",
+        left: "6%",
+        width: "3px",
+        height: "3px",
+        animationDuration: "7.8s",
+        animationDelay: "-2.1s",
+        ["--drift" as never]: "10px",
+        ["--peak-opacity" as never]: "0.8",
+        ["--scale-start" as never]: "0.2",
+        ["--scale-end" as never]: "0.76",
+      },
+    },
+    {
+      className: "auth-particle-spark",
+      style: {
+        bottom: "66%",
+        right: "18%",
+        width: "6px",
+        height: "6px",
+        animationDuration: "13.8s",
+        animationDelay: "-6.6s",
+        ["--drift" as never]: "-16px",
+        ["--peak-opacity" as never]: "0.52",
+        ["--scale-start" as never]: "0.38",
+        ["--scale-end" as never]: "0.92",
+      },
+    },
+  ];
+
   return (
     <div className="auth-particle-field" aria-hidden="true">
-      <span className="auth-particle auth-particle-spark auth-particle-1" />
-      <span className="auth-particle auth-particle-spark auth-particle-2" />
-      <span className="auth-particle auth-particle-spark auth-particle-3" />
-      <span className="auth-particle auth-particle-orb auth-particle-4" />
-      <span className="auth-particle auth-particle-orb auth-particle-5" />
-      <span className="auth-particle auth-particle-glint auth-particle-6" />
-      <span className="auth-particle auth-particle-glint auth-particle-7" />
-      <span className="auth-particle auth-particle-spark auth-particle-8" />
-      <span className="auth-particle auth-particle-orb auth-particle-9" />
-      <span className="auth-particle auth-particle-glint auth-particle-10" />
+      {particles.map((particle, index) => (
+        <span
+          key={`${particle.className}-${index}`}
+          className={`auth-particle ${particle.className}`}
+          style={particle.style as CSSProperties}
+        />
+      ))}
     </div>
   );
 }
