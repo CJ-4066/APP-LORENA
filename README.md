@@ -147,6 +147,9 @@ cp apps/web/.env.example apps/web/.env
 npm run dev:web
 ```
 
+La landing publica usa `VITE_ADMIN_BASE_URL` para enlazar al login del panel admin.
+Si no lo defines, asume `http://127.0.0.1:5174`.
+
 Admin:
 
 ```bash
