@@ -212,7 +212,11 @@ function resolveApiBaseUrl(): string {
   const protocol = window.location.protocol === "https:" ? "https:" : "http:";
   const hostname =
     window.location.hostname === "0.0.0.0" ? "127.0.0.1" : window.location.hostname;
-  return `${protocol}//${hostname}:4000`;
+  if (hostname === "127.0.0.1" || hostname === "localhost") {
+    return `${protocol}//${hostname}:4000`;
+  }
+
+  return window.location.origin.replace(/\/+$/u, "");
 }
 
 function resolveAdminUrl(): string {
