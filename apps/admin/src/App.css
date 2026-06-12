@@ -302,6 +302,10 @@
   min-height: 100vh;
   display: grid;
   place-items: center;
+  background:
+    radial-gradient(circle at top, rgba(143, 123, 197, 0.22), transparent 38%),
+    radial-gradient(circle at 20% 80%, rgba(103, 89, 170, 0.16), transparent 28%),
+    linear-gradient(180deg, #0d0e24 0%, #171a3e 44%, #0d0e24 100%);
 }
 
 .admin-auth-panel {
@@ -330,7 +334,7 @@
 .auth-particle {
   position: absolute;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(255, 244, 214, 0.94) 0%, rgba(217, 160, 76, 0.52) 36%, rgba(103, 89, 170, 0.12) 70%, transparent 100%);
+  background: radial-gradient(circle, rgba(255, 248, 242, 0.96) 0%, rgba(143, 123, 197, 0.54) 34%, rgba(103, 89, 170, 0.16) 70%, transparent 100%);
   mix-blend-mode: screen;
   animation: authParticleFloat linear infinite;
   will-change: transform, opacity;
@@ -346,15 +350,15 @@
 }
 
 .auth-particle-spark {
-  box-shadow: 0 0 8px rgba(255, 244, 214, 0.22);
+  box-shadow: 0 0 8px rgba(143, 123, 197, 0.24);
 }
 
 .auth-particle-orb {
-  box-shadow: 0 0 16px rgba(143, 123, 197, 0.2), 0 0 26px rgba(217, 160, 76, 0.12);
+  box-shadow: 0 0 16px rgba(143, 123, 197, 0.26), 0 0 26px rgba(103, 89, 170, 0.16);
 }
 
 .auth-particle-glint {
-  box-shadow: 0 0 22px rgba(255, 244, 214, 0.36);
+  box-shadow: 0 0 22px rgba(255, 248, 242, 0.42);
 }
 
 .auth-particle-1 {
@@ -496,6 +500,19 @@
   border-radius: 28px;
 }
 
+.admin-auth-shell .auth-hero,
+.admin-auth-shell .auth-card,
+.admin-auth-shell .auth-loading-card {
+  border-color: rgba(143, 123, 197, 0.22);
+  background:
+    radial-gradient(circle at top right, rgba(255, 248, 242, 0.06), transparent 28%),
+    linear-gradient(180deg, rgba(23, 26, 62, 0.9), rgba(13, 14, 36, 0.86));
+  box-shadow:
+    0 24px 70px rgba(5, 6, 18, 0.45),
+    0 0 0 1px rgba(217, 160, 76, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
 .auth-hero {
   padding: 28px;
 }
@@ -543,11 +560,21 @@
 .auth-card input {
   width: 100%;
   border-radius: 14px;
-  border: 1px solid var(--border);
-  background: var(--surface-strong);
-  color: var(--text-strong);
+  border: 1px solid rgba(143, 123, 197, 0.24);
+  background: rgba(13, 14, 36, 0.72);
+  color: #fff;
   padding: 12px 14px;
   font: inherit;
+}
+
+.auth-card input::placeholder {
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.auth-card input:focus {
+  outline: none;
+  border-color: rgba(217, 160, 76, 0.34);
+  box-shadow: 0 0 0 4px rgba(103, 89, 170, 0.18);
 }
 
 .auth-card button {
@@ -574,7 +601,7 @@
 .admin-session-card strong {
   display: block;
   margin-top: 10px;
-  color: var(--text-strong);
+  color: #fff;
   font-size: 1.3rem;
 }
 
