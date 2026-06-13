@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../core/i18n/app_i18n.dart';
 import '../../core/theme/app_palette.dart';
@@ -18,8 +19,7 @@ class ProfileBadgesScreen extends StatelessWidget {
     final l10n = context.l10n;
     final badgeProfile = data.badges;
     final unlocked = badgeProfile.unlockedBadges;
-    final visibleLocked = badgeProfile.visibleLockedBadges;
-    final hidden = badgeProfile.hiddenBadges;
+    final pathGroups = _groupBadgesByPath(badgeProfile.badges);
     final legendaryOrHigher = unlocked
         .where(
           (badge) => badge.rarity == 'LEGENDARY' || badge.rarity == 'MYTHIC',
@@ -62,76 +62,42 @@ class ProfileBadgesScreen extends StatelessWidget {
             const SizedBox(height: 20),
             _CategoryStrip(categories: badgeProfile.categories),
             const SizedBox(height: 22),
-            _SectionHeader(
-              title: l10n.ts('Desbloqueadas'),
-              subtitle: l10n.ts(
-                '{count} insignias activas dentro de tu recorrido.',
-                {'count': '${unlocked.length}'},
-              ),
-            ),
-            const SizedBox(height: 12),
-            if (unlocked.isEmpty)
+            _PathOverviewStrip(groups: pathGroups),
+            const SizedBox(height: 18),
+            if (pathGroups.isEmpty)
               _EmptyBadgeState(
-                title: l10n.ts('Todavía no hay insignias activas'),
+                title: l10n.ts('Todavía no hay rutas visibles'),
                 subtitle: l10n.ts(
-                  'Las primeras se desbloquean con uso real: tirar cartas, iniciar cursos, comprar o participar en comunidad.',
+                  'Las rutas de progreso se mostrarán aquí cuando el perfil cargue insignias.',
                 ),
               )
             else
-              ...unlocked.map(
-                (badge) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _BadgeCard(
-                    badge: badge,
-                    isUnlocked: true,
+              ...pathGroups.expand(
+                (group) => [
+                  _SectionHeader(
+                    title: group.label,
+                    subtitle: l10n.ts(
+                      '{count} escalones · {unlocked} desbloqueados',
+                      {
+                        'count': '${group.badges.length}',
+                        'unlocked':
+                            '${group.badges.where((badge) => badge.unlocked).length}',
+                      },
+                    ),
                   ),
-                ),
-              ),
-            const SizedBox(height: 14),
-            _SectionHeader(
-              title: l10n.ts('Por descubrir'),
-              subtitle: l10n.ts(
-                'Insignias visibles que ya puedes perseguir dentro de la app.',
-              ),
-            ),
-            const SizedBox(height: 12),
-            if (visibleLocked.isEmpty)
-              _EmptyBadgeState(
-                title: l10n.ts('No hay insignias visibles pendientes'),
-                subtitle: l10n.ts(
-                  'Por ahora ya desbloqueaste todo lo visible o el resto permanece oculto.',
-                ),
-              )
-            else
-              ...visibleLocked.map(
-                (badge) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _BadgeCard(
-                    badge: badge,
-                    isUnlocked: false,
+                  const SizedBox(height: 12),
+                  ...group.badges.map(
+                    (badge) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _BadgeCard(
+                        badge: badge,
+                        isUnlocked: badge.unlocked,
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 10),
+                ],
               ),
-            if (hidden.isNotEmpty) ...[
-              const SizedBox(height: 14),
-              _SectionHeader(
-                title: l10n.ts('Ocultas'),
-                subtitle: l10n.ts(
-                  '{count} insignias secretas siguen veladas.',
-                  {'count': '${hidden.length}'},
-                ),
-              ),
-              const SizedBox(height: 12),
-              ...hidden.map(
-                (badge) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _BadgeCard(
-                    badge: badge,
-                    isUnlocked: false,
-                  ),
-                ),
-              ),
-            ],
           ],
         ),
       ),
@@ -387,6 +353,132 @@ class _CategoryStrip extends StatelessWidget {
   }
 }
 
+class _BadgePathGroup {
+  const _BadgePathGroup({
+    required this.pathId,
+    required this.pathOrder,
+    required this.label,
+    required this.badges,
+  });
+
+  final String pathId;
+  final int pathOrder;
+  final String label;
+  final List<UserBadgeEntry> badges;
+}
+
+class _PathOverviewStrip extends StatelessWidget {
+  const _PathOverviewStrip({
+    required this.groups,
+  });
+
+  final List<_BadgePathGroup> groups;
+
+  @override
+  Widget build(BuildContext context) {
+    if (groups.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: groups.map((group) {
+          final unlocked = group.badges.where((badge) => badge.unlocked).length;
+          return Padding(
+            padding: const EdgeInsets.only(right: 10),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.08),
+                ),
+              ),
+              child: Text(
+                '${group.label} · $unlocked/${group.badges.length}',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.9),
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+
+List<_BadgePathGroup> _groupBadgesByPath(List<UserBadgeEntry> badges) {
+  final groupsByPath = <String, List<UserBadgeEntry>>{};
+
+  for (final badge in badges) {
+    final key = badge.pathId.isNotEmpty ? badge.pathId : badge.category;
+    final list = groupsByPath.putIfAbsent(key, () => <UserBadgeEntry>[]);
+    list.add(badge);
+  }
+
+  final result = groupsByPath.entries.map((entry) {
+    final sortedBadges = [...entry.value]
+      ..sort((left, right) {
+        if (left.stepIndex != right.stepIndex) {
+          return left.stepIndex - right.stepIndex;
+        }
+        return left.name.compareTo(right.name);
+      });
+
+    final first = sortedBadges.isEmpty ? null : sortedBadges.first;
+    return _BadgePathGroup(
+      pathId: entry.key,
+      pathOrder: first?.pathOrder ?? 0,
+      label: _pathLabelForBadge(first),
+      badges: sortedBadges,
+    );
+  }).toList();
+
+  result.sort((left, right) {
+    if (left.pathOrder != right.pathOrder) {
+      return left.pathOrder - right.pathOrder;
+    }
+    return left.label.compareTo(right.label);
+  });
+
+  return result;
+}
+
+String _pathLabelForBadge(UserBadgeEntry? badge) {
+  if (badge == null) {
+    return 'Ruta';
+  }
+
+  if (!badge.isPathVisible) {
+    return 'RUTA OCULTA';
+  }
+
+  switch (badge.pathId) {
+    case 'despertar_path':
+      return 'Despertar';
+    case 'tarot_path':
+      return 'Tarot';
+    case 'psychology_path':
+      return 'Psicología';
+    case 'community_path':
+      return 'Comunidad';
+    case 'purchase_path':
+      return 'Compra';
+    case 'instructor_path':
+      return 'Instructor';
+    case 'award_path':
+      return 'Premios';
+    case 'secret_path':
+      return 'RUTA OCULTA';
+    default:
+      return badge.category;
+  }
+}
+
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({
     required this.title,
@@ -432,6 +524,9 @@ class _BadgeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final borderColor = _rarityColor(badge.rarity);
+    final iconUrl = badge.displayIconUrl.trim().isNotEmpty
+        ? badge.displayIconUrl.trim()
+        : badge.iconUrl.trim();
     final symbol = _badgeSymbolFor(badge);
 
     return Container(
@@ -489,7 +584,33 @@ class _BadgeCard extends StatelessWidget {
                     color: borderColor.withValues(alpha: 0.22),
                   ),
                 ),
-                Icon(symbol, color: borderColor, size: 24),
+                _BadgeArtwork(
+                  iconUrl: iconUrl,
+                  fallback: symbol,
+                  borderColor: borderColor,
+                  isLocked: badge.displayLocked,
+                ),
+                Positioned(
+                  right: 4,
+                  bottom: 4,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.36),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.08),
+                      ),
+                    ),
+                    child: Text(
+                      '${badge.stepIndex}',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: Colors.white.withValues(alpha: 0.92),
+                            fontWeight: FontWeight.w900,
+                          ),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -515,12 +636,20 @@ class _BadgeCard extends StatelessWidget {
                       color: borderColor,
                     ),
                     _MetaChip(
-                      label: badge.category,
+                      label: 'Paso ${badge.stepIndex}/5',
                       color: Colors.white.withValues(alpha: 0.68),
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
+                Text(
+                  badge.stepTitle,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: Colors.white.withValues(alpha: 0.82),
+                        fontWeight: FontWeight.w900,
+                      ),
+                ),
+                const SizedBox(height: 6),
                 Text(
                   badge.displayDescription,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -539,13 +668,14 @@ class _BadgeCard extends StatelessWidget {
                                 : formatSchedule(badge.unlockedAt!),
                           },
                         )
-                      : badge.displayLocked
+                      : badge.isConditionHidden
                           ? context.l10n.ts(
                               'Esta insignia permanece oculta hasta ser revelada.',
                             )
                           : context.l10n.ts(
-                              'Tipo: {type}',
-                              {'type': badge.type},
+                              badge.lockedReason.isEmpty
+                                  ? 'Completa el escalón anterior para continuar.'
+                                  : badge.lockedReason,
                             ),
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                         color: Colors.white.withValues(alpha: 0.62),
@@ -632,6 +762,79 @@ class _EmptyBadgeState extends StatelessWidget {
   }
 }
 
+class _BadgeArtwork extends StatelessWidget {
+  const _BadgeArtwork({
+    required this.iconUrl,
+    required this.fallback,
+    required this.borderColor,
+    required this.isLocked,
+  });
+
+  final String iconUrl;
+  final IconData fallback;
+  final Color borderColor;
+  final bool isLocked;
+
+  @override
+  Widget build(BuildContext context) {
+    final localAssetPath = _localAssetPath(iconUrl);
+    final isSvg = iconUrl.toLowerCase().endsWith('.svg') ||
+        (localAssetPath != null && localAssetPath.toLowerCase().endsWith('.svg'));
+    final canRender = _hasRenderableIconUrl(iconUrl) || localAssetPath != null;
+
+    Widget fallbackWidget() {
+      return Icon(fallback, color: borderColor, size: 24);
+    }
+
+    if (isLocked || !canRender) {
+      return fallbackWidget();
+    }
+
+    if (localAssetPath != null) {
+      if (isSvg) {
+        return SvgPicture.asset(
+          localAssetPath,
+          width: 52,
+          height: 52,
+          fit: BoxFit.cover,
+          placeholderBuilder: (context) => fallbackWidget(),
+        );
+      }
+
+      return Image.asset(
+        localAssetPath,
+        width: 52,
+        height: 52,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => fallbackWidget(),
+      );
+    }
+
+    final isHttp = iconUrl.startsWith('http://') || iconUrl.startsWith('https://');
+    if (isHttp && isSvg) {
+      return SvgPicture.network(
+        iconUrl,
+        width: 52,
+        height: 52,
+        fit: BoxFit.cover,
+        placeholderBuilder: (context) => fallbackWidget(),
+      );
+    }
+
+    if (isHttp) {
+      return Image.network(
+        iconUrl,
+        width: 52,
+        height: 52,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => fallbackWidget(),
+      );
+    }
+
+    return fallbackWidget();
+  }
+}
+
 Color _rarityColor(String rarity) {
   switch (rarity.toUpperCase()) {
     case 'MYTHIC':
@@ -653,91 +856,71 @@ IconData _badgeSymbolFor(UserBadgeEntry badge) {
     return Icons.lock_outline_rounded;
   }
 
-  switch (badge.id) {
-    case 'badge-el-primer-velo':
-      return Icons.visibility_outlined;
-    case 'badge-el-llamado':
-      return Icons.notifications_active_outlined;
-    case 'badge-ojos-del-umbral':
-      return Icons.remove_red_eye_outlined;
-    case 'badge-la-puerta-entreabierta':
-      return Icons.door_front_door_outlined;
-    case 'badge-el-alma-despierta':
-      return Icons.self_improvement_outlined;
-    case 'badge-voz-del-arcano':
-      return Icons.style_outlined;
-    case 'badge-guardian-del-oraculo':
-      return Icons.shield_moon_outlined;
-    case 'badge-hijo-de-la-luna':
-      return Icons.dark_mode_outlined;
-    case 'badge-tejedor-del-destino':
-      return Icons.account_tree_outlined;
-    case 'badge-portador-del-arcano':
-      return Icons.auto_stories_outlined;
-    case 'badge-ojo-del-vacio':
-      return Icons.visibility_outlined;
-    case 'badge-explorador-interior':
-      return Icons.explore_outlined;
-    case 'badge-espejo-del-alma':
-      return Icons.face_4_outlined;
-    case 'badge-caminante-de-sombras':
-      return Icons.nights_stay_outlined;
-    case 'badge-el-portal-interior':
-      return Icons.radio_button_checked_outlined;
-    case 'badge-el-renacido':
-      return Icons.autorenew_rounded;
-    case 'badge-consejero-etico':
-      return Icons.balance_outlined;
-    case 'badge-voz-del-circulo':
-      return Icons.forum_outlined;
-    case 'badge-faro-de-almas':
-      return Icons.light_mode_outlined;
-    case 'badge-guardian-del-templo':
-      return Icons.temple_buddhist_outlined;
-    case 'badge-custodio-del-circulo':
-      return Icons.panorama_fish_eye_outlined;
-    case 'badge-portador-de-armonia':
-      return Icons.graphic_eq_outlined;
-    case 'badge-primer-ritual':
-      return Icons.shopping_bag_outlined;
-    case 'badge-coleccionista-mistico':
-      return Icons.inventory_2_outlined;
-    case 'badge-aliado-del-tarot':
-      return Icons.local_mall_outlined;
-    case 'badge-guardian-del-santuario':
-      return Icons.home_work_outlined;
-    case 'badge-mecenas-arcano':
-      return Icons.volunteer_activism_outlined;
-    case 'badge-guia-del-velo':
-      return Icons.menu_book_outlined;
-    case 'badge-mentor-arcano':
-      return Icons.school_outlined;
-    case 'badge-maestro-del-umbral':
-      return Icons.cast_for_education_outlined;
-    case 'badge-formador-de-almas':
-      return Icons.groups_2_outlined;
-    case 'badge-oraculo-docente':
-      return Icons.library_books_outlined;
-    case 'badge-elegido-por-la-luna':
-      return Icons.workspace_premium_outlined;
-    case 'badge-hijo-del-eclipse':
-      return Icons.brightness_3_outlined;
-    case 'badge-llama-dorada':
-      return Icons.emoji_events_outlined;
-    case 'badge-corona-arcana':
-      return Icons.diamond_outlined;
-    case 'badge-arcano-legendario':
-      return Icons.military_tech_outlined;
-    case 'badge-la-carta-xiii':
-      return Icons.style_outlined;
-    case 'badge-el-nombre-olvidado':
-      return Icons.key_outlined;
-    case 'badge-la-septima-puerta':
-      return Icons.meeting_room_outlined;
-    case 'badge-el-arcano-perdido':
-      return Icons.travel_explore_outlined;
-    case 'badge-hijo-del-vacio':
-      return Icons.blur_circular_outlined;
+  switch (badge.pathId) {
+    case 'despertar_path':
+      return const [
+        Icons.visibility_outlined,
+        Icons.notifications_active_outlined,
+        Icons.remove_red_eye_outlined,
+        Icons.door_front_door_outlined,
+        Icons.self_improvement_outlined,
+      ][badge.stepIndex.clamp(1, 5) - 1];
+    case 'tarot_path':
+      return const [
+        Icons.style_outlined,
+        Icons.shield_moon_outlined,
+        Icons.dark_mode_outlined,
+        Icons.account_tree_outlined,
+        Icons.auto_stories_outlined,
+      ][badge.stepIndex.clamp(1, 5) - 1];
+    case 'psychology_path':
+      return const [
+        Icons.explore_outlined,
+        Icons.face_4_outlined,
+        Icons.nights_stay_outlined,
+        Icons.radio_button_checked_outlined,
+        Icons.autorenew_rounded,
+      ][badge.stepIndex.clamp(1, 5) - 1];
+    case 'community_path':
+      return const [
+        Icons.forum_outlined,
+        Icons.light_mode_outlined,
+        Icons.temple_buddhist_outlined,
+        Icons.panorama_fish_eye_outlined,
+        Icons.graphic_eq_outlined,
+      ][badge.stepIndex.clamp(1, 5) - 1];
+    case 'purchase_path':
+      return const [
+        Icons.shopping_bag_outlined,
+        Icons.inventory_2_outlined,
+        Icons.local_mall_outlined,
+        Icons.home_work_outlined,
+        Icons.volunteer_activism_outlined,
+      ][badge.stepIndex.clamp(1, 5) - 1];
+    case 'instructor_path':
+      return const [
+        Icons.menu_book_outlined,
+        Icons.school_outlined,
+        Icons.cast_for_education_outlined,
+        Icons.groups_2_outlined,
+        Icons.library_books_outlined,
+      ][badge.stepIndex.clamp(1, 5) - 1];
+    case 'award_path':
+      return const [
+        Icons.workspace_premium_outlined,
+        Icons.brightness_3_outlined,
+        Icons.emoji_events_outlined,
+        Icons.diamond_outlined,
+        Icons.military_tech_outlined,
+      ][badge.stepIndex.clamp(1, 5) - 1];
+    case 'secret_path':
+      return const [
+        Icons.style_outlined,
+        Icons.key_outlined,
+        Icons.meeting_room_outlined,
+        Icons.travel_explore_outlined,
+        Icons.blur_circular_outlined,
+      ][badge.stepIndex.clamp(1, 5) - 1];
     default:
       switch (badge.category.toUpperCase()) {
         case 'DESPERTAR':
@@ -760,4 +943,20 @@ IconData _badgeSymbolFor(UserBadgeEntry badge) {
           return Icons.stars_rounded;
       }
   }
+}
+
+bool _hasRenderableIconUrl(String iconUrl) {
+  return RegExp(r'^(https?:\/\/|data:image\/|blob:|\/assets\/|assets\/)').hasMatch(iconUrl);
+}
+
+String? _localAssetPath(String iconUrl) {
+  if (iconUrl.startsWith('/assets/')) {
+    return iconUrl.substring(1);
+  }
+
+  if (iconUrl.startsWith('assets/')) {
+    return iconUrl;
+  }
+
+  return null;
 }

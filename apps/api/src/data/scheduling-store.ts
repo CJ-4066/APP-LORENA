@@ -41,11 +41,19 @@ export interface ListSpecialistAvailabilityOptions {
 }
 
 export interface UpsertSpecialistAvailabilityInput {
+  id?: string;
   specialistId?: string;
   startsAt?: string;
   endsAt?: string;
   mode?: SessionMode;
   isAvailable?: boolean;
+}
+
+export interface SpecialistAvailabilityAuditMeta {
+  actorType: string;
+  actorId: string;
+  source: string;
+  changedBy: string;
 }
 
 export interface BookingPolicy {
@@ -99,6 +107,17 @@ interface AuditRow extends QueryResultRow {
   created_at: Date | string;
 }
 
+interface SpecialistOverrideRow extends QueryResultRow {
+  specialist_id: string;
+  public_name: string | null;
+  headline: string | null;
+  specialties: unknown;
+  bio: string | null;
+  avatar_url: string | null;
+  is_active: boolean;
+  is_public: boolean;
+}
+
 const mockAvailabilitySlots = new Map<string, SpecialistAvailabilitySlot>();
 const mockAuditLog: BookingAuditEntry[] = [];
 
@@ -108,6 +127,31 @@ function getServiceById(serviceId: string): ServiceOffer | null {
 
 function getSpecialistById(specialistId: string): Specialist | null {
   return getSpecialists().find((item) => item.id === specialistId) ?? null;
+}
+
+function readStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.filter((item): item is string => typeof item === "string");
+  }
+
+  return [];
+}
+
+function mapSpecialistPublicState(
+  specialist: Specialist,
+  override?: SpecialistOverrideRow,
+): Specialist {
+  const specialties = readStringArray(override?.specialties);
+  return {
+    ...specialist,
+    publicName: override?.public_name?.trim() || specialist.publicName,
+    headline: override?.headline?.trim() || specialist.headline,
+    specialties: specialties.length > 0 ? specialties : specialist.specialties,
+    bio: override?.bio?.trim() || specialist.bio,
+    avatarUrl: override?.avatar_url?.trim() || specialist.avatarUrl,
+    isActive: override?.is_active ?? specialist.isActive ?? true,
+    isPublic: override?.is_public ?? specialist.isPublic ?? true,
+  };
 }
 
 function toIsoString(value: Date | string): string {
@@ -379,6 +423,25 @@ async function getDatabaseNextAvailabilityMap(): Promise<Map<string, string>> {
   );
 }
 
+async function getDatabaseSpecialistOverrideMap(): Promise<Map<string, SpecialistOverrideRow>> {
+  const result = await query<SpecialistOverrideRow>(
+    `
+      select
+        specialist_id,
+        public_name,
+        headline,
+        specialties,
+        bio,
+        avatar_url,
+        is_active,
+        is_public
+      from specialist_overrides
+    `,
+  );
+
+  return new Map(result.rows.map((row) => [row.specialist_id, row]));
+}
+
 async function hasConfiguredAvailability(
   specialistId: string,
   mode: SessionMode,
@@ -613,15 +676,21 @@ function getBookingFromCollection(bookings: Booking[], bookingId: string): Booki
 export async function getSpecialistCatalog(): Promise<Specialist[]> {
   const specialists = getSpecialists();
   if (!isDatabaseConfigured()) {
-    return specialists;
+    return specialists.filter((item) => (item.isActive ?? true) && (item.isPublic ?? true));
   }
 
   const availabilityMap = await getDatabaseNextAvailabilityMap();
-  return specialists.map((specialist) => ({
-    ...specialist,
-    nextAvailableAt:
-      availabilityMap.get(specialist.id) ?? specialist.nextAvailableAt,
-  }));
+  const overrideMap = await getDatabaseSpecialistOverrideMap();
+  return specialists
+    .map((specialist) =>
+      mapSpecialistPublicState(specialist, overrideMap.get(specialist.id)),
+    )
+    .filter((item) => (item.isActive ?? true) && (item.isPublic ?? true))
+    .map((specialist) => ({
+      ...specialist,
+      nextAvailableAt:
+        availabilityMap.get(specialist.id) ?? specialist.nextAvailableAt,
+    }));
 }
 
 export async function getFeaturedSpecialists(): Promise<Specialist[]> {
@@ -697,9 +766,32 @@ export async function getSpecialistAvailability(
   return expandBookableAvailabilitySlots(specialist, service, windows, options);
 }
 
+async function listAvailabilitySlotsForSpecialist(
+  specialistId: string,
+): Promise<SpecialistAvailabilitySlot[]> {
+  if (!isDatabaseConfigured()) {
+    return [...mockAvailabilitySlots.values()].filter(
+      (slot) => slot.specialistId === specialistId,
+    );
+  }
+
+  const result = await query<AvailabilityRow>(
+    `
+      select id, specialist_id, starts_at, ends_at, mode, is_available
+      from specialist_availability
+      where specialist_id = $1
+      order by starts_at asc
+    `,
+    [specialistId],
+  );
+  return result.rows.map(mapAvailabilityRow);
+}
+
 export async function upsertSpecialistAvailability(
   input: UpsertSpecialistAvailabilityInput,
+  auditMeta?: SpecialistAvailabilityAuditMeta,
 ): Promise<SpecialistAvailabilitySlot> {
+  const availabilityId = input.id?.trim() ?? "";
   const specialistId = input.specialistId?.trim();
   if (!specialistId || !getSpecialistById(specialistId)) {
     throw new Error("Selecciona un especialista válido.");
@@ -719,8 +811,26 @@ export async function upsertSpecialistAvailability(
     throw new Error("La fecha final debe ser posterior a la inicial.");
   }
 
+  const currentSlots = await listAvailabilitySlotsForSpecialist(specialistId);
+  const existingSlot =
+    availabilityId.length > 0
+      ? currentSlots.find((slot) => slot.id === availabilityId) ?? null
+      : null;
+  if (availabilityId.length > 0 && !existingSlot) {
+    throw new Error("La disponibilidad no existe.");
+  }
+
+  const overlappingSlot = currentSlots.find(
+    (slot) =>
+      slot.id !== availabilityId &&
+      rangesOverlap(startsAt, endsAt, new Date(slot.startsAt), new Date(slot.endsAt)),
+  );
+  if (overlappingSlot) {
+    throw new Error("Ya existe otro bloque que se cruza con ese horario.");
+  }
+
   const slot: SpecialistAvailabilitySlot = {
-    id: randomUUID(),
+    id: availabilityId || randomUUID(),
     specialistId,
     startsAt: startsAt.toISOString(),
     endsAt: endsAt.toISOString(),
@@ -730,6 +840,24 @@ export async function upsertSpecialistAvailability(
 
   if (!isDatabaseConfigured()) {
     mockAvailabilitySlots.set(slot.id, slot);
+    if (auditMeta) {
+      await logAudit(
+        auditMeta.actorType,
+        auditMeta.actorId,
+        availabilityId ? "specialist_availability.updated" : "specialist_availability.created",
+        "specialist_availability",
+        slot.id,
+        {
+          action: availabilityId ? "UPDATED" : "CREATED",
+          fieldChanged: "availability",
+          previousValue: existingSlot,
+          newValue: slot,
+          specialistId,
+          source: auditMeta.source,
+          changedBy: auditMeta.changedBy,
+        },
+      );
+    }
     return slot;
   }
 
@@ -744,6 +872,13 @@ export async function upsertSpecialistAvailability(
         is_available,
         updated_at
       ) values ($1, $2, $3, $4, $5, $6, now())
+      on conflict (id) do update set
+        specialist_id = excluded.specialist_id,
+        starts_at = excluded.starts_at,
+        ends_at = excluded.ends_at,
+        mode = excluded.mode,
+        is_available = excluded.is_available,
+        updated_at = now()
     `,
     [
       slot.id,
@@ -755,12 +890,32 @@ export async function upsertSpecialistAvailability(
     ],
   );
 
+  if (auditMeta) {
+    await logAudit(
+      auditMeta.actorType,
+      auditMeta.actorId,
+      availabilityId ? "specialist_availability.updated" : "specialist_availability.created",
+      "specialist_availability",
+      slot.id,
+      {
+        action: availabilityId ? "UPDATED" : "CREATED",
+        fieldChanged: "availability",
+        previousValue: existingSlot,
+        newValue: slot,
+        specialistId,
+        source: auditMeta.source,
+        changedBy: auditMeta.changedBy,
+      },
+    );
+  }
+
   return slot;
 }
 
 export async function deleteSpecialistAvailability(
   availabilityId: string,
   specialistId?: string,
+  auditMeta?: SpecialistAvailabilityAuditMeta,
 ): Promise<void> {
   if (!isDatabaseConfigured()) {
     const slot = mockAvailabilitySlots.get(availabilityId);
@@ -768,8 +923,36 @@ export async function deleteSpecialistAvailability(
       throw new Error("La disponibilidad no existe.");
     }
     mockAvailabilitySlots.delete(availabilityId);
+    if (auditMeta) {
+      await logAudit(
+        auditMeta.actorType,
+        auditMeta.actorId,
+        "specialist_availability.deleted",
+        "specialist_availability",
+        availabilityId,
+        {
+          action: "DELETED",
+          fieldChanged: "availability",
+          previousValue: slot,
+          newValue: null,
+          specialistId: slot.specialistId,
+          source: auditMeta.source,
+          changedBy: auditMeta.changedBy,
+        },
+      );
+    }
     return;
   }
+
+  const existingResult = await query<AvailabilityRow>(
+    `
+      select id, specialist_id, starts_at, ends_at, mode, is_available
+      from specialist_availability
+      where id = $1
+    `,
+    [availabilityId],
+  );
+  const existingSlot = existingResult.rows[0] ? mapAvailabilityRow(existingResult.rows[0]) : null;
 
   const params: unknown[] = [availabilityId];
   let specialistClause = "";
@@ -789,6 +972,25 @@ export async function deleteSpecialistAvailability(
 
   if (result.rowCount === 0) {
     throw new Error("La disponibilidad no existe.");
+  }
+
+  if (auditMeta && existingSlot) {
+    await logAudit(
+      auditMeta.actorType,
+      auditMeta.actorId,
+      "specialist_availability.deleted",
+      "specialist_availability",
+      availabilityId,
+      {
+        action: "DELETED",
+        fieldChanged: "availability",
+        previousValue: existingSlot,
+        newValue: null,
+        specialistId: existingSlot.specialistId,
+        source: auditMeta.source,
+        changedBy: auditMeta.changedBy,
+      },
+    );
   }
 }
 

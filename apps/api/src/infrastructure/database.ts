@@ -12,10 +12,14 @@ export interface DependencyHealth {
 }
 
 export function isDatabaseConfigured(): boolean {
-  return Boolean(getAppEnv().databaseUrl);
+  return process.env.FORCE_MOCK_DATA !== "true" && Boolean(getAppEnv().databaseUrl);
 }
 
 export function getPool(): pg.Pool {
+  if (process.env.FORCE_MOCK_DATA === "true") {
+    throw new Error("DATABASE_URL no está configurada.");
+  }
+
   const env = getAppEnv();
   if (!env.databaseUrl) {
     throw new Error("DATABASE_URL no está configurada.");

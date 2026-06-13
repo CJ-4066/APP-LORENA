@@ -74,12 +74,25 @@ export async function ensurePersistenceReady(): Promise<{
     };
   }
 
-  const appliedMigrations = getAppEnv().autoMigrate ? await runMigrations() : [];
+  try {
+    const appliedMigrations = getAppEnv().autoMigrate ? await runMigrations() : [];
 
-  return {
-    mode: "database",
-    appliedMigrations,
-  };
+    return {
+      mode: "database",
+      appliedMigrations,
+    };
+  } catch (error) {
+    const env = getAppEnv();
+    if (env.nodeEnv === "production") {
+      throw error;
+    }
+
+    process.env.FORCE_MOCK_DATA = "true";
+    return {
+      mode: "mock",
+      appliedMigrations: [],
+    };
+  }
 }
 
 const maybeMainFile = process.argv[1] ?? "";

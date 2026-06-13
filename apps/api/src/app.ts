@@ -1,10 +1,13 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import multipart from "@fastify/multipart";
 
 import { pingDatabase } from "./infrastructure/database.js";
 import { pingRedis } from "./infrastructure/redis.js";
 import { pingStorage } from "./infrastructure/storage.js";
 import { registerAdminRoutes } from "./modules/admin/routes.js";
+import { registerAdminAuthRoutes } from "./modules/admin/auth/routes.js";
+import { registerAdminOperationsRoutes } from "./modules/admin/operations/routes.js";
 import { registerAstroRoutes } from "./modules/astro/routes.js";
 import { registerAuthRoutes } from "./modules/auth/routes.js";
 import { registerBookingRoutes } from "./modules/bookings/routes.js";
@@ -22,18 +25,27 @@ import { registerPushRoutes } from "./modules/push/routes.js";
 import { registerServiceRoutes } from "./modules/services/routes.js";
 import { registerShopRoutes } from "./modules/shop/routes.js";
 import { registerSpecialistRoutes } from "./modules/specialists/routes.js";
+import { registerPublicUploadRoutes } from "./modules/uploads/routes.js";
 import { registerStorageRoutes } from "./modules/storage/routes.js";
 import { registerSubscriptionRoutes } from "./modules/subscriptions/routes.js";
 import { registerTarotRoutes } from "./modules/tarot/routes.js";
+import { registerAdminUploadRoutes } from "./modules/admin/uploads/routes.js";
 
 export async function buildServer() {
   const app = Fastify({
     logger: true,
-    bodyLimit: 10 * 1024 * 1024,
+    bodyLimit: 30 * 1024 * 1024,
   });
 
   await app.register(cors, {
     origin: true,
+    credentials: true,
+  });
+  await app.register(multipart, {
+    limits: {
+      files: 1,
+      fileSize: 25 * 1024 * 1024,
+    },
   });
 
   app.addContentTypeParser(
@@ -76,6 +88,8 @@ export async function buildServer() {
     };
   });
 
+  await app.register(registerPublicUploadRoutes);
+  await app.register(registerAdminAuthRoutes, { prefix: "/api/admin/auth" });
   await app.register(registerAuthRoutes, { prefix: "/api/auth" });
   await app.register(registerAstroRoutes, { prefix: "/api/astro" });
   await app.register(registerNumerologyRoutes, { prefix: "/api/numerology" });
@@ -99,6 +113,8 @@ export async function buildServer() {
   await app.register(registerStorageRoutes, { prefix: "/api/storage" });
   await app.register(registerPaymentRoutes, { prefix: "/api/payments" });
   await app.register(registerAdminRoutes, { prefix: "/api/admin" });
+  await app.register(registerAdminOperationsRoutes, { prefix: "/api/admin" });
+  await app.register(registerAdminUploadRoutes, { prefix: "/api/admin" });
 
   return app;
 }

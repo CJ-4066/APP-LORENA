@@ -49,13 +49,23 @@ export interface AppEnv {
   redisUrl: string | null;
   autoMigrate: boolean;
   authSessionDays: number;
+  adminSessionDays: number;
   otpExpiresInSeconds: number;
   otpResendInSeconds: number;
+  adminJwtSecret: string;
+  adminEmail: string | null;
+  adminPassword: string | null;
+  adminName: string | null;
   s3Endpoint: string | null;
   s3Region: string | null;
   s3Bucket: string | null;
   s3AccessKeyId: string | null;
   s3SecretAccessKey: string | null;
+  uploadDir: string;
+  uploadPublicPath: string;
+  storagePublicBaseUrl: string | null;
+  maxImageUploadMb: number;
+  maxPdfUploadMb: number;
 }
 
 const appEnv: AppEnv = {
@@ -67,6 +77,11 @@ const appEnv: AppEnv = {
   redisUrl: process.env.REDIS_URL?.trim() || null,
   autoMigrate: readBoolean(process.env.AUTO_MIGRATE, true),
   authSessionDays: readInt(process.env.AUTH_SESSION_DAYS, 30, "AUTH_SESSION_DAYS"),
+  adminSessionDays: readInt(
+    process.env.ADMIN_SESSION_DAYS,
+    7,
+    "ADMIN_SESSION_DAYS",
+  ),
   otpExpiresInSeconds: readInt(
     process.env.OTP_EXPIRES_IN_SECONDS,
     300,
@@ -77,11 +92,20 @@ const appEnv: AppEnv = {
     30,
     "OTP_RESEND_IN_SECONDS",
   ),
+  adminJwtSecret: process.env.ADMIN_JWT_SECRET?.trim() || "dev-admin-session-secret",
+  adminEmail: process.env.ADMIN_EMAIL?.trim() || null,
+  adminPassword: process.env.ADMIN_PASSWORD?.trim() || null,
+  adminName: process.env.ADMIN_NAME?.trim() || null,
   s3Endpoint: process.env.S3_ENDPOINT?.trim() || null,
   s3Region: process.env.S3_REGION?.trim() || null,
   s3Bucket: process.env.S3_BUCKET?.trim() || null,
   s3AccessKeyId: process.env.S3_ACCESS_KEY_ID?.trim() || null,
   s3SecretAccessKey: process.env.S3_SECRET_ACCESS_KEY?.trim() || null,
+  uploadDir: process.env.UPLOAD_DIR?.trim() || "uploads",
+  uploadPublicPath: process.env.UPLOAD_PUBLIC_PATH?.trim() || "/uploads",
+  storagePublicBaseUrl: process.env.STORAGE_PUBLIC_BASE_URL?.trim() || null,
+  maxImageUploadMb: readInt(process.env.MAX_IMAGE_UPLOAD_MB, 5, "MAX_IMAGE_UPLOAD_MB"),
+  maxPdfUploadMb: readInt(process.env.MAX_PDF_UPLOAD_MB, 25, "MAX_PDF_UPLOAD_MB"),
 };
 
 export function getAppEnv(): AppEnv {

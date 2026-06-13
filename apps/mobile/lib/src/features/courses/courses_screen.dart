@@ -1,11 +1,15 @@
-import 'package:flutter/material.dart';
+import 'dart:typed_data';
 
-import '../../core/config/app_config.dart';
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+
 import '../../core/i18n/app_i18n.dart';
 import '../../core/theme/app_palette.dart';
-import '../../core/widgets/in_app_webview_screen.dart';
 import '../../core/widgets/mystic_ui.dart';
 import '../../models/app_models.dart';
+import 'course_pdf_viewer_screen.dart';
+import 'library_pdf_viewer_screen.dart';
+import 'library_pdf_thumbnail_service.dart';
 import 'shared_drive_library_service.dart';
 
 class CoursesScreen extends StatefulWidget {
@@ -25,6 +29,19 @@ class CoursesScreen extends StatefulWidget {
 }
 
 class _CoursesScreenState extends State<CoursesScreen> {
+  int _refreshTick = 0;
+
+  Future<void> _handleRefresh() async {
+    await widget.onRefresh();
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _refreshTick += 1;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     if (widget.canManageCourses) {
@@ -47,13 +64,14 @@ class _CoursesScreenState extends State<CoursesScreen> {
       ),
       child: SafeArea(
         child: RefreshIndicator(
-          onRefresh: widget.onRefresh,
+          onRefresh: _handleRefresh,
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 14, 20, 28),
             children: [
               _CoursesPanel(
                 key: const ValueKey('courses'),
                 courses: widget.data.courses,
+                refreshTick: _refreshTick,
               ),
             ],
           ),
@@ -405,37 +423,409 @@ class _CourseStatusPill extends StatelessWidget {
   }
 }
 
-class _CoursesPanel extends StatefulWidget {
-  const _CoursesPanel({
-    super.key,
+class _CourseShelfSection extends StatelessWidget {
+  const _CourseShelfSection({
     required this.courses,
   });
 
   final List<Course> courses;
+
+  void _openCourseViewer(BuildContext context, Course course) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => CoursePdfViewerScreen(course: course),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final featuredCount = courses.where((course) => course.featured).length;
+    final premiumCount = courses.where((course) => course.premium).length;
+    final lessonCount = courses.fold<int>(
+      0,
+      (sum, course) => sum + course.lessonCount,
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          l10n.ts('Cursos publicados'),
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: AppPalette.butterflyInk,
+                fontWeight: FontWeight.w900,
+              ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          l10n.ts(
+            'Portadas, lectura guiada y acceso directo a cada PDF desde una sola vista.',
+          ),
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: AppPalette.mutedLavender,
+                height: 1.45,
+                fontWeight: FontWeight.w600,
+              ),
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _CourseStatusPill(
+              label: l10n.ts('{count} cursos', {'count': '${courses.length}'}),
+            ),
+            _CourseStatusPill(
+              label: l10n.ts('{count} lecciones', {'count': '$lessonCount'}),
+            ),
+            _CourseStatusPill(
+              label: l10n.ts('{count} destacados', {'count': '$featuredCount'}),
+            ),
+            _CourseStatusPill(
+              label: l10n.ts('{count} premium', {'count': '$premiumCount'}),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        SizedBox(
+          height: 262,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            itemCount: courses.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 12),
+            itemBuilder: (context, index) {
+              final course = courses[index];
+              return _CourseShelfCard(
+                course: course,
+                onTap: () => _openCourseViewer(context, course),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CourseShelfCard extends StatelessWidget {
+  const _CourseShelfCard({
+    required this.course,
+    required this.onTap,
+  });
+
+  final Course course;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasCover = course.coverImageUrl?.trim().isNotEmpty ?? false;
+    final category = course.category.trim().isNotEmpty
+        ? course.category
+        : context.l10n.ts('Biblioteca');
+
+    return SizedBox(
+      width: 246,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(24),
+          onTap: onTap,
+          child: Ink(
+            decoration: BoxDecoration(
+              color: AppPalette.moonIvory,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: AppPalette.border),
+              boxShadow: [
+                BoxShadow(
+                  color: AppPalette.indigo.withValues(alpha: 0.08),
+                  blurRadius: 18,
+                  offset: const Offset(0, 12),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(24),
+                  ),
+                  child: SizedBox(
+                    height: 136,
+                    child: hasCover
+                        ? Image.network(
+                            course.coverImageUrl!.trim(),
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) =>
+                                _CourseCoverFallback(course: course),
+                          )
+                        : _CourseCoverFallback(course: course),
+                  ),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          category,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style:
+                              Theme.of(context).textTheme.labelMedium?.copyWith(
+                                    color: AppPalette.royalViolet,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: 0.15,
+                                  ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          course.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style:
+                              Theme.of(context).textTheme.titleSmall?.copyWith(
+                                    color: AppPalette.butterflyInk,
+                                    fontWeight: FontWeight.w900,
+                                    height: 1.2,
+                                  ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          course.subtitle,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: AppPalette.mutedLavender,
+                                    height: 1.35,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                        ),
+                        const Spacer(),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                context.l10n.ts(
+                                  '{count} lecciones · {hours} h',
+                                  {
+                                    'count': '${course.lessonCount}',
+                                    'hours': course.estimatedHours
+                                        .toStringAsFixed(1),
+                                  },
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .labelSmall
+                                    ?.copyWith(
+                                      color: AppPalette.mutedLavender,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: course.premium
+                                    ? AppPalette.candleGlow
+                                    : AppPalette.petalSoft,
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                course.premium
+                                    ? context.l10n.ts('Premium')
+                                    : context.l10n.ts('Abierto'),
+                                style: const TextStyle(
+                                  color: AppPalette.midnight,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CourseCoverFallback extends StatelessWidget {
+  const _CourseCoverFallback({
+    required this.course,
+  });
+
+  final Course course;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = course.featured
+        ? const [AppPalette.midnight, AppPalette.indigo, AppPalette.royalViolet]
+        : const [AppPalette.royalViolet, AppPalette.orchid, AppPalette.petal];
+
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: palette,
+        ),
+      ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Positioned(
+            right: -18,
+            top: -18,
+            child: Container(
+              width: 90,
+              height: 90,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.08),
+              ),
+            ),
+          ),
+          Positioned(
+            left: -14,
+            bottom: -24,
+            child: Container(
+              width: 120,
+              height: 120,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.08),
+              ),
+            ),
+          ),
+          const Center(
+            child: Icon(
+              Icons.auto_stories_rounded,
+              size: 48,
+              color: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CoursesPanel extends StatefulWidget {
+  const _CoursesPanel({
+    super.key,
+    required this.courses,
+    required this.refreshTick,
+  });
+
+  final List<Course> courses;
+  final int refreshTick;
 
   @override
   State<_CoursesPanel> createState() => _CoursesPanelState();
 }
 
 class _CoursesPanelState extends State<_CoursesPanel> {
+  final TextEditingController _librarySearchController =
+      TextEditingController();
   final SharedDriveLibraryService _libraryService = SharedDriveLibraryService();
+  final LibraryPdfThumbnailService _thumbnailService =
+      LibraryPdfThumbnailService(client: http.Client());
   late Future<List<SharedDriveCategory>> _categoriesFuture;
   Future<List<SharedDriveDocument>>? _documentsFuture;
   SharedDriveCategory? _selectedCategory;
+  List<Course> _coursesSnapshot = const [];
+  String _librarySearchQuery = '';
 
   @override
   void initState() {
     super.initState();
+    _coursesSnapshot = widget.courses;
     _categoriesFuture = _loadCategories();
+  }
+
+  @override
+  void dispose() {
+    _librarySearchController.dispose();
+    _thumbnailService.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant _CoursesPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final coursesChanged = !_sameCourses(oldWidget.courses, widget.courses);
+    if (coursesChanged || oldWidget.refreshTick != widget.refreshTick) {
+      _reloadLibrary();
+    }
+  }
+
+  bool _sameCourses(List<Course> left, List<Course> right) {
+    if (identical(left, right)) {
+      return true;
+    }
+    if (left.length != right.length) {
+      return false;
+    }
+
+    for (var index = 0; index < left.length; index += 1) {
+      if (left[index].id != right[index].id ||
+          left[index].title != right[index].title ||
+          left[index].coverImageUrl != right[index].coverImageUrl) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  void _reloadLibrary() {
+    setState(() {
+      _coursesSnapshot = widget.courses;
+      _selectedCategory = null;
+      _documentsFuture = null;
+      _librarySearchQuery = '';
+      _librarySearchController.clear();
+      _libraryService.invalidateCache();
+      LibraryPdfThumbnailService.clearCache();
+      _categoriesFuture = _loadCategories();
+    });
   }
 
   Future<List<SharedDriveCategory>> _loadCategories() async {
     final categories = await _libraryService.fetchRootCategories();
     if (categories.isNotEmpty) {
-      _selectedCategory = categories.first;
-      _documentsFuture = _libraryService.fetchDocumentsForCategory(
-        categories.first.id,
-      );
+      if (mounted) {
+        setState(() {
+          _selectedCategory = categories.first;
+          _documentsFuture = _libraryService.fetchDocumentsForCategory(
+            categories.first.id,
+          );
+        });
+      } else {
+        _selectedCategory = categories.first;
+        _documentsFuture = _libraryService.fetchDocumentsForCategory(
+          categories.first.id,
+        );
+      }
     }
     return categories;
   }
@@ -451,23 +841,11 @@ class _CoursesPanelState extends State<_CoursesPanel> {
     });
   }
 
-  void _openSharedLibrary(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute<void>(
-        builder: (_) => const InAppWebViewScreen(
-          title: 'Biblioteca compartida',
-          url: AppConfig.sharedLibraryUrl,
-        ),
-      ),
-    );
-  }
-
   void _openDocument(BuildContext context, SharedDriveDocument document) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => InAppWebViewScreen(
-          title: document.title,
-          url: document.previewUrl,
+        builder: (_) => LibraryPdfViewerScreen(
+          document: document,
         ),
       ),
     );
@@ -492,19 +870,31 @@ class _CoursesPanelState extends State<_CoursesPanel> {
             AppPalette.royalViolet,
           ],
           tags: [
-            l10n.ts('Drive sincronizado'),
+            l10n.ts('Servidor sincronizado'),
             l10n.ts('Lectura en PDF'),
-            l10n.ts('Galería curada'),
+            l10n.ts('Portadas reales'),
           ],
-          primaryLabel: l10n.ts('Abrir carpeta completa'),
-          onPrimaryTap: () => _openSharedLibrary(context),
+          primaryLabel: l10n.ts('Actualizar catálogo'),
+          onPrimaryTap: () => _reloadLibrary(),
         ),
         const SizedBox(height: 18),
+        if (_coursesSnapshot.isNotEmpty) ...[
+          _CourseShelfSection(courses: _coursesSnapshot),
+          const SizedBox(height: 18),
+        ],
         _DriveLibrarySection(
           categoriesFuture: _categoriesFuture,
           documentsFuture: _documentsFuture,
           selectedCategory: _selectedCategory,
+          searchController: _librarySearchController,
+          searchQuery: _librarySearchQuery,
           onSelectCategory: _selectCategory,
+          onSearchChanged: (value) {
+            setState(() {
+              _librarySearchQuery = value;
+            });
+          },
+          thumbnailService: _thumbnailService,
           onOpenDocument: (document) => _openDocument(context, document),
         ),
       ],
@@ -517,14 +907,22 @@ class _DriveLibrarySection extends StatelessWidget {
     required this.categoriesFuture,
     required this.documentsFuture,
     required this.selectedCategory,
+    required this.searchController,
+    required this.searchQuery,
     required this.onSelectCategory,
+    required this.onSearchChanged,
+    required this.thumbnailService,
     required this.onOpenDocument,
   });
 
   final Future<List<SharedDriveCategory>> categoriesFuture;
   final Future<List<SharedDriveDocument>>? documentsFuture;
   final SharedDriveCategory? selectedCategory;
+  final TextEditingController searchController;
+  final String searchQuery;
   final ValueChanged<SharedDriveCategory> onSelectCategory;
+  final ValueChanged<String> onSearchChanged;
+  final LibraryPdfThumbnailService thumbnailService;
   final ValueChanged<SharedDriveDocument> onOpenDocument;
 
   @override
@@ -540,11 +938,22 @@ class _DriveLibrarySection extends StatelessWidget {
           );
         }
 
-        if (snapshot.hasError || (snapshot.data?.isEmpty ?? true)) {
+        if (snapshot.hasError) {
           return MysticMiniBanner(
             title: l10n.ts('No pudimos leer la biblioteca'),
             subtitle: l10n.ts(
-              'La carpeta compartida existe, pero no pudimos cargar sus categorías públicas en este momento.',
+              'La API del servidor respondió con un error al cargar las categorías.',
+            ),
+            glyphKind: MysticGlyphKind.course,
+            accent: AppPalette.indigo,
+          );
+        }
+
+        if (snapshot.data?.isEmpty ?? true) {
+          return MysticMiniBanner(
+            title: l10n.ts('No hay PDFs publicados'),
+            subtitle: l10n.ts(
+              'Todavía no hay documentos publicados en el servidor para mostrar en la biblioteca.',
             ),
             glyphKind: MysticGlyphKind.course,
             accent: AppPalette.indigo,
@@ -552,6 +961,7 @@ class _DriveLibrarySection extends StatelessWidget {
         }
 
         final categories = snapshot.data!;
+        final hasSearch = searchQuery.trim().isNotEmpty;
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -575,24 +985,48 @@ class _DriveLibrarySection extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 14),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: categories.map((category) {
-                final selected = selectedCategory?.id == category.id;
-                return FilterChip(
-                  selected: selected,
-                  label: Text(category.title),
-                  onSelected: (_) => onSelectCategory(category),
-                  selectedColor: AppPalette.candleGlow,
-                  checkmarkColor: AppPalette.butterflyInk,
-                  labelStyle: TextStyle(
-                    color: AppPalette.butterflyInk,
-                    fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
-                  ),
-                  side: const BorderSide(color: AppPalette.border),
-                );
-              }).toList(),
+            TextField(
+              controller: searchController,
+              onChanged: onSearchChanged,
+              decoration: InputDecoration(
+                labelText: l10n.ts('Buscar en la biblioteca'),
+                hintText: l10n.ts('Título, concepto o palabra clave'),
+                prefixIcon: const Icon(Icons.search_rounded),
+                suffixIcon: searchQuery.isEmpty
+                    ? null
+                    : IconButton(
+                        onPressed: () {
+                          searchController.clear();
+                          onSearchChanged('');
+                        },
+                        icon: const Icon(Icons.clear_rounded),
+                      ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: categories.map((category) {
+                  final selected = selectedCategory?.id == category.id;
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 10),
+                    child: FilterChip(
+                      selected: selected,
+                      label: Text(category.title),
+                      onSelected: (_) => onSelectCategory(category),
+                      selectedColor: AppPalette.candleGlow,
+                      checkmarkColor: AppPalette.butterflyInk,
+                      labelStyle: TextStyle(
+                        color: AppPalette.butterflyInk,
+                        fontWeight:
+                            selected ? FontWeight.w800 : FontWeight.w600,
+                      ),
+                      side: const BorderSide(color: AppPalette.border),
+                    ),
+                  );
+                }).toList(),
+              ),
             ),
             if (selectedCategory != null) ...[
               const SizedBox(height: 14),
@@ -623,12 +1057,22 @@ class _DriveLibrarySection extends StatelessWidget {
                   );
                 }
 
-                if (documentsSnapshot.hasError ||
-                    (documentsSnapshot.data?.isEmpty ?? true)) {
+                if (documentsSnapshot.hasError) {
                   return MysticMiniBanner(
                     title: l10n.ts('No encontramos PDFs en esta categoría'),
                     subtitle: l10n.ts(
-                      'Si la carpeta está vacía o cambió permisos, no podremos armar la galería de libros.',
+                      'La API respondió con un error al cargar los documentos.',
+                    ),
+                    glyphKind: MysticGlyphKind.course,
+                    accent: AppPalette.indigo,
+                  );
+                }
+
+                if (documentsSnapshot.data?.isEmpty ?? true) {
+                  return MysticMiniBanner(
+                    title: l10n.ts('Sin PDFs publicados'),
+                    subtitle: l10n.ts(
+                      'No hay documentos publicados dentro de esta categoría en el servidor.',
                     ),
                     glyphKind: MysticGlyphKind.course,
                     accent: AppPalette.indigo,
@@ -636,21 +1080,55 @@ class _DriveLibrarySection extends StatelessWidget {
                 }
 
                 final documents = documentsSnapshot.data!;
-                return GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: documents.length,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 12,
-                    childAspectRatio: 0.64,
-                  ),
-                  itemBuilder: (context, index) {
-                    final document = documents[index];
-                    return _DriveBookCard(
-                      document: document,
-                      onTap: () => onOpenDocument(document),
+                final filteredDocuments = hasSearch
+                    ? documents
+                        .where(
+                          (document) => document.title
+                              .toLowerCase()
+                              .contains(searchQuery.toLowerCase()),
+                        )
+                        .toList(growable: false)
+                    : documents;
+
+                if (filteredDocuments.isEmpty) {
+                  return MysticMiniBanner(
+                    title: l10n.ts('Sin resultados'),
+                    subtitle: l10n.ts(
+                      'No encontramos documentos para esa búsqueda dentro de esta categoría.',
+                    ),
+                    glyphKind: MysticGlyphKind.course,
+                    accent: AppPalette.indigo,
+                  );
+                }
+
+                return LayoutBuilder(
+                  builder: (context, constraints) {
+                    final maxWidth = constraints.maxWidth;
+                    final crossAxisCount = maxWidth >= 720
+                        ? 4
+                        : maxWidth >= 520
+                            ? 3
+                            : 2;
+                    final aspectRatio = maxWidth >= 520 ? 0.72 : 0.66;
+
+                    return GridView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: filteredDocuments.length,
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: crossAxisCount,
+                        mainAxisSpacing: 12,
+                        crossAxisSpacing: 12,
+                        childAspectRatio: aspectRatio,
+                      ),
+                      itemBuilder: (context, index) {
+                        final document = filteredDocuments[index];
+                        return _DriveBookCard(
+                          document: document,
+                          thumbnailService: thumbnailService,
+                          onTap: () => onOpenDocument(document),
+                        );
+                      },
                     );
                   },
                 );
@@ -666,10 +1144,12 @@ class _DriveLibrarySection extends StatelessWidget {
 class _DriveBookCard extends StatelessWidget {
   const _DriveBookCard({
     required this.document,
+    required this.thumbnailService,
     required this.onTap,
   });
 
   final SharedDriveDocument document;
+  final LibraryPdfThumbnailService thumbnailService;
   final VoidCallback onTap;
 
   @override
@@ -700,14 +1180,44 @@ class _DriveBookCard extends StatelessWidget {
                   borderRadius: const BorderRadius.vertical(
                     top: Radius.circular(22),
                   ),
-                  child: document.thumbnailUrl.isNotEmpty
-                      ? Image.network(
-                          document.thumbnailUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) =>
-                              _DriveBookCoverFallback(title: document.title),
-                        )
-                      : _DriveBookCoverFallback(title: document.title),
+                  child: FutureBuilder<Uint8List?>(
+                    future: thumbnailService.loadFirstPageImage(document),
+                    builder: (context, snapshot) {
+                      final bytes = snapshot.data;
+
+                      return Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          if (bytes != null)
+                            Image.memory(bytes, fit: BoxFit.cover)
+                          else
+                            _DriveBookCoverFallback(title: document.title),
+                          Positioned(
+                            left: 10,
+                            top: 10,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.86),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: const Text(
+                                'PDF',
+                                style: TextStyle(
+                                  color: AppPalette.midnight,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
                 ),
               ),
               Padding(

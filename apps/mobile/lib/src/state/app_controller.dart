@@ -43,7 +43,20 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     debugPrint(
         'AppController initialized with API base URL: ${_apiClient.baseUrl}');
     WidgetsBinding.instance.addObserver(this);
-    Future<void>.microtask(_restorePersistedState);
+    Future<void>.microtask(() async {
+      try {
+        await _restorePersistedState();
+      } catch (error, stackTrace) {
+        debugPrint('Startup restore failed: ${_readErrorMessage(error)}');
+        debugPrintStack(stackTrace: stackTrace);
+        _session = null;
+        _challenge = null;
+        _authErrorMessage = null;
+        _homeErrorMessage = null;
+        await _activateGuestMode();
+        notifyListeners();
+      }
+    });
   }
 
   final ApiClient _apiClient;

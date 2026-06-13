@@ -44,7 +44,9 @@ class PhoneAuthSession {
       refreshToken: json['refreshToken'] as String? ?? '',
       phoneNumber: json['phoneNumber'] as String? ?? '',
       profileCompleted: json['profileCompleted'] as bool? ?? false,
-      user: UserProfile.fromJson(json['user'] as Map<String, dynamic>),
+      user: UserProfile.fromJson(
+        json['user'] as Map<String, dynamic>? ?? const <String, dynamic>{},
+      ),
     );
   }
 

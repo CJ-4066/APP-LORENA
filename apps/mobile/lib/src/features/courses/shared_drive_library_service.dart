@@ -22,6 +22,7 @@ class SharedDriveDocument {
     required this.title,
     required this.viewUrl,
     required this.previewUrl,
+    required this.downloadUrl,
     required this.thumbnailUrl,
   });
 
@@ -29,6 +30,7 @@ class SharedDriveDocument {
   final String title;
   final String viewUrl;
   final String previewUrl;
+  final String downloadUrl;
   final String thumbnailUrl;
 }
 
@@ -38,99 +40,131 @@ class SharedDriveLibraryService {
   }) : _client = client ?? http.Client();
 
   final http.Client _client;
+  List<_LibraryPdfItem>? _cachedItems;
+
+  void invalidateCache() {
+    _cachedItems = null;
+  }
 
   Future<List<SharedDriveCategory>> fetchRootCategories() async {
-    final folderId = AppConfig.sharedLibraryFolderId;
-    if (folderId.isEmpty) {
-      return const [];
-    }
+    final items = await _loadPublishedItems();
+    final categoriesById = <String, SharedDriveCategory>{};
 
-    final html = await _loadEmbeddedFolderHtml(folderId);
-    final categoryPattern = RegExp(
-      r'<a href="https://drive\.google\.com/drive/folders/([^"?]+)[^"]*" target="_blank">.*?<div class="flip-entry-title">(.*?)</div>',
-      multiLine: true,
-      dotAll: true,
-    );
-
-    final categories = <SharedDriveCategory>[];
-    final seenIds = <String>{};
-
-    for (final match in categoryPattern.allMatches(html)) {
-      final id = _decodeHtml(match.group(1) ?? '').trim();
-      final title = _decodeHtml(match.group(2) ?? '').trim();
-      if (id.isEmpty || title.isEmpty || !seenIds.add(id)) {
+    for (final item in items) {
+      final categoryId = _normalizeCategoryId(item.category);
+      if (categoriesById.containsKey(categoryId)) {
         continue;
       }
 
-      categories.add(
-        SharedDriveCategory(
-          id: id,
-          title: title,
-          url: 'https://drive.google.com/drive/folders/$id',
-        ),
+      categoriesById[categoryId] = SharedDriveCategory(
+        id: categoryId,
+        title: _formatCategoryTitle(item.category),
+        url:
+            '${AppConfig.apiBaseUrl}/api/content/library/pdfs?category=${Uri.encodeComponent(categoryId)}',
       );
     }
+
+    final categories = categoriesById.values.toList(growable: false)
+      ..sort((left, right) =>
+          left.title.toLowerCase().compareTo(right.title.toLowerCase()));
 
     return categories;
   }
 
   Future<List<SharedDriveDocument>> fetchDocumentsForCategory(
-    String folderId,
+    String categoryId,
   ) async {
-    if (folderId.trim().isEmpty) {
-      return const [];
-    }
+    final items = await _loadPublishedItems();
+    final normalizedCategory = _normalizeCategoryId(categoryId);
 
-    final html = await _loadEmbeddedFolderHtml(folderId);
-    final documentPattern = RegExp(
-      r'<a href="https://drive\.google\.com/file/d/([^"/]+)/view[^"]*" target="_blank">.*?(?:<img src="([^"]+)" alt="PDF"/>)?.*?<div class="flip-entry-title">(.*?)</div>',
-      multiLine: true,
-      dotAll: true,
-    );
-
-    final documents = <SharedDriveDocument>[];
-    final seenIds = <String>{};
-
-    for (final match in documentPattern.allMatches(html)) {
-      final id = _decodeHtml(match.group(1) ?? '').trim();
-      final thumbnailUrl = _decodeHtml(match.group(2) ?? '').trim();
-      final title = _decodeHtml(match.group(3) ?? '').trim();
-      if (id.isEmpty || title.isEmpty || !seenIds.add(id)) {
-        continue;
-      }
-
-      documents.add(
-        SharedDriveDocument(
-          id: id,
-          title: title,
-          viewUrl: 'https://drive.google.com/file/d/$id/view?usp=drive_web',
-          previewUrl: 'https://drive.google.com/file/d/$id/preview',
-          thumbnailUrl: thumbnailUrl,
-        ),
-      );
-    }
-
-    return documents;
+    return items
+        .where(
+            (item) => _normalizeCategoryId(item.category) == normalizedCategory)
+        .map(
+          (item) => SharedDriveDocument(
+            id: item.id,
+            title: item.title,
+            viewUrl:
+                '${AppConfig.apiBaseUrl}/api/content/library/pdfs/${Uri.encodeComponent(item.id)}/view',
+            previewUrl:
+                '${AppConfig.apiBaseUrl}/api/content/library/pdfs/${Uri.encodeComponent(item.id)}/view',
+            downloadUrl:
+                '${AppConfig.apiBaseUrl}/api/content/library/pdfs/${Uri.encodeComponent(item.id)}/file',
+            thumbnailUrl:
+                '${AppConfig.apiBaseUrl}/api/content/library/pdfs/${Uri.encodeComponent(item.id)}/pages/1/image?width=900',
+          ),
+        )
+        .toList(growable: false)
+      ..sort((left, right) =>
+          left.title.toLowerCase().compareTo(right.title.toLowerCase()));
   }
 
-  Future<String> _loadEmbeddedFolderHtml(String folderId) async {
-    final uri = Uri.parse(
-      'https://drive.google.com/embeddedfolderview?id=$folderId#list',
-    );
+  Future<List<_LibraryPdfItem>> _loadPublishedItems() async {
+    if (_cachedItems != null) {
+      return _cachedItems!;
+    }
+
+    final uri = Uri.parse('${AppConfig.apiBaseUrl}/api/content/library/pdfs');
     final response = await _client.get(uri);
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception('No se pudo leer la biblioteca compartida.');
+      throw Exception('No se pudo leer la biblioteca del servidor.');
     }
 
-    return utf8.decode(response.bodyBytes);
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    final rawItems = json['items'] as List<dynamic>? ?? const [];
+    final items = rawItems
+        .whereType<Map<String, dynamic>>()
+        .map(
+          (item) => _LibraryPdfItem(
+            id: (item['id'] as String?)?.trim() ?? '',
+            title: (item['title'] as String?)?.trim() ?? '',
+            category: (item['category'] as String?)?.trim() ?? 'General',
+          ),
+        )
+        .where((item) => item.id.isNotEmpty && item.title.isNotEmpty)
+        .toList(growable: false);
+
+    items.sort((left, right) =>
+        left.title.toLowerCase().compareTo(right.title.toLowerCase()));
+    _cachedItems = items;
+    return items;
   }
 
-  String _decodeHtml(String raw) {
-    return raw
-        .replaceAll('&amp;', '&')
-        .replaceAll('&quot;', '"')
-        .replaceAll('&#39;', "'")
-        .replaceAll('&lt;', '<')
-        .replaceAll('&gt;', '>');
+  String _normalizeCategoryId(String value) {
+    final normalized = value.trim().toLowerCase();
+    if (normalized.isEmpty) {
+      return 'general';
+    }
+
+    return normalized
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+        .replaceAll(RegExp(r'-+'), '-')
+        .replaceAll(RegExp(r'^-|-$'), '');
   }
+
+  String _formatCategoryTitle(String value) {
+    final normalized = value.trim();
+    if (normalized.isEmpty) {
+      return 'General';
+    }
+
+    return normalized
+        .replaceAll(RegExp(r'[_-]+'), ' ')
+        .split(' ')
+        .where((part) => part.trim().isNotEmpty)
+        .map((part) => part[0].toUpperCase() + part.substring(1).toLowerCase())
+        .join(' ');
+  }
+}
+
+class _LibraryPdfItem {
+  const _LibraryPdfItem({
+    required this.id,
+    required this.title,
+    required this.category,
+  });
+
+  final String id;
+  final String title;
+  final String category;
 }

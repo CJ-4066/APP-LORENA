@@ -39,16 +39,23 @@ import {
 import {
   completePhoneProfile as completePhoneProfileMock,
   createBooking as createBookingMock,
+  createServiceOffer as createServiceOfferMock,
   createShopProduct as createShopProductMock,
   createShopOrder as createShopOrderMock,
+  archiveCourse as archiveCourseMock,
   getAdminSummary,
+  getAdminCourseById as getAdminCourseByIdMock,
+  getAdminCourses as getAdminCoursesMock,
   getBootstrap as getBootstrapMock,
   getBookings as getBookingsMock,
-  getCourses,
+  getCourses as getCoursesMock,
+  getCourseById as getCourseByIdMock,
   getHomePayload as getHomePayloadMock,
   getPhoneAuthSession as getPhoneAuthSessionMock,
   getPlans,
   getProfile as getProfileMock,
+  deleteCourseLesson as deleteCourseLessonMock,
+  deleteCourseModule as deleteCourseModuleMock,
   revokePhoneAuthSession as revokePhoneAuthSessionMock,
   getServices,
   getShopData as getShopDataMock,
@@ -56,15 +63,24 @@ import {
   getSpecialists,
   getUserIdForAccessToken as getUserIdForAccessTokenMock,
   startPhoneAuth as startPhoneAuthMock,
+  setCoursePublication as setCoursePublicationMock,
+  updateCourse as updateCourseMock,
   updateServiceOffer as updateServiceOfferMock,
+  upsertCourse as upsertCourseMock,
+  upsertCourseLesson as upsertCourseLessonMock,
+  upsertCourseModule as upsertCourseModuleMock,
   type AccountType,
   type AppBootstrap,
   type Booking,
   type BookingStatus,
   type CompletePhoneProfileInput,
+  type Course,
+  type CourseLesson,
+  type CourseModule,
   type CreateShopProductInput,
   type CreateShopOrderInput,
   type CreateBookingInput,
+  type CreateServiceOfferInput,
   type HomePayload,
   type Money,
   type PhoneAuthSessionPayload,
@@ -82,10 +98,12 @@ import {
   type UpdateBookingInput,
   type UpdateShopOrderStatusInput,
   type UpdateShopProductInput,
+  type UpdateSpecialistAdminInput,
   type UpdateServiceOfferInput,
   type UpdateUserProfileInput,
   type UserProfile,
   updateBooking as updateBookingMock,
+  updateSpecialistAdmin as updateSpecialistAdminMock,
   updateCurrentUser as updateCurrentUserMock,
   updateShopOrderStatus as updateShopOrderStatusMock,
   updateShopProduct as updateShopProductMock,
@@ -96,16 +114,23 @@ export type {
   CreateShopProductInput,
   CreateShopOrderInput,
   CreateBookingInput,
+  CreateServiceOfferInput,
   PhoneAuthStartInput,
   PhoneAuthVerifyInput,
   UpdateBookingInput,
   UpdateShopOrderStatusInput,
   UpdateShopProductInput,
+  UpdateSpecialistAdminInput,
   UpdateServiceOfferInput,
   UpdateUserProfileInput,
 } from "./mock-store.js";
 
 const demoUserId = "user-mark";
+
+const mockShopProductAuditLog: ShopProductAuditEntry[] = [];
+const mockAdminEntityAuditLog: AdminEntityAuditEntry[] = [];
+const mockLibraryPdfStore: LibraryPdfRecord[] = [];
+const mockCourseResourceStore: CourseResourceRecord[] = [];
 
 const quickActions: HomePayload["quickActions"] = [
   {
@@ -199,9 +224,28 @@ interface BookingRow extends QueryResultRow {
 
 interface ServiceOfferOverrideRow extends QueryResultRow {
   service_id: string;
+  name: string | null;
+  category: string | null;
+  description: string | null;
   price_amount: string | number;
   price_currency: string;
   duration_minutes: number;
+  delivery_modes: unknown;
+  premium_included: boolean;
+  specialist_ids: unknown;
+  is_active: boolean;
+  is_visible: boolean;
+}
+
+interface SpecialistOverrideRow extends QueryResultRow {
+  specialist_id: string;
+  public_name: string | null;
+  headline: string | null;
+  specialties: unknown;
+  bio: string | null;
+  avatar_url: string | null;
+  is_active: boolean;
+  is_public: boolean;
 }
 
 interface ShopProductOverrideRow extends QueryResultRow {
@@ -228,6 +272,227 @@ interface ShopProductOverrideRow extends QueryResultRow {
   tags: unknown;
   created_at: Date | string;
   updated_at: Date | string;
+}
+
+export type ShopProductAuditSource = "admin" | "specialist" | "system";
+export type AdminEntityAuditSource = "admin";
+
+export interface ShopProductAuditMeta {
+  actorType: "admin" | "specialist" | "system";
+  actorId: string;
+  source: ShopProductAuditSource;
+}
+
+export interface ShopProductAuditEntry {
+  id: string;
+  actorType: string;
+  actorId: string;
+  eventType: string;
+  entityType: string;
+  entityId: string;
+  payload: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface AdminEntityAuditEntry {
+  id: string;
+  actorType: string;
+  actorId: string;
+  eventType: string;
+  entityType: string;
+  entityId: string;
+  payload: Record<string, unknown>;
+  createdAt: string;
+}
+
+function resolveAuditSourceLabel(source: string): string {
+  if (source === "manual") {
+    return "manual";
+  }
+  if (source === "system") {
+    return "system";
+  }
+  return "admin";
+}
+
+export interface AdminAuditMeta {
+  actorType: "admin";
+  actorId: string;
+  source: AdminEntityAuditSource;
+  changedBy: string;
+}
+
+export interface AdminSpecialistProfile {
+  id: string;
+  name: string;
+  publicName?: string;
+  headline: string;
+  specialties: string[];
+  bio: string;
+  avatarUrl?: string;
+  yearsExperience: number;
+  sessionModes: string[];
+  languages: string[];
+  rating: number;
+  reviewCount: number;
+  featured: boolean;
+  nextAvailableAt: string;
+  isActive: boolean;
+  isPublic: boolean;
+}
+
+export interface LibraryPdfRecord {
+  id: string;
+  title: string;
+  description: string;
+  fileUrl: string;
+  courseId?: string | null;
+  moduleId?: string | null;
+  lessonId?: string | null;
+  category: string;
+  pageCount: number;
+  status: "draft" | "published" | "archived";
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CourseResourceRecord {
+  id: string;
+  courseId: string;
+  moduleId?: string | null;
+  lessonId?: string | null;
+  title: string;
+  kind: string;
+  description: string;
+  url: string;
+  status: "draft" | "published" | "archived";
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CourseAuditLogEntry {
+  id: string;
+  entityType: string;
+  entityId: string;
+  courseId: string;
+  action: string;
+  fieldChanged: string;
+  previousValue: unknown;
+  newValue: unknown;
+  changedAt: string;
+  changedBy: string;
+  source: string;
+  elementLabel: string;
+  courseName: string | null;
+}
+
+interface LibraryPdfRow extends QueryResultRow {
+  pdf_id: string;
+  title: string;
+  description: string;
+  file_url: string;
+  course_id: string | null;
+  module_id: string | null;
+  lesson_id: string | null;
+  category: string;
+  page_count: number;
+  status: string;
+  is_active: boolean;
+  created_at: Date | string;
+  updated_at: Date | string;
+}
+
+function normalizeLibraryPdfStatus(value: unknown): LibraryPdfRecord["status"] {
+  if (value === "published" || value === "archived") {
+    return value;
+  }
+
+  return "draft";
+}
+
+function mapLibraryPdfRow(row: LibraryPdfRow): LibraryPdfRecord {
+  return {
+    id: row.pdf_id,
+    title: row.title,
+    description: row.description,
+    fileUrl: row.file_url,
+    courseId: row.course_id,
+    moduleId: row.module_id,
+    lessonId: row.lesson_id,
+    category: row.category,
+    pageCount: Number(row.page_count ?? 0),
+    status: normalizeLibraryPdfStatus(row.status),
+    isActive: row.is_active,
+    createdAt: toIsoString(row.created_at),
+    updatedAt: toIsoString(row.updated_at),
+  };
+}
+
+interface CourseRow extends QueryResultRow {
+  course_id: string;
+  title: string;
+  subtitle: string;
+  category: string;
+  level: string;
+  premium: boolean;
+  featured: boolean;
+  removable: boolean;
+  estimated_hours: string | number;
+  module_count: number;
+  lesson_count: number;
+  progress_percent: number;
+  streak_days: number;
+  hook: string;
+  description: string;
+  outcomes: unknown;
+  cover_image_url: string | null;
+  status: string;
+  is_active: boolean;
+  created_at: Date | string;
+  updated_at: Date | string;
+}
+
+interface CourseModuleRow extends QueryResultRow {
+  module_id: string;
+  course_id: string;
+  title: string;
+  summary: string;
+  duration_minutes: number;
+  order_index: number;
+  status: string;
+  is_active: boolean;
+  created_at: Date | string;
+  updated_at: Date | string;
+}
+
+interface CourseLessonRow extends QueryResultRow {
+  lesson_id: string;
+  course_id: string;
+  module_id: string;
+  title: string;
+  format: string;
+  duration_minutes: number;
+  prompt: string;
+  content: string | null;
+  resource_url: string | null;
+  order_index: number;
+  status: string;
+  is_active: boolean;
+  created_at: Date | string;
+  updated_at: Date | string;
+}
+
+interface AuditLogRow extends QueryResultRow {
+  id: string;
+  actor_type: string;
+  actor_id: string;
+  event_type: string;
+  entity_type: string;
+  entity_id: string;
+  payload: Record<string, unknown>;
+  created_at: Date | string;
 }
 
 interface ShopOrderRow extends QueryResultRow {
@@ -365,6 +630,13 @@ function readStringArray(value: unknown): string[] {
   return [];
 }
 
+function readSessionModes(value: unknown): Array<"chat" | "audio" | "video"> {
+  return readStringArray(value).filter(
+    (item): item is "chat" | "audio" | "video" =>
+      item === "chat" || item === "audio" || item === "video",
+  );
+}
+
 function toIsoString(value: Date | string): string {
   if (value instanceof Date) {
     return value.toISOString();
@@ -460,6 +732,131 @@ function cloneShopProduct(product: ShopProduct): ShopProduct {
   };
 }
 
+function cloneSpecialistProfile(
+  specialist: AdminSpecialistProfile,
+): AdminSpecialistProfile {
+  return {
+    ...specialist,
+    specialties: [...specialist.specialties],
+    sessionModes: [...specialist.sessionModes],
+    languages: [...specialist.languages],
+  };
+}
+
+function cloneCourseRecord(course: Course): Course {
+  return JSON.parse(JSON.stringify(course)) as Course;
+}
+
+function normalizeCourseStatus(value?: string): "draft" | "published" | "archived" {
+  if (value === "draft" || value === "published" || value === "archived") {
+    return value;
+  }
+
+  return "published";
+}
+
+function normalizeCourseRecord(course: Course): Course {
+  const normalized = cloneCourseRecord(course);
+  normalized.status = normalizeCourseStatus(normalized.status);
+  normalized.isActive = normalized.isActive ?? normalized.status !== "archived";
+  normalized.modules = [...(normalized.modules ?? [])]
+    .map((module, moduleIndex) => ({
+      ...module,
+      order: module.order ?? moduleIndex + 1,
+      status: normalizeCourseStatus(module.status),
+      isActive: module.isActive ?? module.status !== "archived",
+      lessons: [...(module.lessons ?? [])]
+        .map((lesson, lessonIndex) => ({
+          ...lesson,
+          order: lesson.order ?? lessonIndex + 1,
+          status: normalizeCourseStatus(lesson.status),
+          isActive: lesson.isActive ?? lesson.status !== "archived",
+        }))
+        .sort((left, right) => (left.order ?? 0) - (right.order ?? 0)),
+    }))
+    .sort((left, right) => (left.order ?? 0) - (right.order ?? 0));
+  normalized.moduleCount = normalized.modules.length;
+  normalized.lessonCount = normalized.modules.reduce(
+    (total, module) => total + module.lessons.length,
+    0,
+  );
+  normalized.updatedAt = normalized.updatedAt ?? new Date().toISOString();
+  return normalized;
+}
+
+function courseIsVisible(course: Course): boolean {
+  return normalizeCourseStatus(course.status) !== "archived";
+}
+
+function courseIsPublished(course: Course): boolean {
+  return normalizeCourseStatus(course.status) === "published";
+}
+
+function mapCourseRow(row: CourseRow, modules: CourseModuleRow[], lessons: CourseLessonRow[]): Course {
+  const nestedModules = modules
+    .filter((module) => module.course_id === row.course_id)
+    .map((module) => ({
+      id: module.module_id,
+      title: module.title,
+      summary: module.summary,
+      durationMinutes: Number(module.duration_minutes),
+      order: module.order_index,
+      status: normalizeCourseStatus(module.status),
+      isActive: module.is_active,
+      lessons: lessons
+        .filter((lesson) => lesson.module_id === module.module_id)
+        .map((lesson) => ({
+          id: lesson.lesson_id,
+          title: lesson.title,
+          format: lesson.format,
+          durationMinutes: Number(lesson.duration_minutes),
+          prompt: lesson.prompt,
+          content: lesson.content ?? undefined,
+          resourceUrl: lesson.resource_url ?? undefined,
+          order: lesson.order_index,
+          status: normalizeCourseStatus(lesson.status),
+          isActive: lesson.is_active,
+        }))
+        .sort((left, right) => left.order - right.order),
+    }))
+    .sort((left, right) => left.order - right.order);
+
+  return normalizeCourseRecord({
+    id: row.course_id,
+    title: row.title,
+    subtitle: row.subtitle,
+    category: row.category,
+    level: row.level,
+    premium: row.premium,
+    featured: row.featured,
+    removable: row.removable,
+    estimatedHours: Number(row.estimated_hours),
+    moduleCount: row.module_count,
+    lessonCount: row.lesson_count,
+    progressPercent: row.progress_percent,
+    streakDays: row.streak_days,
+    hook: row.hook,
+    description: row.description,
+    outcomes: readStringArray(row.outcomes),
+    modules: nestedModules,
+    coverImageUrl: row.cover_image_url ?? undefined,
+    status: normalizeCourseStatus(row.status),
+    isActive: row.is_active,
+    updatedAt: toIsoString(row.updated_at) ?? undefined,
+  });
+}
+
+function cloneCourseModule(module: CourseModule): CourseModule {
+  return {
+    ...module,
+    lessons: module.lessons.map((lesson) => ({ ...lesson })),
+  };
+}
+
+function cloneCourseLesson(lesson: CourseLesson): CourseLesson {
+  return { ...lesson };
+}
+
 function mapServiceWithOverride(
   service: ServiceOffer,
   override?: ServiceOfferOverrideRow,
@@ -470,15 +867,73 @@ function mapServiceWithOverride(
       price: cloneMoney(service.price),
       deliveryModes: [...service.deliveryModes],
       specialistIds: [...service.specialistIds],
+      isActive: service.isActive ?? true,
+      isVisible: service.isVisible ?? true,
     };
   }
 
   return {
     ...service,
+    name: override.name?.trim() || service.name,
+    category: override.category?.trim() || service.category,
+    description: override.description?.trim() || service.description,
     durationMinutes: Number(override.duration_minutes),
     price: mapMoney(override.price_amount, override.price_currency),
-    deliveryModes: [...service.deliveryModes],
-    specialistIds: [...service.specialistIds],
+    deliveryModes:
+      readSessionModes(override.delivery_modes).length > 0
+        ? readSessionModes(override.delivery_modes)
+        : [...service.deliveryModes],
+    premiumIncluded: override.premium_included ?? service.premiumIncluded,
+    specialistIds:
+      readStringArray(override.specialist_ids).length > 0
+        ? readStringArray(override.specialist_ids)
+        : [...service.specialistIds],
+    isActive: override.is_active,
+    isVisible: override.is_visible,
+  };
+}
+
+function mapStandaloneServiceOverride(
+  override: ServiceOfferOverrideRow,
+): ServiceOffer {
+  const specialistIds = readStringArray(override.specialist_ids);
+  const fallbackSpecialist = specialistIds[0]
+    ? getSpecialistById(specialistIds[0])
+    : null;
+  return {
+    id: override.service_id,
+    name: override.name?.trim() || "Servicio",
+    category: override.category?.trim() || "General",
+    description: override.description?.trim() || "Servicio creado desde administración.",
+    durationMinutes: Number(override.duration_minutes),
+    price: mapMoney(override.price_amount, override.price_currency),
+    deliveryModes:
+      readSessionModes(override.delivery_modes).length > 0
+        ? readSessionModes(override.delivery_modes)
+        : [...(fallbackSpecialist?.sessionModes ?? ["chat"])],
+    premiumIncluded: override.premium_included ?? false,
+    specialistIds,
+    isActive: override.is_active,
+    isVisible: override.is_visible,
+  };
+}
+
+function mapSpecialistWithOverride(
+  specialist: ReturnType<typeof getSpecialists>[number],
+  override?: SpecialistOverrideRow,
+): AdminSpecialistProfile {
+  const specialties = readStringArray(override?.specialties);
+  return {
+    ...specialist,
+    publicName: override?.public_name?.trim() || specialist.publicName,
+    headline: override?.headline?.trim() || specialist.headline,
+    specialties: specialties.length > 0 ? specialties : [...specialist.specialties],
+    bio: override?.bio?.trim() || specialist.bio,
+    avatarUrl: override?.avatar_url?.trim() || specialist.avatarUrl,
+    sessionModes: [...specialist.sessionModes],
+    languages: [...specialist.languages],
+    isActive: override?.is_active ?? specialist.isActive ?? true,
+    isPublic: override?.is_public ?? specialist.isPublic ?? true,
   };
 }
 
@@ -506,7 +961,303 @@ function mapShopProductOverrideRow(row: ShopProductOverrideRow): ShopProduct {
     stockQuantity: Number(row.stock_quantity),
     madeToOrder: Boolean(row.made_to_order),
     tags: readStringArray(row.tags),
+    createdAt: toIsoString(row.created_at) ?? undefined,
+    updatedAt: toIsoString(row.updated_at) ?? undefined,
   };
+}
+
+function pickProductAuditAction(
+  fieldChanged: string,
+  previousValue: unknown,
+  newValue: unknown,
+): string {
+  if (fieldChanged === "created") {
+    return "CREATED";
+  }
+  if (fieldChanged === "status") {
+    if (newValue === "archived") {
+      return "DEACTIVATED";
+    }
+    if (previousValue === "archived") {
+      return "ACTIVATED";
+    }
+    return "VISIBILITY_UPDATED";
+  }
+  if (fieldChanged === "featured") {
+    return "FEATURED_UPDATED";
+  }
+  if (fieldChanged === "price") {
+    return "PRICE_UPDATED";
+  }
+  if (fieldChanged === "stockQuantity" || fieldChanged === "stockLabel") {
+    return "STOCK_UPDATED";
+  }
+
+  return "UPDATED";
+}
+
+function buildProductAuditPayload(
+  action: string,
+  fieldChanged: string,
+  previousValue: unknown,
+  newValue: unknown,
+  source: ShopProductAuditSource,
+  changedBy: string,
+): Record<string, unknown> {
+  return {
+    action,
+    fieldChanged,
+    previousValue,
+    newValue,
+    source,
+    changedBy,
+  };
+}
+
+function appendMockShopProductAudit(entry: ShopProductAuditEntry): void {
+  mockShopProductAuditLog.unshift(entry);
+}
+
+function mapAdminAuditRow(row: AuditLogRow): AdminEntityAuditEntry {
+  return {
+    id: row.id,
+    actorType: row.actor_type,
+    actorId: row.actor_id,
+    eventType: row.event_type,
+    entityType: row.entity_type,
+    entityId: row.entity_id,
+    payload: row.payload ?? {},
+    createdAt: toIsoString(row.created_at) ?? new Date().toISOString(),
+  };
+}
+
+function mapCourseAuditRow(row: AuditLogRow): CourseAuditLogEntry {
+  const payload = row.payload ?? {};
+  const courseId =
+    (typeof payload.courseId === "string" && payload.courseId.trim().length > 0
+      ? payload.courseId.trim()
+      : "") || row.entity_id;
+  const courseName =
+    typeof payload.courseName === "string" && payload.courseName.trim().length > 0
+      ? payload.courseName.trim()
+      : null;
+  const elementLabel =
+    typeof payload.elementLabel === "string" && payload.elementLabel.trim().length > 0
+      ? payload.elementLabel.trim()
+      : row.entity_type.replaceAll("_", " ");
+
+  return {
+    id: row.id,
+    entityType: row.entity_type,
+    entityId: row.entity_id,
+    courseId,
+    action:
+      typeof payload.action === "string" && payload.action.trim().length > 0
+        ? payload.action.trim()
+        : row.event_type,
+    fieldChanged:
+      typeof payload.fieldChanged === "string" && payload.fieldChanged.trim().length > 0
+        ? payload.fieldChanged.trim()
+        : "created",
+    previousValue: payload.previousValue,
+    newValue: payload.newValue,
+    changedAt: toIsoString(row.created_at) ?? new Date().toISOString(),
+    changedBy:
+      typeof payload.changedBy === "string" && payload.changedBy.trim().length > 0
+        ? payload.changedBy.trim()
+        : row.actor_id,
+    source: resolveAuditSourceLabel(
+      typeof payload.source === "string" ? payload.source : "admin",
+    ),
+    elementLabel,
+    courseName,
+  };
+}
+
+async function insertShopProductAuditLog(
+  productId: string,
+  actorType: string,
+  actorId: string,
+  eventType: string,
+  payload: Record<string, unknown>,
+): Promise<void> {
+  const entry: ShopProductAuditEntry = {
+    id: randomUUID(),
+    actorType,
+    actorId,
+    eventType,
+    entityType: "shop_product",
+    entityId: productId,
+    payload,
+    createdAt: new Date().toISOString(),
+  };
+
+  if (!isDatabaseConfigured()) {
+    appendMockShopProductAudit(entry);
+    return;
+  }
+
+  await query(
+    `
+      insert into audit_logs (
+        id,
+        actor_type,
+        actor_id,
+        event_type,
+        entity_type,
+        entity_id,
+        payload
+      ) values ($1, $2, $3, $4, $5, $6, $7::jsonb)
+    `,
+    [
+      entry.id,
+      entry.actorType,
+      entry.actorId,
+      entry.eventType,
+      entry.entityType,
+      entry.entityId,
+      JSON.stringify(entry.payload),
+    ],
+  );
+}
+
+async function insertAdminEntityAuditLog(
+  entityType: string,
+  entityId: string,
+  action: string,
+  fieldChanged: string,
+  previousValue: unknown,
+  newValue: unknown,
+  auditMeta: AdminAuditMeta,
+  additionalPayload: Record<string, unknown> = {},
+): Promise<void> {
+  const payload = {
+    action,
+    fieldChanged,
+    previousValue,
+    newValue,
+    source: auditMeta.source,
+    changedBy: auditMeta.changedBy,
+    ...additionalPayload,
+  };
+
+  const entry: AdminEntityAuditEntry = {
+    id: randomUUID(),
+    actorType: auditMeta.actorType,
+    actorId: auditMeta.actorId,
+    eventType: `${entityType}.${action.toLowerCase()}`,
+    entityType,
+    entityId,
+    payload,
+    createdAt: new Date().toISOString(),
+  };
+
+  if (!isDatabaseConfigured()) {
+    mockAdminEntityAuditLog.unshift(entry);
+    return;
+  }
+
+  await query(
+    `
+      insert into audit_logs (
+        id,
+        actor_type,
+        actor_id,
+        event_type,
+        entity_type,
+        entity_id,
+        payload
+      ) values ($1, $2, $3, $4, $5, $6, $7::jsonb)
+    `,
+    [
+      entry.id,
+      entry.actorType,
+      entry.actorId,
+      entry.eventType,
+      entry.entityType,
+      entry.entityId,
+      JSON.stringify(entry.payload),
+    ],
+  );
+}
+
+function collectShopProductAuditEntries(
+  before: ShopProduct | null,
+  after: ShopProduct,
+  source: ShopProductAuditSource,
+  actorId: string,
+): ShopProductAuditEntry[] {
+  const changedFields: Array<{
+    field: string;
+    previousValue: unknown;
+    newValue: unknown;
+  }> = [];
+
+  if (!before) {
+    changedFields.push({
+      field: "created",
+      previousValue: null,
+      newValue: after,
+    });
+  } else {
+    const fields: Array<keyof ShopProduct> = [
+      "name",
+      "category",
+      "shortDescription",
+      "description",
+      "price",
+      "sku",
+      "status",
+      "imageUrl",
+      "imageUrls",
+      "artwork",
+      "badge",
+      "featured",
+      "stockLabel",
+      "stockQuantity",
+      "madeToOrder",
+      "tags",
+    ];
+
+    for (const field of fields) {
+      const previousValue = before[field];
+      const newValue = after[field];
+      const previousSerialized = JSON.stringify(previousValue ?? null);
+      const nextSerialized = JSON.stringify(newValue ?? null);
+      if (previousSerialized !== nextSerialized) {
+        changedFields.push({
+          field,
+          previousValue,
+          newValue,
+        });
+      }
+    }
+  }
+
+  return changedFields.map((change) => {
+    const action = pickProductAuditAction(
+      change.field,
+      change.previousValue,
+      change.newValue,
+    );
+    return {
+      id: randomUUID(),
+      actorType: source,
+      actorId,
+      eventType: `shop_product.${change.field}.${action.toLowerCase()}`,
+      entityType: "shop_product",
+      entityId: after.id,
+      payload: buildProductAuditPayload(
+        action,
+        change.field,
+        change.previousValue,
+        change.newValue,
+        source,
+        actorId,
+      ),
+      createdAt: new Date().toISOString(),
+    };
+  });
 }
 
 function mapShopOrderRows(
@@ -1001,9 +1752,17 @@ async function readServiceOfferOverrides(
     `
       select
         service_id,
+        name,
+        category,
+        description,
         price_amount,
         price_currency,
-        duration_minutes
+        duration_minutes,
+        delivery_modes,
+        premium_included,
+        specialist_ids,
+        is_active,
+        is_visible
       from service_offer_overrides
     `,
     [],
@@ -1013,14 +1772,45 @@ async function readServiceOfferOverrides(
   return new Map(result.rows.map((row) => [row.service_id, row]));
 }
 
+async function readSpecialistOverrides(
+  runner?: QueryRunner,
+): Promise<Map<string, SpecialistOverrideRow>> {
+  const result = await runQuery<SpecialistOverrideRow>(
+    `
+      select
+        specialist_id,
+        public_name,
+        headline,
+        specialties,
+        bio,
+        avatar_url,
+        is_active,
+        is_public
+      from specialist_overrides
+    `,
+    [],
+    runner,
+  );
+
+  return new Map(result.rows.map((row) => [row.specialist_id, row]));
+}
+
 async function listDatabaseServices(
   runner?: QueryRunner,
 ): Promise<ServiceOffer[]> {
   const overrides = await readServiceOfferOverrides(runner);
-
-  return getServices().map((service) =>
+  const seededServices = getServices().map((service) =>
     mapServiceWithOverride(service, overrides.get(service.id)),
   );
+  const seededIds = new Set(seededServices.map((service) => service.id));
+  const adminServices = [...seededServices];
+  for (const override of overrides.values()) {
+    if (!seededIds.has(override.service_id)) {
+      adminServices.push(mapStandaloneServiceOverride(override));
+    }
+  }
+
+  return adminServices;
 }
 
 async function getServiceById(
@@ -1036,6 +1826,15 @@ async function getServiceById(
 
 function getSpecialistById(specialistId: string) {
   return getSpecialists().find((item) => item.id === specialistId) ?? null;
+}
+
+async function listDatabaseSpecialists(
+  runner?: QueryRunner,
+): Promise<AdminSpecialistProfile[]> {
+  const overrides = await readSpecialistOverrides(runner);
+  return getSpecialists().map((specialist) =>
+    mapSpecialistWithOverride(specialist, overrides.get(specialist.id)),
+  );
 }
 
 async function getDatabaseUser(
@@ -1481,6 +2280,34 @@ export async function getBookings(userId?: string): Promise<Booking[]> {
   return result.rows.map(mapBookingRow);
 }
 
+export async function getAllBookingsAdmin(): Promise<Booking[]> {
+  if (!isDatabaseConfigured()) {
+    return getBookingsMock();
+  }
+
+  const result = await runQuery<BookingRow>(
+    `
+      select
+        id,
+        user_id,
+        service_id,
+        service_name,
+        specialist_id,
+        specialist_name,
+        scheduled_at,
+        mode,
+        status,
+        price_amount,
+        price_currency,
+        notes
+      from bookings
+      order by scheduled_at asc
+    `,
+  );
+
+  return result.rows.map(mapBookingRow);
+}
+
 export async function createBooking(
   input: CreateBookingInput,
   userId?: string,
@@ -1783,9 +2610,10 @@ async function upsertShopProductOverride(
         stock_quantity,
         made_to_order,
         tags,
+        created_at,
         updated_at
       ) values (
-        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21::jsonb, now()
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21::jsonb, $22, now()
       )
       on conflict (product_id) do update set
         name = excluded.name,
@@ -1832,6 +2660,7 @@ async function upsertShopProductOverride(
       normalizedProduct.stockQuantity,
       normalizedProduct.madeToOrder,
       JSON.stringify(normalizedProduct.tags),
+      normalizedProduct.createdAt ?? new Date().toISOString(),
     ],
     runner,
   );
@@ -1936,20 +2765,208 @@ export async function getShopOrders(userId?: string): Promise<ShopOrder[]> {
   );
 }
 
-export async function listServices(): Promise<ServiceOffer[]> {
+export async function getAllShopOrdersAdmin(): Promise<ShopOrder[]> {
   if (!isDatabaseConfigured()) {
-    return getServices();
+    return getShopOrdersMock();
   }
 
-  return listDatabaseServices();
+  const ordersResult = await runQuery<ShopOrderRow>(
+    `
+      select
+        id,
+        user_id,
+        order_code,
+        status,
+        created_at,
+        specialist_id,
+        specialist_name,
+        store_id,
+        store_name,
+        delivery_address,
+        notes,
+        subtotal_amount,
+        subtotal_currency,
+        shipping_amount,
+        shipping_currency,
+        total_amount,
+        total_currency,
+        item_count
+      from shop_orders
+      order by created_at desc
+    `,
+  );
+
+  if (ordersResult.rows.length === 0) {
+    return getShopOrdersMock();
+  }
+
+  const orderIds = ordersResult.rows.map((order) => order.id);
+  const itemsResult = await runQuery<ShopOrderItemRow>(
+    `
+      select
+        order_id,
+        product_id,
+        product_name,
+        category,
+        quantity,
+        image_url,
+        unit_price_amount,
+        unit_price_currency,
+        line_total_amount,
+        line_total_currency
+      from shop_order_items
+      where order_id = any($1::text[])
+      order by created_at asc
+    `,
+    [orderIds],
+  );
+  const itemsByOrderId = new Map<string, ShopOrderItemRow[]>();
+  for (const item of itemsResult.rows) {
+    const group = itemsByOrderId.get(item.order_id) ?? [];
+    group.push(item);
+    itemsByOrderId.set(item.order_id, group);
+  }
+
+  return ordersResult.rows.map((order) =>
+    mapShopOrderRows(order, itemsByOrderId.get(order.id) ?? []),
+  );
+}
+
+export async function getAllShopProductsAdmin(): Promise<ShopProduct[]> {
+  if (!isDatabaseConfigured()) {
+    return getShopDataMock().products.map(cloneShopProduct);
+  }
+
+  return listShopProducts();
+}
+
+export async function getShopProductAuditLog(
+  options: { productId?: string; limit?: number } = {},
+): Promise<ShopProductAuditEntry[]> {
+  const safeLimit = Math.max(1, Math.min(options.limit ?? 100, 500));
+  const productId = options.productId?.trim() ?? "";
+
+  if (!isDatabaseConfigured()) {
+    return mockShopProductAuditLog
+      .filter((entry) => (productId.length > 0 ? entry.entityId === productId : true))
+      .slice(0, safeLimit);
+  }
+
+  const rows = await query<AuditLogRow>(
+    `
+      select
+        id,
+        actor_type,
+        actor_id,
+        event_type,
+        entity_type,
+        entity_id,
+        payload,
+        created_at
+      from audit_logs
+      where entity_type = 'shop_product'
+        and ($1::text = '' or entity_id = $1)
+      order by created_at desc
+      limit $2
+    `,
+    [productId, safeLimit],
+  );
+
+  return rows.rows.map((row) => ({
+    id: row.id,
+    actorType: row.actor_type,
+    actorId: row.actor_id,
+    eventType: row.event_type,
+    entityType: row.entity_type,
+    entityId: row.entity_id,
+    payload: row.payload,
+    createdAt: toIsoString(row.created_at) ?? new Date().toISOString(),
+  }));
+}
+
+export async function listServices(options?: {
+  includeInactive?: boolean;
+  specialistId?: string;
+}): Promise<ServiceOffer[]> {
+  const includeInactive = Boolean(options?.includeInactive);
+  const specialistId = options?.specialistId?.trim() ?? "";
+  if (!isDatabaseConfigured()) {
+    return getServices().filter((service) => {
+      const matchesSpecialist =
+        specialistId.length === 0 || service.specialistIds.includes(specialistId);
+      const matchesState = includeInactive || (service.isActive && service.isVisible);
+      return matchesSpecialist && matchesState;
+    });
+  }
+
+  const services = await listDatabaseServices();
+  return services.filter((service) => {
+    const matchesSpecialist =
+      specialistId.length === 0 || service.specialistIds.includes(specialistId);
+    const matchesState = includeInactive || (service.isActive && service.isVisible);
+    return matchesSpecialist && matchesState;
+  });
+}
+
+export async function listAdminSpecialists(): Promise<AdminSpecialistProfile[]> {
+  if (!isDatabaseConfigured()) {
+    return getSpecialists().map((specialist) => cloneSpecialistProfile({
+      ...specialist,
+      publicName: specialist.publicName,
+      avatarUrl: specialist.avatarUrl,
+      sessionModes: [...specialist.sessionModes],
+      languages: [...specialist.languages],
+      isActive: specialist.isActive ?? true,
+      isPublic: specialist.isPublic ?? true,
+    }));
+  }
+
+  return listDatabaseSpecialists();
+}
+
+export async function getAdminSpecialistById(
+  specialistId: string,
+): Promise<AdminSpecialistProfile | null> {
+  return (
+    (await listAdminSpecialists()).find((item) => item.id === specialistId.trim()) ?? null
+  );
 }
 
 export async function updateServiceOffer(
   serviceId: string,
   input: UpdateServiceOfferInput,
+  auditMeta?: AdminAuditMeta,
 ): Promise<ServiceOffer> {
   if (!isDatabaseConfigured()) {
-    return updateServiceOfferMock(serviceId, input);
+    const before = getServices().find((item) => item.id === serviceId) ?? null;
+    const updated = updateServiceOfferMock(serviceId, input);
+    if (before && auditMeta) {
+      const fields: Array<keyof UpdateServiceOfferInput> = [
+        "name",
+        "category",
+        "description",
+        "price",
+        "durationMinutes",
+        "isActive",
+        "isVisible",
+      ];
+      for (const field of fields) {
+        const previousValue = before[field as keyof ServiceOffer] ?? null;
+        const newValue = updated[field as keyof ServiceOffer] ?? null;
+        if (JSON.stringify(previousValue) !== JSON.stringify(newValue)) {
+          await insertAdminEntityAuditLog(
+            "service_offer",
+            updated.id,
+            field === "isActive" ? (updated.isActive ? "ACTIVATED" : "DEACTIVATED") : "UPDATED",
+            String(field),
+            previousValue,
+            newValue,
+            auditMeta,
+          );
+        }
+      }
+    }
+    return updated;
   }
 
   const service = await getServiceById(serviceId);
@@ -1964,6 +2981,18 @@ export async function updateServiceOffer(
   if (!Number.isFinite(amount) || amount < 0) {
     throw new Error("Ingresa un precio válido.");
   }
+  const name = input.name?.trim() || service.name;
+  const category = input.category?.trim() || service.category;
+  const description = input.description?.trim() || service.description;
+  if (name.length < 3) {
+    throw new Error("Ingresa un nombre válido.");
+  }
+  if (category.length < 3) {
+    throw new Error("Ingresa una categoría válida.");
+  }
+  if (description.length < 6) {
+    throw new Error("Ingresa una descripción válida.");
+  }
 
   const durationMinutes =
     input.durationMinutes === undefined
@@ -1971,37 +3000,479 @@ export async function updateServiceOffer(
       : Math.max(0, Math.round(Number(input.durationMinutes)));
   const updated: ServiceOffer = {
     ...service,
+    name,
+    category,
+    description,
     durationMinutes,
     price: {
       amount: Number(amount.toFixed(2)),
       currency: input.price?.currency?.trim() || service.price.currency,
     },
+    isActive: input.isActive ?? service.isActive,
+    isVisible: input.isVisible ?? service.isVisible,
   };
 
   await runQuery(
     `
       insert into service_offer_overrides (
         service_id,
+        name,
+        category,
+        description,
         price_amount,
         price_currency,
         duration_minutes,
+        delivery_modes,
+        premium_included,
+        specialist_ids,
+        is_active,
+        is_visible,
         updated_at
-      ) values ($1, $2, $3, $4, now())
+      ) values ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10::jsonb, $11, $12, now())
       on conflict (service_id) do update set
+        name = excluded.name,
+        category = excluded.category,
+        description = excluded.description,
         price_amount = excluded.price_amount,
         price_currency = excluded.price_currency,
         duration_minutes = excluded.duration_minutes,
+        delivery_modes = excluded.delivery_modes,
+        premium_included = excluded.premium_included,
+        specialist_ids = excluded.specialist_ids,
+        is_active = excluded.is_active,
+        is_visible = excluded.is_visible,
         updated_at = now()
     `,
     [
       updated.id,
+      updated.name,
+      updated.category,
+      updated.description,
       updated.price.amount,
       updated.price.currency,
       updated.durationMinutes,
+      JSON.stringify(updated.deliveryModes),
+      updated.premiumIncluded,
+      JSON.stringify(updated.specialistIds),
+      updated.isActive,
+      updated.isVisible,
     ],
   );
 
+  if (auditMeta) {
+    const fields: Array<keyof ServiceOffer> = [
+      "name",
+      "category",
+      "description",
+      "price",
+      "durationMinutes",
+      "isActive",
+      "isVisible",
+    ];
+    for (const field of fields) {
+      const previousValue = service[field];
+      const newValue = updated[field];
+      if (JSON.stringify(previousValue) !== JSON.stringify(newValue)) {
+        await insertAdminEntityAuditLog(
+          "service_offer",
+          updated.id,
+          field === "isActive" ? (updated.isActive ? "ACTIVATED" : "DEACTIVATED") : "UPDATED",
+          String(field),
+          previousValue,
+          newValue,
+          auditMeta,
+        );
+      }
+    }
+  }
+
   return updated;
+}
+
+export async function createServiceOffer(
+  specialistId: string,
+  input: CreateServiceOfferInput,
+  auditMeta?: AdminAuditMeta,
+): Promise<ServiceOffer> {
+  if (!isDatabaseConfigured()) {
+    const created = createServiceOfferMock(input, specialistId);
+    if (auditMeta) {
+      await insertAdminEntityAuditLog(
+        "service_offer",
+        created.id,
+        "CREATED",
+        "created",
+        null,
+        created,
+        auditMeta,
+      );
+    }
+    return created;
+  }
+
+  const specialist = await getAdminSpecialistById(specialistId);
+  if (!specialist) {
+    throw new Error("El especialista no existe.");
+  }
+
+  const name = input.name?.trim() ?? "";
+  const category = input.category?.trim() ?? "";
+  const description = input.description?.trim() ?? "";
+  const amount = Number(input.price?.amount ?? 0);
+  const durationMinutes = Math.max(1, Math.round(Number(input.durationMinutes ?? 0)));
+  if (name.length < 3) {
+    throw new Error("Ingresa un nombre válido.");
+  }
+  if (category.length < 3) {
+    throw new Error("Ingresa una categoría válida.");
+  }
+  if (description.length < 6) {
+    throw new Error("Ingresa una descripción válida.");
+  }
+  if (!Number.isFinite(amount) || amount < 0) {
+    throw new Error("Ingresa un precio válido.");
+  }
+
+  const created: ServiceOffer = {
+    id: `service-${slugifyShopValue(name)}-${randomUUID().slice(0, 8)}`,
+    name,
+    category,
+    description,
+    durationMinutes,
+    price: {
+      amount: Number(amount.toFixed(2)),
+      currency: input.price?.currency?.trim() || "USD",
+    },
+    deliveryModes:
+      input.deliveryModes && input.deliveryModes.length > 0
+        ? [...input.deliveryModes]
+        : specialist.sessionModes.filter(
+            (item): item is "chat" | "audio" | "video" =>
+              ["chat", "audio", "video"].includes(item),
+          ),
+    premiumIncluded: Boolean(input.premiumIncluded),
+    specialistIds:
+      input.specialistIds && input.specialistIds.length > 0
+        ? [...new Set(input.specialistIds)]
+        : [specialistId],
+    isActive: input.isActive ?? true,
+    isVisible: input.isVisible ?? true,
+  };
+
+  await runQuery(
+    `
+      insert into service_offer_overrides (
+        service_id,
+        name,
+        category,
+        description,
+        price_amount,
+        price_currency,
+        duration_minutes,
+        delivery_modes,
+        premium_included,
+        specialist_ids,
+        is_active,
+        is_visible,
+        updated_at
+      ) values ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10::jsonb, $11, $12, now())
+    `,
+    [
+      created.id,
+      created.name,
+      created.category,
+      created.description,
+      created.price.amount,
+      created.price.currency,
+      created.durationMinutes,
+      JSON.stringify(created.deliveryModes),
+      created.premiumIncluded,
+      JSON.stringify(created.specialistIds),
+      created.isActive,
+      created.isVisible,
+    ],
+  );
+
+  if (auditMeta) {
+    await insertAdminEntityAuditLog(
+      "service_offer",
+      created.id,
+      "CREATED",
+      "created",
+      null,
+      created,
+      auditMeta,
+    );
+  }
+  return created;
+}
+
+export async function updateAdminSpecialist(
+  specialistId: string,
+  input: UpdateSpecialistAdminInput,
+  auditMeta?: AdminAuditMeta,
+): Promise<AdminSpecialistProfile> {
+  if (!isDatabaseConfigured()) {
+    const before = getSpecialists().find((item) => item.id === specialistId) ?? null;
+    const updated = updateSpecialistAdminMock(specialistId, input);
+    if (before && auditMeta) {
+      const after = updated;
+      const fields: Array<[string, unknown, unknown, string]> = [
+        ["isActive", before.isActive, after.isActive, after.isActive ? "ACTIVATED" : "DEACTIVATED"],
+        ["isPublic", before.isPublic, after.isPublic, "UPDATED"],
+        ["publicName", before.publicName ?? null, after.publicName ?? null, "UPDATED"],
+        ["headline", before.headline, after.headline, "UPDATED"],
+        ["specialties", before.specialties, after.specialties, "UPDATED"],
+        ["bio", before.bio, after.bio, "UPDATED"],
+        ["avatarUrl", before.avatarUrl ?? null, after.avatarUrl ?? null, "UPDATED"],
+      ];
+      for (const [fieldChanged, previousValue, newValue, action] of fields) {
+        if (JSON.stringify(previousValue) !== JSON.stringify(newValue)) {
+          await insertAdminEntityAuditLog(
+            "specialist",
+            specialistId,
+            action,
+            fieldChanged,
+            previousValue,
+            newValue,
+            auditMeta,
+          );
+        }
+      }
+    }
+    return cloneSpecialistProfile({
+      ...updated,
+      sessionModes: [...updated.sessionModes],
+      languages: [...updated.languages],
+    });
+  }
+
+  const before = await getAdminSpecialistById(specialistId);
+  if (!before) {
+    throw new Error("El especialista no existe.");
+  }
+
+  const specialtyList =
+    input.specialty?.trim().length
+      ? input.specialty!.split(",").map((item) => item.trim()).filter(Boolean)
+      : before.specialties;
+  const after: AdminSpecialistProfile = {
+    ...before,
+    publicName: input.publicName?.trim() || before.publicName,
+    headline: input.headline?.trim() || before.headline,
+    bio: input.bio?.trim() || before.bio,
+    avatarUrl: input.avatarUrl?.trim() || before.avatarUrl,
+    specialties: specialtyList,
+    isActive: input.isActive ?? before.isActive,
+    isPublic: input.isPublic ?? before.isPublic,
+  };
+
+  await runQuery(
+    `
+      insert into specialist_overrides (
+        specialist_id,
+        public_name,
+        headline,
+        specialties,
+        bio,
+        avatar_url,
+        is_active,
+        is_public,
+        updated_at
+      ) values ($1, $2, $3, $4::jsonb, $5, $6, $7, $8, now())
+      on conflict (specialist_id) do update set
+        public_name = excluded.public_name,
+        headline = excluded.headline,
+        specialties = excluded.specialties,
+        bio = excluded.bio,
+        avatar_url = excluded.avatar_url,
+        is_active = excluded.is_active,
+        is_public = excluded.is_public,
+        updated_at = now()
+    `,
+    [
+      specialistId,
+      after.publicName ?? null,
+      after.headline,
+      JSON.stringify(after.specialties),
+      after.bio,
+      after.avatarUrl ?? null,
+      after.isActive,
+      after.isPublic,
+    ],
+  );
+
+  if (auditMeta) {
+    const fields: Array<[string, unknown, unknown, string]> = [
+      ["isActive", before.isActive, after.isActive, after.isActive ? "ACTIVATED" : "DEACTIVATED"],
+      ["isPublic", before.isPublic, after.isPublic, "UPDATED"],
+      ["publicName", before.publicName ?? null, after.publicName ?? null, "UPDATED"],
+      ["headline", before.headline, after.headline, "UPDATED"],
+      ["specialties", before.specialties, after.specialties, "UPDATED"],
+      ["bio", before.bio, after.bio, "UPDATED"],
+      ["avatarUrl", before.avatarUrl ?? null, after.avatarUrl ?? null, "UPDATED"],
+    ];
+    for (const [fieldChanged, previousValue, newValue, action] of fields) {
+      if (JSON.stringify(previousValue) !== JSON.stringify(newValue)) {
+        await insertAdminEntityAuditLog(
+          "specialist",
+          specialistId,
+          action,
+          fieldChanged,
+          previousValue,
+          newValue,
+          auditMeta,
+        );
+      }
+    }
+  }
+
+  return cloneSpecialistProfile(after);
+}
+
+export async function getAdminEntityAuditLog(options: {
+  entityType?: string;
+  specialistId?: string;
+  limit?: number;
+} = {}): Promise<AdminEntityAuditEntry[]> {
+  const safeLimit = Math.max(1, Math.min(options.limit ?? 100, 500));
+  const entityType = options.entityType?.trim() ?? "";
+  const specialistId = options.specialistId?.trim() ?? "";
+
+  const bySpecialist = (entry: AdminEntityAuditEntry) => {
+    if (specialistId.length === 0) {
+      return true;
+    }
+    if (entry.entityType === "specialist" && entry.entityId === specialistId) {
+      return true;
+    }
+    const payloadSpecialistId =
+      typeof entry.payload?.specialistId === "string" ? entry.payload.specialistId : "";
+    const payloadSpecialistIds = Array.isArray(entry.payload?.specialistIds)
+      ? entry.payload.specialistIds.filter((item): item is string => typeof item === "string")
+      : [];
+    const newValueRecord =
+      entry.payload?.newValue && typeof entry.payload.newValue === "object"
+        ? (entry.payload.newValue as Record<string, unknown>)
+        : null;
+    const previousValueRecord =
+      entry.payload?.previousValue && typeof entry.payload.previousValue === "object"
+        ? (entry.payload.previousValue as Record<string, unknown>)
+        : null;
+    const nestedSpecialistId =
+      typeof newValueRecord?.specialistId === "string"
+        ? newValueRecord.specialistId
+        : typeof previousValueRecord?.specialistId === "string"
+          ? previousValueRecord.specialistId
+          : "";
+    const nestedSpecialistIds = [
+      ...(Array.isArray(newValueRecord?.specialistIds)
+        ? newValueRecord.specialistIds.filter((item): item is string => typeof item === "string")
+        : []),
+      ...(Array.isArray(previousValueRecord?.specialistIds)
+        ? previousValueRecord.specialistIds.filter((item): item is string => typeof item === "string")
+        : []),
+    ];
+    return (
+      payloadSpecialistId === specialistId ||
+      payloadSpecialistIds.includes(specialistId) ||
+      nestedSpecialistId === specialistId ||
+      nestedSpecialistIds.includes(specialistId)
+    );
+  };
+
+  if (!isDatabaseConfigured()) {
+    return mockAdminEntityAuditLog
+      .filter((entry) => (entityType.length > 0 ? entry.entityType === entityType : true))
+      .filter(bySpecialist)
+      .slice(0, safeLimit);
+  }
+
+  const rows = await query<AuditLogRow>(
+    `
+      select
+        id,
+        actor_type,
+        actor_id,
+        event_type,
+        entity_type,
+        entity_id,
+        payload,
+        created_at
+      from audit_logs
+      where ($1::text = '' or entity_type = $1)
+      order by created_at desc
+      limit $2
+    `,
+    [entityType, safeLimit],
+  );
+
+  return rows.rows.map(mapAdminAuditRow).filter(bySpecialist);
+}
+
+function matchesCourseAuditEntry(entry: AdminEntityAuditEntry, courseId: string): boolean {
+  const payloadCourseId =
+    typeof entry.payload?.courseId === "string" ? entry.payload.courseId : "";
+  if (payloadCourseId === courseId) {
+    return true;
+  }
+  if (entry.entityId === courseId) {
+    return true;
+  }
+  return false;
+}
+
+export async function getCourseAuditLog(options: {
+  courseId: string;
+  limit?: number;
+}): Promise<CourseAuditLogEntry[]> {
+  const safeLimit = Math.max(1, Math.min(options.limit ?? 100, 500));
+  const courseId = options.courseId.trim();
+  if (courseId.length === 0) {
+    return [];
+  }
+
+  if (!isDatabaseConfigured()) {
+    return mockAdminEntityAuditLog
+      .filter((entry) => matchesCourseAuditEntry(entry, courseId))
+      .slice(0, safeLimit)
+      .map((entry) => mapCourseAuditRow({
+        id: entry.id,
+        actor_type: entry.actorType,
+        actor_id: entry.actorId,
+        event_type: entry.eventType,
+        entity_type: entry.entityType,
+        entity_id: entry.entityId,
+        payload: entry.payload,
+        created_at: entry.createdAt,
+      }));
+  }
+
+  const rows = await query<AuditLogRow>(
+    `
+      select
+        id,
+        actor_type,
+        actor_id,
+        event_type,
+        entity_type,
+        entity_id,
+        payload,
+        created_at
+      from audit_logs
+      where (
+        entity_id = $1
+        or payload->>'courseId' = $1
+      )
+      order by created_at desc
+      limit $2
+    `,
+    [courseId, safeLimit],
+  );
+
+  return rows.rows
+    .map(mapCourseAuditRow)
+    .filter((entry) => entry.courseId === courseId);
 }
 
 export async function createShopOrder(
@@ -2133,9 +3604,25 @@ export async function createShopOrder(
 export async function createShopProduct(
   input: CreateShopProductInput,
   specialistProfileId?: string,
+  auditMeta?: ShopProductAuditMeta,
 ): Promise<ShopProduct> {
   if (!isDatabaseConfigured()) {
-    return createShopProductMock(input, specialistProfileId);
+    const product = createShopProductMock(input, specialistProfileId);
+    void insertShopProductAuditLog(
+      product.id,
+      auditMeta?.actorType ?? "specialist",
+      auditMeta?.actorId ?? specialistProfileId?.trim() ?? "system",
+      `shop_product.created`,
+      buildProductAuditPayload(
+        "CREATED",
+        "created",
+        null,
+        product,
+        auditMeta?.source ?? "specialist",
+        auditMeta?.actorId ?? specialistProfileId?.trim() ?? "system",
+      ),
+    );
+    return product;
   }
 
   const name = input.name?.trim() ?? "";
@@ -2161,6 +3648,7 @@ export async function createShopProduct(
   const stockQuantity = madeToOrder
     ? 0
     : Math.max(0, Math.round(Number(input.stockQuantity ?? 0)));
+  const now = new Date().toISOString();
   const product = normalizeShopProductOwnership(
     {
       id: `shop-${slugifyShopValue(name)}-${randomUUID().slice(0, 8)}`,
@@ -2199,12 +3687,28 @@ export async function createShopProduct(
       stockQuantity,
       madeToOrder,
       tags: normalizeShopTags(input.tags),
+      createdAt: now,
+      updatedAt: now,
     },
     owner.id,
     owner.name,
   );
 
   await upsertShopProductOverride(product);
+  void insertShopProductAuditLog(
+    product.id,
+    auditMeta?.actorType ?? "specialist",
+    auditMeta?.actorId ?? owner.id,
+    `shop_product.created`,
+    buildProductAuditPayload(
+      "CREATED",
+      "created",
+      null,
+      product,
+      auditMeta?.source ?? "specialist",
+      auditMeta?.actorId ?? owner.id,
+    ),
+  );
   return product;
 }
 
@@ -2212,14 +3716,32 @@ export async function updateShopProduct(
   productId: string,
   input: UpdateShopProductInput,
   managerScope?: { specialistProfileId?: string; isAdmin?: boolean },
+  auditMeta?: ShopProductAuditMeta,
 ): Promise<ShopProduct> {
   if (!isDatabaseConfigured()) {
-    return updateShopProductMock(productId, input);
+    const before = getShopDataMock().products.find((item) => item.id === productId) ?? null;
+    const updated = updateShopProductMock(productId, input);
+    const actorType = auditMeta?.actorType ?? "specialist";
+    const actorId = auditMeta?.actorId ?? before?.specialistId ?? "system";
+    const entries = collectShopProductAuditEntries(
+      before,
+      updated,
+      auditMeta?.source ?? (actorType === "admin" ? "admin" : "specialist"),
+      actorId,
+    );
+    for (const entry of entries) {
+      void insertShopProductAuditLog(
+        entry.entityId,
+        entry.actorType,
+        entry.actorId,
+        entry.eventType,
+        entry.payload,
+      );
+    }
+    return updated;
   }
 
-  const existing = (await listShopProducts()).find(
-    (item) => item.id === productId,
-  );
+  const existing = (await listShopProducts()).find((item) => item.id === productId);
   if (!existing) {
     throw new Error("El producto no existe.");
   }
@@ -2293,12 +3815,31 @@ export async function updateShopProduct(
         input.tags === undefined
           ? existing.tags
           : normalizeShopTags(input.tags),
+      createdAt: existing.createdAt,
+      updatedAt: new Date().toISOString(),
     },
     existing.specialistId,
     existing.specialistName,
   );
 
   await upsertShopProductOverride(updated);
+  const actorType = auditMeta?.actorType ?? "specialist";
+  const actorId = auditMeta?.actorId ?? existing.specialistId;
+  const entries = collectShopProductAuditEntries(
+    existing,
+    updated,
+    auditMeta?.source ?? (actorType === "admin" ? "admin" : "specialist"),
+    actorId,
+  );
+  for (const entry of entries) {
+    void insertShopProductAuditLog(
+      entry.entityId,
+      entry.actorType,
+      entry.actorId,
+      entry.eventType,
+      entry.payload,
+    );
+  }
   return updated;
 }
 
@@ -2380,6 +3921,848 @@ export async function updateShopOrderStatus(
   );
 
   return mapShopOrderRows(row, itemsResult.rows);
+}
+
+export function getCourses(): Course[] {
+  return getCoursesMock();
+}
+
+export function getAdminCourses(): Course[] {
+  return getAdminCoursesMock();
+}
+
+export function getCourseById(courseId: string): Course | null {
+  return getCourseByIdMock(courseId);
+}
+
+export function getAdminCourseById(courseId: string): Course | null {
+  return getAdminCourseByIdMock(courseId);
+}
+
+function collectCourseAuditFields(before: Course | null, after: Course): Array<{
+  fieldChanged: string;
+  previousValue: unknown;
+  newValue: unknown;
+}> {
+  if (!before) {
+    return [
+      { fieldChanged: "created", previousValue: null, newValue: after },
+    ];
+  }
+
+  const fields: Array<[string, unknown, unknown]> = [
+    ["title", before.title, after.title],
+    ["subtitle", before.subtitle, after.subtitle],
+    ["category", before.category, after.category],
+    ["level", before.level, after.level],
+    ["premium", before.premium, after.premium],
+    ["featured", before.featured, after.featured],
+    ["removable", before.removable, after.removable],
+    ["estimatedHours", before.estimatedHours, after.estimatedHours],
+    ["progressPercent", before.progressPercent, after.progressPercent],
+    ["streakDays", before.streakDays, after.streakDays],
+    ["hook", before.hook, after.hook],
+    ["description", before.description, after.description],
+    ["outcomes", before.outcomes, after.outcomes],
+    ["coverImageUrl", before.coverImageUrl ?? null, after.coverImageUrl ?? null],
+    ["status", before.status ?? "published", after.status ?? "published"],
+    ["isActive", before.isActive ?? true, after.isActive ?? true],
+    ["modules", before.modules, after.modules],
+  ];
+
+  return fields
+    .filter(([, previousValue, newValue]) => JSON.stringify(previousValue) !== JSON.stringify(newValue))
+    .map(([fieldChanged, previousValue, newValue]) => ({
+      fieldChanged,
+      previousValue,
+      newValue,
+    }));
+}
+
+async function recordCourseAudit(
+  entityType: string,
+  entityId: string,
+  courseId: string,
+  action: string,
+  fieldChanged: string,
+  previousValue: unknown,
+  newValue: unknown,
+  auditMeta: AdminAuditMeta,
+  elementLabel?: string,
+  courseName?: string | null,
+): Promise<void> {
+  await insertAdminEntityAuditLog(
+    entityType,
+    entityId,
+    action,
+    fieldChanged,
+    previousValue,
+    newValue,
+    auditMeta,
+    {
+      courseId,
+      elementLabel: elementLabel ?? entityType.replaceAll("_", " "),
+      courseName: courseName ?? null,
+    },
+  );
+}
+
+export async function createCourse(
+  input: Partial<Course>,
+  auditMeta: AdminAuditMeta,
+): Promise<Course> {
+  const saved = upsertCourseMock(input.id?.trim() ?? null, {
+    ...input,
+    status: input.status ?? "draft",
+    isActive: input.isActive ?? false,
+  });
+
+  await recordCourseAudit(
+    "course",
+    saved.id,
+    saved.id,
+    "CREATED",
+    "created",
+    null,
+    saved,
+    auditMeta,
+    "Curso",
+    saved.title,
+  );
+  return saved;
+}
+
+export async function updateCourse(
+  courseId: string,
+  input: Partial<Course>,
+  auditMeta: AdminAuditMeta,
+): Promise<Course> {
+  const before = getAdminCourseByIdMock(courseId);
+  if (!before) {
+    throw new Error("El curso no existe.");
+  }
+
+  const saved = updateCourseMock(courseId, {
+    ...input,
+    updatedAt: new Date().toISOString(),
+  });
+  if (!saved) {
+    throw new Error("El curso no existe.");
+  }
+
+  for (const change of collectCourseAuditFields(before, saved)) {
+    await recordCourseAudit(
+      "course",
+      saved.id,
+      saved.id,
+      "UPDATED",
+      change.fieldChanged,
+      change.previousValue,
+      change.newValue,
+      auditMeta,
+      "Curso",
+      saved.title,
+    );
+  }
+
+  return saved;
+}
+
+export async function archiveCourse(
+  courseId: string,
+  auditMeta: AdminAuditMeta,
+): Promise<Course> {
+  const before = getAdminCourseByIdMock(courseId);
+  if (!before) {
+    throw new Error("El curso no existe.");
+  }
+
+  const saved = archiveCourseMock(courseId);
+  if (!saved) {
+    throw new Error("El curso no existe.");
+  }
+
+  await recordCourseAudit(
+    "course",
+    courseId,
+    courseId,
+    "ARCHIVED",
+    "status",
+    before.status ?? "published",
+    saved.status ?? "archived",
+    auditMeta,
+    "Curso",
+    saved.title,
+  );
+  return saved;
+}
+
+export async function publishCourse(
+  courseId: string,
+  auditMeta: AdminAuditMeta,
+): Promise<Course> {
+  const before = getAdminCourseByIdMock(courseId);
+  if (!before) {
+    throw new Error("El curso no existe.");
+  }
+
+  const saved = setCoursePublicationMock(courseId, true);
+  if (!saved) {
+    throw new Error("El curso no existe.");
+  }
+
+  await recordCourseAudit(
+    "course",
+    courseId,
+    courseId,
+    "PUBLISHED",
+    "status",
+    before.status ?? "draft",
+    saved.status ?? "published",
+    auditMeta,
+    "Curso",
+    saved.title,
+  );
+  return saved;
+}
+
+export async function unpublishCourse(
+  courseId: string,
+  auditMeta: AdminAuditMeta,
+): Promise<Course> {
+  const before = getAdminCourseByIdMock(courseId);
+  if (!before) {
+    throw new Error("El curso no existe.");
+  }
+
+  const saved = setCoursePublicationMock(courseId, false);
+  if (!saved) {
+    throw new Error("El curso no existe.");
+  }
+
+  await recordCourseAudit(
+    "course",
+    courseId,
+    courseId,
+    "UPDATED",
+    "status",
+    before.status ?? "published",
+    saved.status ?? "draft",
+    auditMeta,
+    "Curso",
+    saved.title,
+  );
+  return saved;
+}
+
+export async function createCourseModule(
+  courseId: string,
+  input: Partial<CourseModule>,
+  auditMeta: AdminAuditMeta,
+): Promise<Course> {
+  const before = getAdminCourseByIdMock(courseId);
+  if (!before) {
+    throw new Error("El curso no existe.");
+  }
+
+  const saved = upsertCourseModuleMock(courseId, null, input);
+  if (!saved) {
+    throw new Error("El curso no existe.");
+  }
+
+  const createdModule =
+    saved.modules.find(
+      (module) => !before.modules.some((previous) => previous.id === module.id),
+    ) ??
+    saved.modules.find(
+      (module) =>
+        module.title === (input.title?.trim() || "Módulo") &&
+        module.order ===
+          (Number.isFinite(input.order) ? Number(input.order) : before.modules.length + 1),
+    ) ??
+    saved.modules[saved.modules.length - 1] ??
+    null;
+
+  await recordCourseAudit(
+    "course_module",
+    createdModule?.id ?? courseId,
+    courseId,
+    "CREATED",
+    "module",
+    null,
+    createdModule ?? input,
+    auditMeta,
+    "Módulo",
+    before.title,
+  );
+  return saved;
+}
+
+export async function updateCourseModule(
+  courseId: string,
+  moduleId: string,
+  input: Partial<CourseModule>,
+  auditMeta: AdminAuditMeta,
+): Promise<Course> {
+  const before = getAdminCourseByIdMock(courseId);
+  if (!before) {
+    throw new Error("El curso no existe.");
+  }
+  const currentModule = before.modules.find((module) => module.id === moduleId);
+  if (!currentModule) {
+    throw new Error("El módulo no existe.");
+  }
+
+  const saved = upsertCourseModuleMock(courseId, moduleId, input);
+  if (!saved) {
+    throw new Error("El curso no existe.");
+  }
+
+  await recordCourseAudit(
+    "course_module",
+    currentModule.id,
+    courseId,
+    "UPDATED",
+    "module",
+    currentModule,
+    saved.modules.find((module) => module.id === currentModule.id) ?? input,
+    auditMeta,
+    "Módulo",
+    before.title,
+  );
+  return saved;
+}
+
+export async function deleteCourseModule(
+  courseId: string,
+  moduleId: string,
+  auditMeta: AdminAuditMeta,
+): Promise<Course> {
+  const before = getAdminCourseByIdMock(courseId);
+  if (!before) {
+    throw new Error("El curso no existe.");
+  }
+  const currentModule = before.modules.find((module) => module.id === moduleId);
+  if (!currentModule) {
+    throw new Error("El módulo no existe.");
+  }
+
+  const saved = deleteCourseModuleMock(courseId, moduleId);
+  if (!saved) {
+    throw new Error("El curso no existe.");
+  }
+
+  await recordCourseAudit(
+    "course_module",
+    currentModule.id,
+    courseId,
+    "ARCHIVED",
+    "module",
+    currentModule,
+    null,
+    auditMeta,
+    "Módulo",
+    before.title,
+  );
+  return saved;
+}
+
+export async function createCourseLesson(
+  courseId: string,
+  moduleId: string,
+  input: Partial<CourseLesson>,
+  auditMeta: AdminAuditMeta,
+): Promise<Course> {
+  const before = getAdminCourseByIdMock(courseId);
+  if (!before) {
+    throw new Error("El curso no existe.");
+  }
+  const currentModule = before.modules.find((module) => module.id === moduleId);
+  if (!currentModule) {
+    throw new Error("El módulo no existe.");
+  }
+
+  const saved = upsertCourseLessonMock(courseId, moduleId, null, input);
+  if (!saved) {
+    throw new Error("El curso no existe.");
+  }
+
+  const createdLesson =
+    saved.modules
+      .find((module) => module.id === moduleId)
+      ?.lessons.find(
+        (lesson) =>
+          !currentModule.lessons.some((previous) => previous.id === lesson.id),
+      ) ??
+    saved.modules.find((module) => module.id === moduleId)?.lessons.at(-1) ??
+    null;
+
+  await recordCourseAudit(
+    "course_lesson",
+    createdLesson?.id ?? courseId,
+    courseId,
+    "CREATED",
+    "lesson",
+    null,
+    createdLesson ?? input,
+    auditMeta,
+    "Lección",
+    before.title,
+  );
+  return saved;
+}
+
+export async function updateCourseLesson(
+  courseId: string,
+  moduleId: string,
+  lessonId: string,
+  input: Partial<CourseLesson>,
+  auditMeta: AdminAuditMeta,
+): Promise<Course> {
+  const before = getAdminCourseByIdMock(courseId);
+  if (!before) {
+    throw new Error("El curso no existe.");
+  }
+  const currentLesson = before.modules
+    .find((module) => module.id === moduleId)
+    ?.lessons.find((lesson) => lesson.id === lessonId);
+  if (!currentLesson) {
+    throw new Error("La lección no existe.");
+  }
+
+  const saved = upsertCourseLessonMock(courseId, moduleId, lessonId, input);
+  if (!saved) {
+    throw new Error("El curso no existe.");
+  }
+
+  const updatedLesson =
+    saved.modules
+      .find((module) => module.id === moduleId)
+      ?.lessons.find((lesson) => lesson.id === currentLesson.id) ?? input;
+
+  await recordCourseAudit(
+    "course_lesson",
+    currentLesson.id,
+    courseId,
+    "UPDATED",
+    "lesson",
+    currentLesson,
+    updatedLesson,
+    auditMeta,
+    "Lección",
+    before.title,
+  );
+  return saved;
+}
+
+export async function deleteCourseLesson(
+  courseId: string,
+  moduleId: string,
+  lessonId: string,
+  auditMeta: AdminAuditMeta,
+): Promise<Course> {
+  const before = getAdminCourseByIdMock(courseId);
+  if (!before) {
+    throw new Error("El curso no existe.");
+  }
+  const currentLesson = before.modules
+    .find((module) => module.id === moduleId)
+    ?.lessons.find((lesson) => lesson.id === lessonId);
+  if (!currentLesson) {
+    throw new Error("La lección no existe.");
+  }
+
+  const saved = deleteCourseLessonMock(courseId, moduleId, lessonId);
+  if (!saved) {
+    throw new Error("El curso no existe.");
+  }
+
+  await recordCourseAudit(
+    "course_lesson",
+    currentLesson.id,
+    courseId,
+    "ARCHIVED",
+    "lesson",
+    currentLesson,
+    null,
+    auditMeta,
+    "Lección",
+    before.title,
+  );
+  return saved;
+}
+
+export function listCourseResources(courseId?: string): CourseResourceRecord[] {
+  return mockCourseResourceStore
+    .filter((resource) => (courseId ? resource.courseId === courseId : true))
+    .slice()
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+}
+
+export async function upsertCourseResource(
+  courseId: string,
+  input: Partial<CourseResourceRecord>,
+  auditMeta: AdminAuditMeta,
+): Promise<CourseResourceRecord> {
+  const course = getAdminCourseByIdMock(courseId);
+  const record: CourseResourceRecord = {
+    id: input.id?.trim() || `resource-${randomUUID()}`,
+    courseId,
+    moduleId: input.moduleId?.trim() || null,
+    lessonId: input.lessonId?.trim() || null,
+    title: input.title?.trim() || "Recurso",
+    kind: input.kind?.trim() || "link",
+    description: input.description?.trim() || "",
+    url: input.url?.trim() || "",
+    status: input.status ?? "draft",
+    isActive: input.isActive ?? true,
+    createdAt: input.createdAt ?? new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  const existingIndex = mockCourseResourceStore.findIndex((item) => item.id === record.id);
+  const previousRecord = existingIndex >= 0 ? mockCourseResourceStore[existingIndex] : null;
+  if (existingIndex >= 0) {
+    mockCourseResourceStore[existingIndex] = record;
+  } else {
+    mockCourseResourceStore.unshift(record);
+  }
+
+  await recordCourseAudit(
+    "course_resource",
+    courseId,
+    courseId,
+    existingIndex >= 0 ? "UPDATED" : "CREATED",
+    "resource",
+    previousRecord,
+    record,
+    auditMeta,
+    "Recurso",
+    course?.title ?? null,
+  );
+  return record;
+}
+
+export async function deleteCourseResource(
+  courseId: string,
+  resourceId: string,
+  auditMeta: AdminAuditMeta,
+): Promise<void> {
+  const course = getAdminCourseByIdMock(courseId);
+  const index = mockCourseResourceStore.findIndex((item) => item.id === resourceId);
+  if (index < 0) {
+    throw new Error("El recurso no existe.");
+  }
+
+  const [removed] = mockCourseResourceStore.splice(index, 1);
+  await recordCourseAudit(
+    "course_resource",
+    removed.id,
+    courseId,
+    "ARCHIVED",
+    "resource",
+    removed,
+    null,
+    auditMeta,
+    "Recurso",
+    course?.title ?? null,
+  );
+}
+
+export async function listLibraryPdfs(): Promise<LibraryPdfRecord[]> {
+  if (isDatabaseConfigured()) {
+    return listLibraryPdfsDatabase();
+  }
+
+  return mockLibraryPdfStore
+    .slice()
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+}
+
+export async function getLibraryPdfById(pdfId: string): Promise<LibraryPdfRecord | null> {
+  const normalizedId = pdfId.trim();
+  if (!normalizedId) {
+    return null;
+  }
+
+  if (isDatabaseConfigured()) {
+    return getLibraryPdfDatabase(normalizedId);
+  }
+
+  return (
+    mockLibraryPdfStore.find((item) => item.id === normalizedId) ?? null
+  );
+}
+
+export async function upsertLibraryPdf(
+  input: Partial<LibraryPdfRecord>,
+  auditMeta: AdminAuditMeta,
+): Promise<LibraryPdfRecord> {
+  if (isDatabaseConfigured()) {
+    return upsertLibraryPdfDatabase(input, auditMeta);
+  }
+
+  const course = input.courseId ? getAdminCourseByIdMock(input.courseId) : null;
+  const record: LibraryPdfRecord = {
+    id: input.id?.trim() || `pdf-${randomUUID()}`,
+    title: input.title?.trim() || "PDF",
+    description: input.description?.trim() || "",
+    fileUrl: input.fileUrl?.trim() || "",
+    courseId: input.courseId?.trim() || null,
+    moduleId: input.moduleId?.trim() || null,
+    lessonId: input.lessonId?.trim() || null,
+    category: input.category?.trim() || "General",
+    pageCount: Number.isFinite(input.pageCount) ? Number(input.pageCount) : 0,
+    status: input.status ?? "draft",
+    isActive: input.isActive ?? true,
+    createdAt: input.createdAt ?? new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  const existingIndex = mockLibraryPdfStore.findIndex((item) => item.id === record.id);
+  const previousRecord = existingIndex >= 0 ? mockLibraryPdfStore[existingIndex] : null;
+  if (existingIndex >= 0) {
+    mockLibraryPdfStore[existingIndex] = record;
+  } else {
+    mockLibraryPdfStore.unshift(record);
+  }
+
+  await recordCourseAudit(
+    "library_pdf",
+    record.id,
+    record.courseId ?? record.id,
+    existingIndex >= 0 ? "UPDATED" : "CREATED",
+    "library_pdf",
+    previousRecord,
+    record,
+    auditMeta,
+    "PDF",
+    course?.title ?? null,
+  );
+  return record;
+}
+
+export async function deleteLibraryPdf(
+  pdfId: string,
+  auditMeta: AdminAuditMeta,
+): Promise<void> {
+  if (isDatabaseConfigured()) {
+    await deleteLibraryPdfDatabase(pdfId, auditMeta);
+    return;
+  }
+
+  const index = mockLibraryPdfStore.findIndex((item) => item.id === pdfId);
+  if (index < 0) {
+    throw new Error("El PDF no existe.");
+  }
+
+  const [removed] = mockLibraryPdfStore.splice(index, 1);
+  const course = removed.courseId ? getAdminCourseByIdMock(removed.courseId) : null;
+  await recordCourseAudit(
+    "library_pdf",
+    removed.id,
+    removed.courseId ?? removed.id,
+    "ARCHIVED",
+    "library_pdf",
+    removed,
+    null,
+    auditMeta,
+    "PDF",
+    course?.title ?? null,
+  );
+}
+
+async function listLibraryPdfsDatabase(): Promise<LibraryPdfRecord[]> {
+  const result = await query<LibraryPdfRow>(
+    `
+      select
+        pdf_id,
+        title,
+        description,
+        file_url,
+        course_id,
+        module_id,
+        lesson_id,
+        category,
+        page_count,
+        status,
+        is_active,
+        created_at,
+        updated_at
+      from library_pdfs
+      order by updated_at desc
+    `,
+  );
+
+  return result.rows.map(mapLibraryPdfRow);
+}
+
+async function getLibraryPdfDatabase(pdfId: string): Promise<LibraryPdfRecord | null> {
+  const normalizedId = pdfId.trim();
+  if (!normalizedId) {
+    return null;
+  }
+
+  const result = await query<LibraryPdfRow>(
+    `
+      select
+        pdf_id,
+        title,
+        description,
+        file_url,
+        course_id,
+        module_id,
+        lesson_id,
+        category,
+        page_count,
+        status,
+        is_active,
+        created_at,
+        updated_at
+      from library_pdfs
+      where pdf_id = $1
+      limit 1
+    `,
+    [normalizedId],
+  );
+
+  return result.rows[0] ? mapLibraryPdfRow(result.rows[0]) : null;
+}
+
+async function upsertLibraryPdfDatabase(
+  input: Partial<LibraryPdfRecord>,
+  auditMeta: AdminAuditMeta,
+): Promise<LibraryPdfRecord> {
+  const normalizedId = input.id?.trim() || `pdf-${randomUUID()}`;
+  const previous = await getLibraryPdfDatabase(normalizedId);
+  const record: LibraryPdfRecord = {
+    id: normalizedId,
+    title: input.title?.trim() || "PDF",
+    description: input.description?.trim() || "",
+    fileUrl: input.fileUrl?.trim() || "",
+    courseId: input.courseId?.trim() || null,
+    moduleId: input.moduleId?.trim() || null,
+    lessonId: input.lessonId?.trim() || null,
+    category: input.category?.trim() || "General",
+    pageCount: Number.isFinite(input.pageCount) ? Number(input.pageCount) : 0,
+    status: input.status ?? "draft",
+    isActive: input.isActive ?? true,
+    createdAt: previous?.createdAt ?? input.createdAt ?? new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  const result = await query<LibraryPdfRow>(
+    `
+      insert into library_pdfs (
+        pdf_id,
+        title,
+        description,
+        file_url,
+        course_id,
+        module_id,
+        lesson_id,
+        category,
+        page_count,
+        status,
+        is_active,
+        created_at,
+        updated_at
+      ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      on conflict (pdf_id) do update set
+        title = excluded.title,
+        description = excluded.description,
+        file_url = excluded.file_url,
+        course_id = excluded.course_id,
+        module_id = excluded.module_id,
+        lesson_id = excluded.lesson_id,
+        category = excluded.category,
+        page_count = excluded.page_count,
+        status = excluded.status,
+        is_active = excluded.is_active,
+        updated_at = excluded.updated_at
+      returning
+        pdf_id,
+        title,
+        description,
+        file_url,
+        course_id,
+        module_id,
+        lesson_id,
+        category,
+        page_count,
+        status,
+        is_active,
+        created_at,
+        updated_at
+    `,
+    [
+      record.id,
+      record.title,
+      record.description,
+      record.fileUrl,
+      record.courseId,
+      record.moduleId,
+      record.lessonId,
+      record.category,
+      record.pageCount,
+      record.status,
+      record.isActive,
+      record.createdAt,
+      record.updatedAt,
+    ],
+  );
+
+  const saved = mapLibraryPdfRow(result.rows[0]);
+  const course = saved.courseId ? getAdminCourseByIdMock(saved.courseId) : null;
+  const action = previous ? "UPDATED" : "CREATED";
+  await recordCourseAudit(
+    "library_pdf",
+    saved.id,
+    saved.courseId ?? saved.id,
+    action,
+    previous ? "updated" : "created",
+    previous,
+    saved,
+    auditMeta,
+    "PDF",
+    course?.title ?? null,
+  );
+  return saved;
+}
+
+async function deleteLibraryPdfDatabase(
+  pdfId: string,
+  auditMeta: AdminAuditMeta,
+): Promise<void> {
+  const previous = await getLibraryPdfDatabase(pdfId);
+  if (!previous) {
+    throw new Error("El PDF no existe.");
+  }
+
+  await query(
+    `
+      update library_pdfs
+      set status = 'archived',
+          is_active = false,
+          updated_at = now()
+      where pdf_id = $1
+    `,
+    [previous.id],
+  );
+
+  const course = previous.courseId ? getAdminCourseByIdMock(previous.courseId) : null;
+  await recordCourseAudit(
+    "library_pdf",
+    previous.id,
+    previous.courseId ?? previous.id,
+    "ARCHIVED",
+    "status",
+    previous.status ?? "draft",
+    "archived",
+    auditMeta,
+    "PDF",
+    course?.title ?? null,
+  );
 }
 
 export async function getHomePayload(userId?: string): Promise<HomePayload> {

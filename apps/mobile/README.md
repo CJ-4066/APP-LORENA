@@ -6,6 +6,9 @@ A new Flutter project.
 
 This project is a starting point for a Flutter application.
 
+En builds de produccion, la app usa por defecto `https://lorenaciente.com` como API.
+Para desarrollo local puedes sobrescribirlo con `--dart-define=API_BASE_URL=...`.
+
 A few resources to get you started if this is your first Flutter project:
 
 - [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)

@@ -84,6 +84,31 @@ export interface UserProfile {
   preferences: UserPreferences;
 }
 
+export interface AdminManagedUserRecord {
+  id: string;
+  fullName: string;
+  email: string;
+  phoneNumber: string;
+  planId: string;
+  profileCompleted: boolean;
+  createdAt: string;
+  roles: Array<"admin" | "specialist">;
+  accountType: AccountType;
+  access: string[];
+}
+
+export interface AdminManagedUserInput {
+  firstName?: string;
+  lastName?: string;
+  nickname?: string;
+  email?: string;
+  phoneNumber?: string;
+  planId?: string;
+  accountType?: AccountType;
+  roles?: Array<"admin" | "specialist">;
+  profileCompleted?: boolean;
+}
+
 export interface DailyCard {
   title: string;
   cardName: string;
@@ -116,14 +141,18 @@ export interface ServiceOffer {
   deliveryModes: SessionMode[];
   premiumIncluded: boolean;
   specialistIds: string[];
+  isActive: boolean;
+  isVisible: boolean;
 }
 
 export interface Specialist {
   id: string;
   name: string;
+  publicName?: string;
   headline: string;
   specialties: string[];
   bio: string;
+  avatarUrl?: string;
   yearsExperience: number;
   sessionModes: SessionMode[];
   languages: string[];
@@ -131,6 +160,8 @@ export interface Specialist {
   reviewCount: number;
   featured: boolean;
   nextAvailableAt: string;
+  isActive: boolean;
+  isPublic: boolean;
 }
 
 export interface CourseLesson {
@@ -139,6 +170,11 @@ export interface CourseLesson {
   format: string;
   durationMinutes: number;
   prompt: string;
+  content?: string;
+  resourceUrl?: string;
+  order?: number;
+  status?: "draft" | "published" | "archived";
+  isActive?: boolean;
 }
 
 export interface CourseModule {
@@ -147,6 +183,9 @@ export interface CourseModule {
   summary: string;
   durationMinutes: number;
   lessons: CourseLesson[];
+  order?: number;
+  status?: "draft" | "published" | "archived";
+  isActive?: boolean;
 }
 
 export interface Course {
@@ -167,6 +206,10 @@ export interface Course {
   description: string;
   outcomes: string[];
   modules: CourseModule[];
+  coverImageUrl?: string;
+  status?: "draft" | "published" | "archived";
+  isActive?: boolean;
+  updatedAt?: string;
 }
 
 export interface Booking {
@@ -208,6 +251,8 @@ export interface ShopProduct {
   stockQuantity: number;
   madeToOrder: boolean;
   tags: string[];
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface CreateShopProductInput {
@@ -434,8 +479,36 @@ export interface CompletePhoneProfileInput {
 }
 
 export interface UpdateServiceOfferInput {
+  name?: string;
+  category?: string;
+  description?: string;
   price?: Partial<Money>;
   durationMinutes?: number;
+  isActive?: boolean;
+  isVisible?: boolean;
+}
+
+export interface CreateServiceOfferInput {
+  name?: string;
+  category?: string;
+  description?: string;
+  price?: Partial<Money>;
+  durationMinutes?: number;
+  deliveryModes?: SessionMode[];
+  premiumIncluded?: boolean;
+  specialistIds?: string[];
+  isActive?: boolean;
+  isVisible?: boolean;
+}
+
+export interface UpdateSpecialistAdminInput {
+  isActive?: boolean;
+  isPublic?: boolean;
+  publicName?: string;
+  headline?: string;
+  specialty?: string;
+  bio?: string;
+  avatarUrl?: string;
 }
 
 export interface PhoneAuthSessionPayload {
@@ -526,6 +599,8 @@ const services: ServiceOffer[] = [
     deliveryModes: ["chat", "video"],
     premiumIncluded: false,
     specialistIds: ["spec-amaya", "spec-lorena"],
+    isActive: true,
+    isVisible: true,
   },
   {
     id: "service-tarot-love",
@@ -538,6 +613,8 @@ const services: ServiceOffer[] = [
     deliveryModes: ["chat", "video"],
     premiumIncluded: false,
     specialistIds: ["spec-amaya", "spec-lucia"],
+    isActive: true,
+    isVisible: true,
   },
   {
     id: "service-tarot-cycle",
@@ -550,6 +627,8 @@ const services: ServiceOffer[] = [
     deliveryModes: ["audio", "video"],
     premiumIncluded: false,
     specialistIds: ["spec-lucia"],
+    isActive: true,
+    isVisible: true,
   },
   {
     id: "service-astro",
@@ -562,6 +641,8 @@ const services: ServiceOffer[] = [
     deliveryModes: ["audio", "video"],
     premiumIncluded: false,
     specialistIds: ["spec-elian"],
+    isActive: true,
+    isVisible: true,
   },
   {
     id: "service-numerologia",
@@ -574,6 +655,8 @@ const services: ServiceOffer[] = [
     deliveryModes: ["chat", "audio"],
     premiumIncluded: false,
     specialistIds: ["spec-mila", "spec-lorena"],
+    isActive: true,
+    isVisible: true,
   },
   {
     id: "service-numerologia-mapa",
@@ -586,6 +669,8 @@ const services: ServiceOffer[] = [
     deliveryModes: ["audio", "video"],
     premiumIncluded: false,
     specialistIds: ["spec-mila", "spec-noa"],
+    isActive: true,
+    isVisible: true,
   },
   {
     id: "service-numerologia-year",
@@ -598,6 +683,8 @@ const services: ServiceOffer[] = [
     deliveryModes: ["chat", "audio"],
     premiumIncluded: false,
     specialistIds: ["spec-mila", "spec-noa"],
+    isActive: true,
+    isVisible: true,
   },
   {
     id: "service-numerologia-compat",
@@ -610,6 +697,8 @@ const services: ServiceOffer[] = [
     deliveryModes: ["audio", "video"],
     premiumIncluded: false,
     specialistIds: ["spec-noa"],
+    isActive: true,
+    isVisible: true,
   },
   {
     id: "service-campus",
@@ -622,6 +711,8 @@ const services: ServiceOffer[] = [
     deliveryModes: ["chat"],
     premiumIncluded: true,
     specialistIds: [],
+    isActive: true,
+    isVisible: true,
   },
 ];
 
@@ -639,6 +730,8 @@ const specialists: Specialist[] = [
     reviewCount: 128,
     featured: true,
     nextAvailableAt: "2026-03-24T19:00:00-03:00",
+    isActive: true,
+    isPublic: true,
   },
   {
     id: "spec-elian",
@@ -653,6 +746,8 @@ const specialists: Specialist[] = [
     reviewCount: 96,
     featured: true,
     nextAvailableAt: "2026-03-28T18:30:00-03:00",
+    isActive: true,
+    isPublic: true,
   },
   {
     id: "spec-lucia",
@@ -667,6 +762,8 @@ const specialists: Specialist[] = [
     reviewCount: 84,
     featured: true,
     nextAvailableAt: "2026-03-25T20:00:00-03:00",
+    isActive: true,
+    isPublic: true,
   },
   {
     id: "spec-lorena",
@@ -681,6 +778,8 @@ const specialists: Specialist[] = [
     reviewCount: 74,
     featured: true,
     nextAvailableAt: "2026-03-29T18:00:00-03:00",
+    isActive: true,
+    isPublic: true,
   },
   {
     id: "spec-mila",
@@ -695,6 +794,8 @@ const specialists: Specialist[] = [
     reviewCount: 61,
     featured: false,
     nextAvailableAt: "2026-03-26T17:00:00-03:00",
+    isActive: true,
+    isPublic: true,
   },
   {
     id: "spec-noa",
@@ -713,10 +814,16 @@ const specialists: Specialist[] = [
     reviewCount: 47,
     featured: true,
     nextAvailableAt: "2026-03-27T18:00:00-03:00",
+    isActive: true,
+    isPublic: true,
   },
 ];
 
-const courses: Course[] = [
+const courseDraftStatus = "draft" as const;
+const coursePublishedStatus = "published" as const;
+const courseArchivedStatus = "archived" as const;
+
+let courses: Course[] = [
   {
     id: "course-tarot-sin-ruido",
     title: "Tarot sin ruido",
@@ -746,6 +853,9 @@ const courses: Course[] = [
         summary:
           "Cómo entrar al tarot sin ansiedad por acertar y sin buscar respuestas literales.",
         durationMinutes: 48,
+        order: 1,
+        status: "published",
+        isActive: true,
         lessons: [
           {
             id: "course-tarot-sin-ruido-m1-l1",
@@ -754,6 +864,9 @@ const courses: Course[] = [
             durationMinutes: 11,
             prompt:
               "Reescribe una pregunta cerrada como una pregunta de claridad.",
+            order: 1,
+            status: "published",
+            isActive: true,
           },
           {
             id: "course-tarot-sin-ruido-m1-l2",
@@ -762,6 +875,9 @@ const courses: Course[] = [
             durationMinutes: 9,
             prompt:
               "Detecta si estás entrando desde ansiedad, curiosidad o decisión.",
+            order: 2,
+            status: "published",
+            isActive: true,
           },
           {
             id: "course-tarot-sin-ruido-m1-l3",
@@ -770,6 +886,9 @@ const courses: Course[] = [
             durationMinutes: 28,
             prompt:
               "Haz una lectura de una sola carta y anota tres reflejos del momento.",
+            order: 3,
+            status: "published",
+            isActive: true,
           },
         ],
       },
@@ -779,6 +898,9 @@ const courses: Course[] = [
         summary:
           "Aprende a distinguir energía de fondo, advertencia y oportunidad.",
         durationMinutes: 56,
+        order: 2,
+        status: "published",
+        isActive: true,
         lessons: [
           {
             id: "course-tarot-sin-ruido-m2-l1",
@@ -787,6 +909,9 @@ const courses: Course[] = [
             durationMinutes: 14,
             prompt:
               "Ubica en qué área de tu vida ya se siente un cambio de etapa.",
+            order: 1,
+            status: "published",
+            isActive: true,
           },
           {
             id: "course-tarot-sin-ruido-m2-l2",
@@ -795,6 +920,9 @@ const courses: Course[] = [
             durationMinutes: 16,
             prompt:
               "Relaciona palo, número y contexto actual sin memorizar recetas.",
+            order: 2,
+            status: "published",
+            isActive: true,
           },
           {
             id: "course-tarot-sin-ruido-m2-l3",
@@ -803,6 +931,9 @@ const courses: Course[] = [
             durationMinutes: 26,
             prompt:
               "Resume una tirada en una frase de acción para las próximas 48 horas.",
+            order: 3,
+            status: "published",
+            isActive: true,
           },
         ],
       },
@@ -812,6 +943,9 @@ const courses: Course[] = [
         summary:
           "Una estructura simple de tres cartas para decisiones afectivas, laborales o creativas.",
         durationMinutes: 62,
+        order: 3,
+        status: "published",
+        isActive: true,
         lessons: [
           {
             id: "course-tarot-sin-ruido-m3-l1",
@@ -820,6 +954,9 @@ const courses: Course[] = [
             durationMinutes: 10,
             prompt:
               "Define que necesitas entender hoy y que no necesitas controlar.",
+            order: 1,
+            status: "published",
+            isActive: true,
           },
           {
             id: "course-tarot-sin-ruido-m3-l2",
@@ -828,6 +965,9 @@ const courses: Course[] = [
             durationMinutes: 18,
             prompt:
               "Aplica la estructura completa con un asunto real de tu semana.",
+            order: 2,
+            status: "published",
+            isActive: true,
           },
           {
             id: "course-tarot-sin-ruido-m3-l3",
@@ -835,6 +975,9 @@ const courses: Course[] = [
             format: "práctica",
             durationMinutes: 34,
             prompt: "Convierte el mensaje final en una decisión verificable.",
+            order: 3,
+            status: "published",
+            isActive: true,
           },
         ],
       },
@@ -844,6 +987,9 @@ const courses: Course[] = [
         summary:
           "Salir de la lectura con dirección, no con dependencia del mazo.",
         durationMinutes: 44,
+        order: 4,
+        status: "published",
+        isActive: true,
         lessons: [
           {
             id: "course-tarot-sin-ruido-m4-l1",
@@ -851,6 +997,9 @@ const courses: Course[] = [
             format: "audio",
             durationMinutes: 8,
             prompt: "Cierra energía y registra la acción elegida.",
+            order: 1,
+            status: "published",
+            isActive: true,
           },
           {
             id: "course-tarot-sin-ruido-m4-l2",
@@ -859,6 +1008,9 @@ const courses: Course[] = [
             durationMinutes: 12,
             prompt:
               "Crea una bitácora con fecha, símbolos, acción y resultado.",
+            order: 2,
+            status: "published",
+            isActive: true,
           },
           {
             id: "course-tarot-sin-ruido-m4-l3",
@@ -867,6 +1019,9 @@ const courses: Course[] = [
             durationMinutes: 24,
             prompt:
               "Sostiene siete días de lectura corta sin repetir la misma pregunta.",
+            order: 3,
+            status: "published",
+            isActive: true,
           },
         ],
       },
@@ -901,6 +1056,9 @@ const courses: Course[] = [
         summary:
           "Junta Sol, Luna, Ascendente y sendero de vida para encontrar el patrón de fondo.",
         durationMinutes: 58,
+        order: 1,
+        status: "published",
+        isActive: true,
         lessons: [
           {
             id: "course-arquitectura-del-destino-m1-l1",
@@ -909,6 +1067,9 @@ const courses: Course[] = [
             durationMinutes: 18,
             prompt:
               "Describe tu energía base, necesidad emocional y forma de entrar al mundo.",
+            order: 1,
+            status: "published",
+            isActive: true,
           },
           {
             id: "course-arquitectura-del-destino-m1-l2",
@@ -917,6 +1078,9 @@ const courses: Course[] = [
             durationMinutes: 12,
             prompt:
               "Relaciona tu número central con decisiones repetidas en tu historia.",
+            order: 2,
+            status: "published",
+            isActive: true,
           },
           {
             id: "course-arquitectura-del-destino-m1-l3",
@@ -924,6 +1088,9 @@ const courses: Course[] = [
             format: "práctica",
             durationMinutes: 28,
             prompt: "Redacta una frase directriz para tu año actual.",
+            order: 3,
+            status: "published",
+            isActive: true,
           },
         ],
       },
@@ -933,6 +1100,9 @@ const courses: Course[] = [
         summary:
           "Cruza timing numerológico con el cielo para detectar presión, expansión y limpieza.",
         durationMinutes: 64,
+        order: 2,
+        status: "published",
+        isActive: true,
         lessons: [
           {
             id: "course-arquitectura-del-destino-m2-l1",
@@ -941,6 +1111,9 @@ const courses: Course[] = [
             durationMinutes: 16,
             prompt:
               "Identifica el verbo central del año: sembrar, ordenar, exponer o cerrar.",
+            order: 1,
+            status: "published",
+            isActive: true,
           },
           {
             id: "course-arquitectura-del-destino-m2-l2",
@@ -949,6 +1122,9 @@ const courses: Course[] = [
             durationMinutes: 14,
             prompt:
               "Anota qué áreas se mueven cuando el cielo acelera tu mapa natal.",
+            order: 2,
+            status: "published",
+            isActive: true,
           },
           {
             id: "course-arquitectura-del-destino-m2-l3",
@@ -957,6 +1133,9 @@ const courses: Course[] = [
             durationMinutes: 34,
             prompt:
               "Marca tus próximas tres ventanas de acción y una ventana de pausa.",
+            order: 3,
+            status: "published",
+            isActive: true,
           },
         ],
       },
@@ -966,6 +1145,9 @@ const courses: Course[] = [
         summary:
           "Cómo ordenar foco profesional, energía y recursos sin sobrecargarte.",
         durationMinutes: 52,
+        order: 3,
+        status: "published",
+        isActive: true,
         lessons: [
           {
             id: "course-arquitectura-del-destino-m3-l1",
@@ -974,6 +1156,9 @@ const courses: Course[] = [
             durationMinutes: 17,
             prompt:
               "Detecta dónde tu talento pide más visibilidad o más sistema.",
+            order: 1,
+            status: "published",
+            isActive: true,
           },
           {
             id: "course-arquitectura-del-destino-m3-l2",
@@ -982,6 +1167,9 @@ const courses: Course[] = [
             durationMinutes: 35,
             prompt:
               "Convierte tu lectura en tres decisiones concretas para ingresos y foco.",
+            order: 2,
+            status: "published",
+            isActive: true,
           },
         ],
       },
@@ -991,6 +1179,9 @@ const courses: Course[] = [
         summary:
           "Relaciona necesidades emocionales, compatibilidades y límites sanos.",
         durationMinutes: 49,
+        order: 4,
+        status: "published",
+        isActive: true,
         lessons: [
           {
             id: "course-arquitectura-del-destino-m4-l1",
@@ -999,6 +1190,9 @@ const courses: Course[] = [
             durationMinutes: 15,
             prompt:
               "Observa qué patrón repites cuando buscas seguridad o cercanía.",
+            order: 1,
+            status: "published",
+            isActive: true,
           },
           {
             id: "course-arquitectura-del-destino-m4-l2",
@@ -1007,6 +1201,9 @@ const courses: Course[] = [
             durationMinutes: 14,
             prompt:
               "Distingue cuándo empujar y cuándo cuidar energía afectiva.",
+            order: 2,
+            status: "published",
+            isActive: true,
           },
           {
             id: "course-arquitectura-del-destino-m4-l3",
@@ -1015,6 +1212,9 @@ const courses: Course[] = [
             durationMinutes: 20,
             prompt:
               "Programa una conversación necesaria en una ventana favorable.",
+            order: 3,
+            status: "published",
+            isActive: true,
           },
         ],
       },
@@ -1024,6 +1224,9 @@ const courses: Course[] = [
         summary:
           "Arma un tablero liviano para sostener el aprendizaje sin perderte en teoria.",
         durationMinutes: 41,
+        order: 5,
+        status: "published",
+        isActive: true,
         lessons: [
           {
             id: "course-arquitectura-del-destino-m5-l1",
@@ -1031,6 +1234,9 @@ const courses: Course[] = [
             format: "práctica",
             durationMinutes: 21,
             prompt: "Resume prioridades, riesgos y rituales de mantenimiento.",
+            order: 1,
+            status: "published",
+            isActive: true,
           },
           {
             id: "course-arquitectura-del-destino-m5-l2",
@@ -1039,12 +1245,96 @@ const courses: Course[] = [
             durationMinutes: 20,
             prompt:
               "Define un sistema semanal para revisar tu mapa sin obsesionarte.",
+            order: 2,
+            status: "published",
+            isActive: true,
           },
         ],
       },
     ],
+    status: "published",
+    isActive: true,
   },
 ];
+
+function cloneCourse(value: Course): Course {
+  return JSON.parse(JSON.stringify(value)) as Course;
+}
+
+function normalizeCourseStatus(value?: string): "draft" | "published" | "archived" {
+  if (value === "draft" || value === "published" || value === "archived") {
+    return value;
+  }
+
+  return coursePublishedStatus;
+}
+
+function normalizeCourseTree(course: Course): Course {
+  const normalized = cloneCourse(course);
+  normalized.status = normalizeCourseStatus(normalized.status);
+  normalized.isActive = normalized.isActive ?? normalized.status !== courseArchivedStatus;
+  normalized.modules = [...normalized.modules]
+    .map((module, moduleIndex) => ({
+      ...module,
+      order: module.order ?? moduleIndex + 1,
+      status: normalizeCourseStatus(module.status),
+      isActive: module.isActive ?? module.status !== courseArchivedStatus,
+      lessons: [...module.lessons]
+        .map((lesson, lessonIndex) => ({
+          ...lesson,
+          order: lesson.order ?? lessonIndex + 1,
+          status: normalizeCourseStatus(lesson.status),
+          isActive: lesson.isActive ?? lesson.status !== courseArchivedStatus,
+        }))
+        .sort((left, right) => (left.order ?? 0) - (right.order ?? 0)),
+    }))
+    .sort((left, right) => (left.order ?? 0) - (right.order ?? 0));
+  normalized.moduleCount = normalized.modules.length;
+  normalized.lessonCount = normalized.modules.reduce(
+    (total, module) => total + module.lessons.length,
+    0,
+  );
+  return normalized;
+}
+
+function filterPublishedCourseTree(course: Course): Course {
+  const normalized = normalizeCourseTree(course);
+  return {
+    ...normalized,
+    modules: normalized.modules
+      .filter((module) => normalizeCourseStatus(module.status) === coursePublishedStatus)
+      .map((module) => ({
+        ...module,
+        lessons: module.lessons.filter(
+          (lesson) => normalizeCourseStatus(lesson.status) === coursePublishedStatus,
+        ),
+      })),
+  };
+}
+
+function isCourseVisible(course: Course): boolean {
+  return normalizeCourseStatus(course.status) !== courseArchivedStatus;
+}
+
+function isCoursePublished(course: Course): boolean {
+  return normalizeCourseStatus(course.status) === coursePublishedStatus;
+}
+
+function replaceCourse(courseId: string, updater: (course: Course) => Course | null): Course | null {
+  const index = courses.findIndex((item) => item.id === courseId);
+  if (index < 0) {
+    return null;
+  }
+
+  const next = updater(normalizeCourseTree(courses[index]));
+  if (!next) {
+    courses.splice(index, 1);
+    return null;
+  }
+
+  courses[index] = normalizeCourseTree(next);
+  return cloneCourse(courses[index]);
+}
 
 let currentUser: UserProfile = {
   id: "user-mark",
@@ -1080,6 +1370,12 @@ let currentUser: UserProfile = {
   },
 };
 
+const adminAccessByRole: Record<"admin" | "specialist" | "client", string[]> = {
+  admin: ["Resumen", "Usuarios", "Especialistas", "Servicios", "Agenda", "Tienda", "Cursos", "Biblioteca", "Auditoría"],
+  specialist: ["Especialistas", "Servicios", "Agenda", "Tienda"],
+  client: ["Inicio", "Perfil", "Reservas", "Tienda"],
+};
+
 let bookings: Booking[] = [
   {
     id: "booking-1",
@@ -1110,6 +1406,9 @@ let bookings: Booking[] = [
 ];
 
 const usersById = new Map<string, UserProfile>([[currentUser.id, currentUser]]);
+const userCreatedAtById = new Map<string, string>([
+  [currentUser.id, "2026-03-20T12:00:00.000Z"],
+]);
 const phoneAuthIdentitiesByPhone = new Map<string, PhoneAuthIdentity>([
   [
     "+59891111111",
@@ -1535,6 +1834,11 @@ const demoManagementShopProducts: ShopProduct[] = [
   }),
 ];
 
+function buildShopSeedTimestamp(index: number): string {
+  const base = Date.UTC(2026, 0, 1, 12, 0, 0);
+  return new Date(base + index * 24 * 60 * 60 * 1000).toISOString();
+}
+
 const shopProducts: ShopProduct[] = [
   ...seedShopProducts.map((product, index) => {
     const owner = getShopSeedOwner(product.category, index);
@@ -1558,12 +1862,21 @@ const shopProducts: ShopProduct[] = [
         storeName: buildShopStoreName(owner.name),
         stockQuantity,
         madeToOrder: product.stockLabel === "Hecho a pedido",
+        createdAt: buildShopSeedTimestamp(index),
+        updatedAt: buildShopSeedTimestamp(index),
       },
       owner.id,
       owner.name,
     );
   }),
-  ...demoManagementShopProducts,
+  ...demoManagementShopProducts.map((product, index) => {
+    const timestamp = buildShopSeedTimestamp(seedShopProducts.length + index);
+    return {
+      ...product,
+      createdAt: product.createdAt ?? timestamp,
+      updatedAt: product.updatedAt ?? timestamp,
+    };
+  }),
 ];
 
 function buildShopOrderItem(
@@ -1704,6 +2017,57 @@ function getUserById(userId?: string): UserProfile {
 function setCurrentUser(user: UserProfile) {
   currentUser = user;
   usersById.set(user.id, user);
+}
+
+function normalizeAdminRoles(roles?: Array<"admin" | "specialist">): Array<"admin" | "specialist"> {
+  return Array.from(new Set((roles ?? []).filter(
+    (role): role is "admin" | "specialist" => role === "admin" || role === "specialist",
+  ))).sort((left, right) => left.localeCompare(right));
+}
+
+function buildAdminAccess(accountType: AccountType, roles: Array<"admin" | "specialist">): string[] {
+  const access = new Set<string>(adminAccessByRole[accountType === "specialist" ? "specialist" : "client"]);
+
+  for (const role of roles) {
+    for (const entry of adminAccessByRole[role]) {
+      access.add(entry);
+    }
+  }
+
+  return [...access];
+}
+
+function getUserPhoneNumber(userId: string): string {
+  for (const identity of phoneAuthIdentitiesByPhone.values()) {
+    if (identity.userId === userId) {
+      return identity.phoneNumber;
+    }
+  }
+
+  return "";
+}
+
+function toAdminUserRecord(user: UserProfile): AdminManagedUserRecord {
+  const roles = normalizeAdminRoles(user.roles as Array<"admin" | "specialist"> | undefined);
+  const accountType = user.accountType;
+  const fullName = `${user.firstName} ${user.lastName}`.trim() || user.nickname || user.email || user.id;
+
+  return {
+    id: user.id,
+    fullName,
+    email: user.email,
+    phoneNumber: getUserPhoneNumber(user.id),
+    planId: user.planId,
+    profileCompleted: Boolean(
+      user.firstName.trim() &&
+      user.lastName.trim() &&
+      user.email.trim()
+    ),
+    createdAt: userCreatedAtById.get(user.id) ?? new Date().toISOString(),
+    roles,
+    accountType,
+    access: buildAdminAccess(accountType, roles),
+  };
 }
 
 function getPhoneIdentityByUserId(userId: string): PhoneAuthIdentity | null {
@@ -2014,6 +2378,63 @@ export function getServices(): ServiceOffer[] {
   return services;
 }
 
+export function createServiceOffer(
+  input: CreateServiceOfferInput,
+  specialistId: string,
+): ServiceOffer {
+  const name = input.name?.trim() ?? "";
+  const category = input.category?.trim() ?? "";
+  const description = input.description?.trim() ?? "";
+  const priceAmount = Number(input.price?.amount ?? 0);
+  const durationMinutes = Math.max(1, Math.round(Number(input.durationMinutes ?? 0)));
+  const specialist = specialists.find((item) => item.id === specialistId);
+
+  if (!specialist) {
+    throw new Error("El especialista no existe.");
+  }
+  if (name.length < 3) {
+    throw new Error("Ingresa un nombre válido.");
+  }
+  if (category.length < 3) {
+    throw new Error("Ingresa una categoría válida.");
+  }
+  if (description.length < 6) {
+    throw new Error("Ingresa una descripción válida.");
+  }
+  if (!Number.isFinite(priceAmount) || priceAmount < 0) {
+    throw new Error("Ingresa un precio válido.");
+  }
+  if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) {
+    throw new Error("Ingresa una duración válida.");
+  }
+
+  const service: ServiceOffer = {
+    id: `service-${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${randomUUID().slice(0, 8)}`,
+    name,
+    category,
+    description,
+    durationMinutes,
+    price: {
+      amount: Number(priceAmount.toFixed(2)),
+      currency: input.price?.currency?.trim() || "USD",
+    },
+    deliveryModes:
+      input.deliveryModes && input.deliveryModes.length > 0
+        ? [...input.deliveryModes]
+        : [...specialist.sessionModes],
+    premiumIncluded: Boolean(input.premiumIncluded),
+    specialistIds:
+      input.specialistIds && input.specialistIds.length > 0
+        ? [...new Set(input.specialistIds)]
+        : [specialistId],
+    isActive: input.isActive ?? true,
+    isVisible: input.isVisible ?? true,
+  };
+
+  services.unshift(service);
+  return service;
+}
+
 export function updateServiceOffer(
   serviceId: string,
   input: UpdateServiceOfferInput,
@@ -2036,17 +2457,54 @@ export function updateServiceOffer(
     input.durationMinutes === undefined
       ? existing.durationMinutes
       : Math.max(0, Math.round(Number(input.durationMinutes)));
+  const name = input.name?.trim() || existing.name;
+  const category = input.category?.trim() || existing.category;
+  const description = input.description?.trim() || existing.description;
 
   const updated: ServiceOffer = {
     ...existing,
+    name,
+    category,
+    description,
     durationMinutes,
     price: {
       amount: Number(amount.toFixed(2)),
       currency: input.price?.currency?.trim() || existing.price.currency,
     },
+    isActive: input.isActive ?? existing.isActive,
+    isVisible: input.isVisible ?? existing.isVisible,
   };
 
   services[index] = updated;
+  return updated;
+}
+
+export function updateSpecialistAdmin(
+  specialistId: string,
+  input: UpdateSpecialistAdminInput,
+): Specialist {
+  const index = specialists.findIndex((item) => item.id === specialistId);
+  if (index < 0) {
+    throw new Error("El especialista no existe.");
+  }
+
+  const existing = specialists[index];
+  const specialty = input.specialty?.trim();
+  const updated: Specialist = {
+    ...existing,
+    publicName: input.publicName?.trim() || existing.publicName,
+    headline: input.headline?.trim() || existing.headline,
+    bio: input.bio?.trim() || existing.bio,
+    avatarUrl: input.avatarUrl?.trim() || existing.avatarUrl,
+    specialties:
+      specialty && specialty.length > 0
+        ? specialty.split(",").map((item) => item.trim()).filter(Boolean)
+        : existing.specialties,
+    isActive: input.isActive ?? existing.isActive,
+    isPublic: input.isPublic ?? existing.isPublic,
+  };
+
+  specialists[index] = updated;
   return updated;
 }
 
@@ -2113,7 +2571,272 @@ function resolveManagedSpecialistProfileId(
 }
 
 export function getCourses(): Course[] {
-  return courses;
+  return courses
+    .filter(isCoursePublished)
+    .map((course) => cloneCourse(filterPublishedCourseTree(course)));
+}
+
+export function getAdminCourses(): Course[] {
+  return courses.map((course) => cloneCourse(normalizeCourseTree(course)));
+}
+
+export function getCourseById(courseId: string): Course | null {
+  const course = courses.find((item) => item.id === courseId);
+  if (!course || !isCoursePublished(course)) {
+    return null;
+  }
+
+  return cloneCourse(filterPublishedCourseTree(course));
+}
+
+export function getAdminCourseById(courseId: string): Course | null {
+  const course = courses.find((item) => item.id === courseId);
+  if (!course) {
+    return null;
+  }
+
+  return cloneCourse(normalizeCourseTree(course));
+}
+
+export function upsertCourse(courseId: string | null, input: Partial<Course>): Course {
+  const normalizedInput = normalizeCourseTree({
+    id: courseId ?? input.id ?? `course-${randomUUID()}`,
+    title: input.title?.trim() || "Curso nuevo",
+    subtitle: input.subtitle?.trim() || "Descripción pendiente",
+    category: input.category?.trim() || "General",
+    level: input.level?.trim() || "Inicial",
+    premium: input.premium ?? false,
+    featured: input.featured ?? false,
+    removable: input.removable ?? true,
+    estimatedHours: Number.isFinite(input.estimatedHours) ? Number(input.estimatedHours) : 0,
+    moduleCount: Array.isArray(input.modules) ? input.modules.length : 0,
+    lessonCount: Array.isArray(input.modules)
+      ? input.modules.reduce((total, module) => total + module.lessons.length, 0)
+      : 0,
+    progressPercent: Number.isFinite(input.progressPercent) ? Number(input.progressPercent) : 0,
+    streakDays: Number.isFinite(input.streakDays) ? Number(input.streakDays) : 0,
+    hook: input.hook?.trim() || "Curso administrado desde el panel.",
+    description: input.description?.trim() || "Descripción pendiente.",
+    outcomes: Array.isArray(input.outcomes)
+      ? input.outcomes.filter((item): item is string => typeof item === "string")
+      : [],
+    modules: Array.isArray(input.modules)
+      ? input.modules.map((module, moduleIndex) => ({
+          id: module.id || `module-${randomUUID()}`,
+          title: module.title?.trim() || `Módulo ${moduleIndex + 1}`,
+          summary: module.summary?.trim() || "Resumen pendiente",
+          durationMinutes: Number.isFinite(module.durationMinutes)
+            ? Number(module.durationMinutes)
+            : 0,
+          order: module.order ?? moduleIndex + 1,
+          status: normalizeCourseStatus(module.status),
+          isActive: module.isActive ?? true,
+          lessons: module.lessons.map((lesson, lessonIndex) => ({
+            id: lesson.id || `lesson-${randomUUID()}`,
+            title: lesson.title?.trim() || `Lección ${lessonIndex + 1}`,
+            format: lesson.format?.trim() || "video",
+            durationMinutes: Number.isFinite(lesson.durationMinutes)
+              ? Number(lesson.durationMinutes)
+              : 0,
+            prompt: lesson.prompt?.trim() || "",
+            content: lesson.content?.trim(),
+            resourceUrl: lesson.resourceUrl?.trim(),
+            order: lesson.order ?? lessonIndex + 1,
+            status: normalizeCourseStatus(lesson.status),
+            isActive: lesson.isActive ?? true,
+          })),
+        }))
+      : [],
+    coverImageUrl: input.coverImageUrl?.trim(),
+    status: normalizeCourseStatus(input.status),
+    isActive: input.isActive ?? normalizeCourseStatus(input.status) !== courseArchivedStatus,
+    updatedAt: new Date().toISOString(),
+  } as Course);
+
+  const existingIndex = courses.findIndex((item) => item.id === normalizedInput.id);
+  if (existingIndex >= 0) {
+    courses[existingIndex] = normalizedInput;
+    return cloneCourse(normalizedInput);
+  }
+
+  courses = [normalizedInput, ...courses];
+  return cloneCourse(normalizedInput);
+}
+
+export function updateCourse(courseId: string, input: Partial<Course>): Course | null {
+  return replaceCourse(courseId, (course) =>
+    normalizeCourseTree({
+      ...course,
+      ...input,
+      id: course.id,
+      updatedAt: new Date().toISOString(),
+    }),
+  );
+}
+
+export function archiveCourse(courseId: string): Course | null {
+  return replaceCourse(courseId, (course) =>
+    normalizeCourseTree({
+      ...course,
+      status: courseArchivedStatus,
+      isActive: false,
+      modules: course.modules.map((module) => ({
+        ...module,
+        status: courseArchivedStatus,
+        isActive: false,
+        lessons: module.lessons.map((lesson) => ({
+          ...lesson,
+          status: courseArchivedStatus,
+          isActive: false,
+        })),
+      })),
+      updatedAt: new Date().toISOString(),
+    }),
+  );
+}
+
+export function setCoursePublication(courseId: string, published: boolean): Course | null {
+  return replaceCourse(courseId, (course) =>
+    normalizeCourseTree({
+      ...course,
+      status: published ? coursePublishedStatus : courseDraftStatus,
+      isActive: published,
+      modules: published
+        ? course.modules.map((module) => ({
+            ...module,
+            status: coursePublishedStatus,
+            isActive: module.isActive ?? true,
+            lessons: module.lessons.map((lesson) => ({
+              ...lesson,
+              status: coursePublishedStatus,
+              isActive: lesson.isActive ?? true,
+            })),
+          }))
+        : course.modules,
+      updatedAt: new Date().toISOString(),
+    }),
+  );
+}
+
+export function upsertCourseModule(
+  courseId: string,
+  moduleId: string | null,
+  input: Partial<CourseModule>,
+): Course | null {
+  return replaceCourse(courseId, (course) => {
+    const modules = [...course.modules];
+    const normalizedModule = {
+      id: moduleId ?? input.id ?? `module-${randomUUID()}`,
+      title: input.title?.trim() || "Módulo",
+      summary: input.summary?.trim() || "Resumen pendiente",
+      durationMinutes: Number.isFinite(input.durationMinutes)
+        ? Number(input.durationMinutes)
+        : 0,
+      order: Number.isFinite(input.order) ? Number(input.order) : modules.length + 1,
+      status: normalizeCourseStatus(input.status),
+      isActive: input.isActive ?? normalizeCourseStatus(input.status) !== courseArchivedStatus,
+      lessons: Array.isArray(input.lessons)
+        ? input.lessons.map((lesson, index) => ({
+            id: lesson.id ?? `lesson-${randomUUID()}`,
+            title: lesson.title?.trim() || `Lección ${index + 1}`,
+            format: lesson.format?.trim() || "video",
+            durationMinutes: Number.isFinite(lesson.durationMinutes)
+              ? Number(lesson.durationMinutes)
+              : 0,
+            prompt: lesson.prompt?.trim() || "",
+            content: lesson.content?.trim(),
+            resourceUrl: lesson.resourceUrl?.trim(),
+            order: Number.isFinite(lesson.order) ? Number(lesson.order) : index + 1,
+            status: normalizeCourseStatus(lesson.status),
+            isActive: lesson.isActive ?? true,
+          }))
+        : [],
+    } satisfies CourseModule;
+    const existingIndex = modules.findIndex((item) => item.id === normalizedModule.id);
+    if (existingIndex >= 0) {
+      modules[existingIndex] = normalizedModule;
+    } else {
+      modules.push(normalizedModule);
+    }
+
+    return {
+      ...course,
+      modules: modules.sort((left, right) => (left.order ?? 0) - (right.order ?? 0)),
+      updatedAt: new Date().toISOString(),
+    };
+  });
+}
+
+export function deleteCourseModule(courseId: string, moduleId: string): Course | null {
+  return replaceCourse(courseId, (course) => ({
+    ...course,
+    modules: course.modules.filter((module) => module.id !== moduleId),
+    updatedAt: new Date().toISOString(),
+  }));
+}
+
+export function upsertCourseLesson(
+  courseId: string,
+  moduleId: string,
+  lessonId: string | null,
+  input: Partial<CourseLesson>,
+): Course | null {
+  return replaceCourse(courseId, (course) => {
+    const modules = course.modules.map((module) => {
+      if (module.id !== moduleId) {
+        return module;
+      }
+
+      const lessons = [...module.lessons];
+      const normalizedLesson = {
+        id: lessonId ?? input.id ?? `lesson-${randomUUID()}`,
+        title: input.title?.trim() || "Lección",
+        format: input.format?.trim() || "video",
+        durationMinutes: Number.isFinite(input.durationMinutes)
+          ? Number(input.durationMinutes)
+          : 0,
+        prompt: input.prompt?.trim() || "",
+        content: input.content?.trim(),
+        resourceUrl: input.resourceUrl?.trim(),
+        order: Number.isFinite(input.order) ? Number(input.order) : lessons.length + 1,
+        status: normalizeCourseStatus(input.status),
+        isActive: input.isActive ?? normalizeCourseStatus(input.status) !== courseArchivedStatus,
+      } satisfies CourseLesson;
+
+      const existingIndex = lessons.findIndex((item) => item.id === normalizedLesson.id);
+      if (existingIndex >= 0) {
+        lessons[existingIndex] = normalizedLesson;
+      } else {
+        lessons.push(normalizedLesson);
+      }
+
+      return {
+        ...module,
+        lessons: lessons.sort((left, right) => (left.order ?? 0) - (right.order ?? 0)),
+      };
+    });
+
+    return {
+      ...course,
+      modules,
+      updatedAt: new Date().toISOString(),
+    };
+  });
+}
+
+export function deleteCourseLesson(courseId: string, moduleId: string, lessonId: string): Course | null {
+  return replaceCourse(courseId, (course) => ({
+    ...course,
+    modules: course.modules.map((module) =>
+      module.id === moduleId
+        ? {
+            ...module,
+            lessons: module.lessons.filter((lesson) => lesson.id !== lessonId),
+          }
+        : module,
+    ),
+    updatedAt: new Date().toISOString(),
+  }));
 }
 
 export function getShopOrders(userId?: string): ShopOrder[] {
@@ -2221,6 +2944,8 @@ export function createShopProduct(
       stockQuantity,
       madeToOrder,
       tags: normalizeShopTags(input.tags),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     },
     owner.id,
     owner.name,
@@ -2296,6 +3021,8 @@ export function updateShopProduct(
         input.tags === undefined
           ? existing.tags
           : normalizeShopTags(input.tags),
+      createdAt: existing.createdAt,
+      updatedAt: new Date().toISOString(),
     },
     existing.specialistId,
     existing.specialistName,
@@ -2374,6 +3101,161 @@ export function getBookings(userId?: string): Booking[] {
 
 export function getProfile(userId?: string): UserProfile {
   return getUserById(userId);
+}
+
+export function listAdminUsers(
+  options: { limit?: number; role?: "client" | "admin" | "specialist"; search?: string } = {},
+): AdminManagedUserRecord[] {
+  const safeLimit = Math.max(1, Math.min(options.limit ?? 10, 200));
+  const search = options.search?.trim().toLowerCase() ?? "";
+
+  return [...usersById.values()]
+    .map(toAdminUserRecord)
+    .filter((user) => {
+      const matchesSearch =
+        search.length === 0 ||
+        [user.fullName, user.email, user.phoneNumber, user.planId, user.roles.join(" "), user.accountType]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(search));
+      const normalizedRole =
+        options.role && options.role !== "client" ? options.role : "client";
+      const matchesRole =
+        !options.role
+          ? true
+          : options.role === "client"
+            ? user.roles.length === 0
+            : user.roles.includes(normalizedRole as "admin" | "specialist");
+
+      return matchesSearch && matchesRole;
+    })
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+    .slice(0, safeLimit);
+}
+
+export function createAdminUser(input: AdminManagedUserInput): AdminManagedUserRecord {
+  const firstName = input.firstName?.trim() ?? "";
+  const lastName = input.lastName?.trim() ?? "";
+  const nickname = input.nickname?.trim() ?? "";
+  const email = input.email?.trim().toLowerCase() ?? "";
+  const phoneNumber = input.phoneNumber?.trim() ?? "";
+  const planId = input.planId?.trim() || "free";
+  const accountType = input.accountType ?? "client";
+  const roles = normalizeAdminRoles(input.roles);
+  const id = `user-${randomUUID().slice(0, 8)}`;
+
+  if (firstName.length === 0) {
+    throw new Error("Ingresa un nombre válido.");
+  }
+  if (email.length === 0) {
+    throw new Error("Ingresa un email válido.");
+  }
+  if ([...usersById.values()].some((user) => user.email.trim().toLowerCase() === email)) {
+    throw new Error("Ya existe un usuario con ese email.");
+  }
+  if (phoneNumber.length > 0 && [...phoneAuthIdentitiesByPhone.values()].some((identity) => identity.phoneNumber === phoneNumber)) {
+    throw new Error("Ya existe un usuario con ese teléfono.");
+  }
+
+  const user: UserProfile = {
+    id,
+    firstName,
+    lastName,
+    nickname,
+    email,
+    avatarUrl: "",
+    location: "",
+    timezone: "America/Lima",
+    zodiacSign: "",
+    planId,
+    accountType,
+    specialistProfileId: accountType === "specialist" ? (roles.includes("specialist") ? "spec-amaya" : "") : "",
+    roles,
+    natalChart: {
+      subjectName: firstName,
+      birthDate: "",
+      birthTime: "",
+      birthTimeUnknown: true,
+      city: "",
+      state: "",
+      country: "",
+      timeZoneId: "",
+      utcOffset: "",
+      latitude: null,
+      longitude: null,
+    },
+    preferences: {
+      focusAreas: [],
+      preferredSessionModes: ["chat"],
+      receivesPush: true,
+    },
+  };
+
+  usersById.set(id, user);
+  userCreatedAtById.set(id, new Date().toISOString());
+
+  if (phoneNumber.length > 0) {
+    phoneAuthIdentitiesByPhone.set(phoneNumber, {
+      userId: id,
+      phoneNumber,
+      countryCode: "",
+      dialCode: "",
+      profileCompleted: Boolean(input.profileCompleted),
+    });
+  }
+
+  if (currentUser.id === id) {
+    currentUser = user;
+  }
+
+  return toAdminUserRecord(user);
+}
+
+export function updateAdminUser(
+  userId: string,
+  input: AdminManagedUserInput,
+): AdminManagedUserRecord {
+  const existingUser = getUserById(userId);
+  const nextFirstName = input.firstName?.trim() ?? existingUser.firstName;
+  const nextLastName = input.lastName?.trim() ?? existingUser.lastName;
+  const nextNickname = input.nickname?.trim() ?? existingUser.nickname;
+  const nextEmail = input.email?.trim().toLowerCase() ?? existingUser.email;
+  const nextPhone = input.phoneNumber?.trim() ?? getUserPhoneNumber(existingUser.id);
+  const nextPlanId = input.planId?.trim() || existingUser.planId;
+  const nextAccountType = input.accountType ?? existingUser.accountType;
+  const nextRoles = normalizeAdminRoles(input.roles ?? (existingUser.roles as Array<"admin" | "specialist"> | undefined));
+
+  const updatedUser: UserProfile = {
+    ...existingUser,
+    firstName: nextFirstName,
+    lastName: nextLastName,
+    nickname: nextNickname,
+    email: nextEmail,
+    planId: nextPlanId,
+    accountType: nextAccountType,
+    roles: nextRoles,
+    specialistProfileId:
+      nextAccountType === "specialist" || nextRoles.includes("specialist")
+        ? existingUser.specialistProfileId?.trim() || "spec-amaya"
+        : "",
+  };
+
+  usersById.set(updatedUser.id, updatedUser);
+
+  const existingIdentity = getPhoneIdentityByUserId(updatedUser.id);
+  if (nextPhone.length > 0) {
+    if (existingIdentity) {
+      phoneAuthIdentitiesByPhone.delete(existingIdentity.phoneNumber);
+    }
+    phoneAuthIdentitiesByPhone.set(nextPhone, {
+      userId: updatedUser.id,
+      phoneNumber: nextPhone,
+      countryCode: existingIdentity?.countryCode ?? "",
+      dialCode: existingIdentity?.dialCode ?? "",
+      profileCompleted: Boolean(input.profileCompleted ?? existingIdentity?.profileCompleted ?? false),
+    });
+  }
+
+  return toAdminUserRecord(updatedUser);
 }
 
 export function setUserPlan(planId: string, userId?: string): UserProfile {

@@ -21,7 +21,3 @@ export default defineConfig([
     },
   },
 ])
-
-muy kk
-
-m

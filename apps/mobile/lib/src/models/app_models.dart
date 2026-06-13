@@ -31,26 +31,32 @@ class AppBootstrap {
 
   factory AppBootstrap.fromJson(Map<String, dynamic> json) {
     return AppBootstrap(
-      app: AppMeta.fromJson(json['app'] as Map<String, dynamic>),
-      user: UserProfile.fromJson(json['user'] as Map<String, dynamic>),
-      home: HomeData.fromJson(json['home'] as Map<String, dynamic>),
+      app: _safeParseMap(json['app'], AppMeta.fromJson, AppMeta.empty()),
+      user: _safeParseMap(
+          json['user'], UserProfile.fromJson, UserProfile.empty()),
+      home: _safeParseMap(json['home'], HomeData.fromJson, HomeData.empty()),
       plans: _mapList(json['plans'], Plan.fromJson),
-      subscription: SubscriptionData.fromJson(
-        json['subscription'] as Map<String, dynamic>,
+      subscription: _safeParseMap(
+        json['subscription'],
+        SubscriptionData.fromJson,
+        SubscriptionData.empty(),
       ),
-      payments: PaymentsConfig.fromJson(
-        json['payments'] as Map<String, dynamic>,
+      payments: _safeParseMap(
+        json['payments'],
+        PaymentsConfig.fromJson,
+        PaymentsConfig.empty(),
       ),
       services: _mapList(json['services'], ServiceOffer.fromJson),
       specialists: _mapList(json['specialists'], Specialist.fromJson),
       courses: _parseCourses(json),
-      shop: ShopData.fromJson(
-        json['shop'] as Map<String, dynamic>? ?? const <String, dynamic>{},
-      ),
+      shop: _safeParseMap(json['shop'], ShopData.fromJson, ShopData.empty()),
       bookings: _mapList(json['bookings'], Booking.fromJson),
-      admin: AdminSummary.fromJson(json['admin'] as Map<String, dynamic>),
-      badges: BadgeProfileSummary.fromJson(
-        json['badges'] as Map<String, dynamic>? ?? const <String, dynamic>{},
+      admin: _safeParseMap(
+          json['admin'], AdminSummary.fromJson, AdminSummary.empty()),
+      badges: _safeParseMap(
+        json['badges'],
+        BadgeProfileSummary.fromJson,
+        const BadgeProfileSummary.empty(),
       ),
     );
   }
@@ -137,6 +143,15 @@ class UserBadgeEntry {
     required this.category,
     required this.rarity,
     required this.type,
+    required this.pathId,
+    required this.pathOrder,
+    required this.stepIndex,
+    required this.stepTitle,
+    required this.stepDescription,
+    required this.prerequisiteBadgeIds,
+    required this.lockedReason,
+    required this.isPathVisible,
+    required this.isConditionHidden,
     required this.iconUrl,
     required this.displayIconUrl,
     required this.isSecret,
@@ -155,6 +170,15 @@ class UserBadgeEntry {
   final String category;
   final String rarity;
   final String type;
+  final String pathId;
+  final int pathOrder;
+  final int stepIndex;
+  final String stepTitle;
+  final String stepDescription;
+  final List<String> prerequisiteBadgeIds;
+  final String lockedReason;
+  final bool isPathVisible;
+  final bool isConditionHidden;
   final String iconUrl;
   final String displayIconUrl;
   final bool isSecret;
@@ -176,6 +200,15 @@ class UserBadgeEntry {
       category: json['category'] as String? ?? '',
       rarity: json['rarity'] as String? ?? '',
       type: json['type'] as String? ?? '',
+      pathId: json['pathId'] as String? ?? '',
+      pathOrder: json['pathOrder'] as int? ?? 0,
+      stepIndex: json['stepIndex'] as int? ?? 0,
+      stepTitle: json['stepTitle'] as String? ?? '',
+      stepDescription: json['stepDescription'] as String? ?? '',
+      prerequisiteBadgeIds: _stringList(json['prerequisiteBadgeIds']),
+      lockedReason: json['lockedReason'] as String? ?? '',
+      isPathVisible: json['isPathVisible'] as bool? ?? false,
+      isConditionHidden: json['isConditionHidden'] as bool? ?? false,
       iconUrl: json['iconUrl'] as String? ?? '',
       displayIconUrl: json['displayIconUrl'] as String? ?? '',
       isSecret: json['isSecret'] as bool? ?? false,
@@ -201,6 +234,12 @@ class AppMeta {
   final String tagline;
   final String market;
   final String timezone;
+
+  const AppMeta.empty()
+      : name = '',
+        tagline = '',
+        market = '',
+        timezone = '';
 
   factory AppMeta.fromJson(Map<String, dynamic> json) {
     return AppMeta(
@@ -245,6 +284,22 @@ class UserProfile {
   final NatalChart natalChart;
   final UserPreferences preferences;
 
+  const UserProfile.empty()
+      : id = '',
+        firstName = '',
+        lastName = '',
+        nickname = '',
+        email = '',
+        avatarUrl = '',
+        location = '',
+        timezone = '',
+        zodiacSign = '',
+        planId = '',
+        accountType = 'client',
+        roles = const [],
+        natalChart = const NatalChart.empty(),
+        preferences = const UserPreferences.empty();
+
   factory UserProfile.fromJson(Map<String, dynamic> json) {
     return UserProfile(
       id: json['id'] as String? ?? '',
@@ -259,10 +314,9 @@ class UserProfile {
       planId: json['planId'] as String? ?? '',
       accountType: json['accountType'] as String? ?? 'client',
       roles: _stringList(json['roles']),
-      natalChart:
-          NatalChart.fromJson(json['natalChart'] as Map<String, dynamic>),
+      natalChart: NatalChart.fromJson(_asMap(json['natalChart'])),
       preferences: UserPreferences.fromJson(
-        json['preferences'] as Map<String, dynamic>,
+        _asMap(json['preferences']),
       ),
     );
   }
@@ -314,6 +368,19 @@ class NatalChart {
   final double? latitude;
   final double? longitude;
 
+  const NatalChart.empty()
+      : subjectName = '',
+        birthDate = '',
+        birthTime = '',
+        birthTimeUnknown = true,
+        city = '',
+        state = '',
+        country = '',
+        timeZoneId = '',
+        utcOffset = '',
+        latitude = null,
+        longitude = null;
+
   factory NatalChart.fromJson(Map<String, dynamic> json) {
     return NatalChart(
       subjectName: json['subjectName'] as String? ?? '',
@@ -358,6 +425,11 @@ class UserPreferences {
   final List<String> preferredSessionModes;
   final bool receivesPush;
 
+  const UserPreferences.empty()
+      : focusAreas = const [],
+        preferredSessionModes = const [],
+        receivesPush = false;
+
   factory UserPreferences.fromJson(Map<String, dynamic> json) {
     return UserPreferences(
       focusAreas: _stringList(json['focusAreas']),
@@ -394,15 +466,24 @@ class HomeData {
   final BookingSummary? upcomingBooking;
   final String featuredMessage;
 
+  const HomeData.empty()
+      : welcomeTitle = '',
+        welcomeSubtitle = '',
+        cardOfTheDay = const DailyCard.empty(),
+        astrologicalEnergy = const AstrologicalEnergy.empty(),
+        quickActions = const [],
+        upcomingBooking = null,
+        featuredMessage = '';
+
   factory HomeData.fromJson(Map<String, dynamic> json) {
     return HomeData(
       welcomeTitle: json['welcomeTitle'] as String? ?? '',
       welcomeSubtitle: json['welcomeSubtitle'] as String? ?? '',
       cardOfTheDay: DailyCard.fromJson(
-        json['cardOfTheDay'] as Map<String, dynamic>,
+        _asMap(json['cardOfTheDay']),
       ),
       astrologicalEnergy: AstrologicalEnergy.fromJson(
-        json['astrologicalEnergy'] as Map<String, dynamic>,
+        _asMap(json['astrologicalEnergy']),
       ),
       quickActions: _mapList(json['quickActions'], QuickAction.fromJson),
       upcomingBooking: json['upcomingBooking'] == null
@@ -430,6 +511,13 @@ class DailyCard {
   final String ritual;
   final String imageUrl;
 
+  const DailyCard.empty()
+      : title = '',
+        cardName = '',
+        message = '',
+        ritual = '',
+        imageUrl = '';
+
   factory DailyCard.fromJson(Map<String, dynamic> json) {
     return DailyCard(
       title: json['title'] as String? ?? '',
@@ -453,6 +541,12 @@ class AstrologicalEnergy {
   final String summary;
   final String advice;
   final String intensity;
+
+  const AstrologicalEnergy.empty()
+      : title = '',
+        summary = '',
+        advice = '',
+        intensity = '';
 
   factory AstrologicalEnergy.fromJson(Map<String, dynamic> json) {
     return AstrologicalEnergy(
@@ -570,6 +664,15 @@ class SubscriptionData {
   final String billingProvider;
   final List<String> entitlements;
 
+  const SubscriptionData.empty()
+      : planId = '',
+        planName = '',
+        status = '',
+        renewsAt = null,
+        platform = '',
+        billingProvider = '',
+        entitlements = const [];
+
   factory SubscriptionData.fromJson(Map<String, dynamic> json) {
     return SubscriptionData(
       planId: json['planId'] as String? ?? '',
@@ -595,6 +698,12 @@ class PaymentsConfig {
   final String premiumProvider;
   final List<String> supportedMethods;
   final List<String> notes;
+
+  const PaymentsConfig.empty()
+      : consultationProvider = '',
+        premiumProvider = '',
+        supportedMethods = const [],
+        notes = const [];
 
   factory PaymentsConfig.fromJson(Map<String, dynamic> json) {
     return PaymentsConfig(
@@ -731,6 +840,7 @@ class Course {
     required this.description,
     required this.outcomes,
     required this.modules,
+    this.coverImageUrl,
   });
 
   final String id;
@@ -750,6 +860,7 @@ class Course {
   final String description;
   final List<String> outcomes;
   final List<CourseModule> modules;
+  final String? coverImageUrl;
 
   factory Course.fromJson(Map<String, dynamic> json) {
     final modules = _mapList(json['modules'], CourseModule.fromJson);
@@ -776,6 +887,7 @@ class Course {
       description: json['description'] as String? ?? '',
       outcomes: _stringList(json['outcomes']),
       modules: modules,
+      coverImageUrl: json['coverImageUrl'] as String?,
     );
   }
 }
@@ -894,6 +1006,15 @@ class ShopData {
   final String currency;
   final List<ShopProduct> products;
   final List<ShopOrder> orders;
+
+  const ShopData.empty()
+      : title = '',
+        subtitle = '',
+        featuredNote = '',
+        supportNote = '',
+        currency = 'USD',
+        products = const [],
+        orders = const [];
 
   factory ShopData.fromJson(Map<String, dynamic> json) {
     return ShopData(
@@ -1106,6 +1227,13 @@ class AdminSummary {
   final int activeSpecialists;
   final int openIncidents;
 
+  const AdminSummary.empty()
+      : activeUsers = 0,
+        premiumSubscribers = 0,
+        monthlyBookings = 0,
+        activeSpecialists = 0,
+        openIncidents = 0;
+
   factory AdminSummary.fromJson(Map<String, dynamic> json) {
     return AdminSummary(
       activeUsers: json['activeUsers'] as int? ?? 0,
@@ -1122,12 +1250,42 @@ List<T> _mapList<T>(
   T Function(Map<String, dynamic> json) factory,
 ) {
   final list = raw as List<dynamic>? ?? const [];
-  return list.map((item) => factory(item as Map<String, dynamic>)).toList();
+  final items = <T>[];
+  for (final item in list) {
+    if (item is Map<String, dynamic>) {
+      try {
+        items.add(factory(item));
+      } catch (_) {
+        // Skip invalid items instead of failing the whole bootstrap.
+      }
+    }
+  }
+  return items;
 }
 
 List<String> _stringList(Object? raw) {
   final list = raw as List<dynamic>? ?? const [];
   return list.map((item) => item as String).toList();
+}
+
+Map<String, dynamic> _asMap(Object? raw) {
+  if (raw is Map<String, dynamic>) {
+    return raw;
+  }
+
+  return const <String, dynamic>{};
+}
+
+T _safeParseMap<T>(
+  Object? raw,
+  T Function(Map<String, dynamic> json) factory,
+  T fallback,
+) {
+  try {
+    return factory(_asMap(raw));
+  } catch (_) {
+    return fallback;
+  }
 }
 
 List<String> _galleryList(
@@ -1169,9 +1327,17 @@ List<String> _galleryList(
 List<Course> _parseCourses(Map<String, dynamic> json) {
   final rawCourses = json['courses'];
   if (rawCourses is List<dynamic>) {
-    return rawCourses
-        .map((item) => Course.fromJson(item as Map<String, dynamic>))
-        .toList();
+    final courses = <Course>[];
+    for (final item in rawCourses) {
+      if (item is Map<String, dynamic>) {
+        try {
+          courses.add(Course.fromJson(item));
+        } catch (_) {
+          // Skip malformed courses instead of aborting bootstrap parsing.
+        }
+      }
+    }
+    return courses;
   }
 
   final rawLibrary = json['library'] as List<dynamic>? ?? const [];

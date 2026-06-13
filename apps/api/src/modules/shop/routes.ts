@@ -6,6 +6,7 @@ import {
   getShopOrders,
   updateShopOrderStatus,
   updateShopProduct,
+  type ShopProductAuditMeta,
   type CreateShopProductInput,
   type CreateShopOrderInput,
   type UpdateShopOrderStatusInput,
@@ -74,6 +75,11 @@ export async function registerShopRoutes(app: FastifyInstance) {
         const item = await createShopProduct(
           request.body ?? {},
           access.specialistProfileId,
+          {
+            actorType: "specialist",
+            actorId: access.userId,
+            source: "specialist",
+          } satisfies ShopProductAuditMeta,
         );
         reply.code(201);
 
@@ -113,6 +119,11 @@ export async function registerShopRoutes(app: FastifyInstance) {
             specialistProfileId: access.specialistProfileId,
             isAdmin: false,
           },
+          {
+            actorType: "specialist",
+            actorId: access.userId,
+            source: "specialist",
+          } satisfies ShopProductAuditMeta,
         );
 
         return {

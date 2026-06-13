@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 class AppConfig {
+  static const productionApiBaseUrl = 'https://lorenaciente.com';
   static const _localNetworkBaseUrl = String.fromEnvironment(
     'API_LOCAL_NETWORK_BASE_URL',
     defaultValue: 'http://172.20.10.2:4000',
@@ -16,6 +17,10 @@ class AppConfig {
     const override = String.fromEnvironment('API_BASE_URL');
     if (override.isNotEmpty) {
       return override;
+    }
+
+    if (kReleaseMode) {
+      return productionApiBaseUrl;
     }
 
     if (kIsWeb) {

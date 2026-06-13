@@ -15,6 +15,7 @@ class CoursePdfViewerScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final hasCover = course.coverImageUrl?.trim().isNotEmpty ?? false;
 
     return Scaffold(
       backgroundColor: AppPalette.petalSoft,
@@ -31,6 +32,26 @@ class CoursePdfViewerScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (hasCover) ...[
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(22),
+                    child: SizedBox(
+                      height: 180,
+                      width: double.infinity,
+                      child: Image.network(
+                        course.coverImageUrl!.trim(),
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => _CoverFallback(
+                          course: course,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ] else ...[
+                  _CoverFallback(course: course),
+                  const SizedBox(height: 16),
+                ],
                 Text(
                   l10n.ts(course.category),
                   style: const TextStyle(
@@ -235,6 +256,63 @@ class CoursePdfViewerScreen extends StatelessWidget {
                   ),
                 ),
               ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CoverFallback extends StatelessWidget {
+  const _CoverFallback({
+    required this.course,
+  });
+
+  final Course course;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = course.featured
+        ? const [AppPalette.midnight, AppPalette.indigo, AppPalette.orchid]
+        : const [
+            AppPalette.indigo,
+            AppPalette.royalViolet,
+            AppPalette.flameGold
+          ];
+
+    return Container(
+      height: 180,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(22),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: palette,
+        ),
+      ),
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Align(
+            alignment: Alignment.topRight,
+            child: Icon(
+              Icons.auto_stories_rounded,
+              color: Colors.white,
+              size: 30,
+            ),
+          ),
+          const Spacer(),
+          Text(
+            course.title,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w900,
+                  height: 1.15,
+                ),
+          ),
         ],
       ),
     );

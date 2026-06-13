@@ -16,9 +16,13 @@ dependencies:
   image_picker: ^1.2.0
   intl: ^0.20.2
   path_provider: ^2.1.5
+  flutter_svg: ^2.0.17
   screenshot: ^3.0.0
   share_plus: ^11.1.0
   shared_preferences: ^2.5.3
+  pdfx: ^2.9.2
+  syncfusion_flutter_pdf: ^33.2.12
+  syncfusion_flutter_pdfviewer: ^33.2.12
   url_launcher: ^6.3.2
   webview_flutter: ^4.13.0
 
@@ -40,8 +44,20 @@ flutter:
     - assets/branding/lo-renaciente-app-icon.png
     - assets/branding/lo-renaciente-isotipo.png
     - assets/branding/lo-renaciente-logo.jpeg
+    - assets/badges/
     - assets/tarot_cards/
+    - assets/fonts/NotoSans-Regular.ttf
   fonts:
+    - family: NotoSans
+      fonts:
+        - asset: assets/fonts/NotoSans-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/NotoSans-Regular.ttf
+          weight: 500
+        - asset: assets/fonts/NotoSans-Regular.ttf
+          weight: 600
+        - asset: assets/fonts/NotoSans-Regular.ttf
+          weight: 700
     - family: CormorantGaramond
       fonts:
         - asset: assets/fonts/CormorantGaramond-VF.ttf

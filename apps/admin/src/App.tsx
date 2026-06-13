@@ -1999,10 +1999,12 @@ function App() {
     description: "",
     fileUrl: "",
     category: "",
+    courseId: "",
     pageCount: "",
     status: "draft",
     isActive: true,
   });
+  const [libraryPdfFile, setLibraryPdfFile] = useState<File | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [isUserDrawerOpen, setIsUserDrawerOpen] = useState(false);
@@ -2313,6 +2315,7 @@ function App() {
       description: "",
       fileUrl: "",
       category: "",
+      courseId: "",
       pageCount: "",
       status: "draft",
       isActive: true,
@@ -2889,6 +2892,21 @@ function App() {
     setCourseAuditError(null);
   }
 
+  function resetLibraryPdfDraft(pdf?: AdminLibraryPdf | null) {
+    setSelectedLibraryPdfId(pdf?.id ?? null);
+    setLibraryPdfFile(null);
+    setLibraryPdfForm({
+      title: pdf?.title ?? "",
+      description: pdf?.description ?? "",
+      fileUrl: pdf?.fileUrl ?? "",
+      category: pdf?.category ?? "",
+      courseId: pdf?.courseId ?? "",
+      pageCount: pdf ? String(pdf.pageCount ?? 0) : "",
+      status: pdf?.status ?? "draft",
+      isActive: pdf?.isActive ?? true,
+    });
+  }
+
   async function handleSaveCourse(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setCourseMessage(null);
@@ -3143,23 +3161,43 @@ function App() {
     event.preventDefault();
     setCourseMessage(null);
     setCourseError(null);
+    if (!libraryPdfForm.title.trim()) {
+      setCourseError("El título del PDF es obligatorio.");
+      return;
+    }
+    if (!libraryPdfFile && !libraryPdfForm.fileUrl.trim()) {
+      setCourseError("Selecciona un archivo PDF para subir.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("title", libraryPdfForm.title.trim());
+    formData.append("description", libraryPdfForm.description.trim());
+    formData.append("category", libraryPdfForm.category.trim());
+    if (libraryPdfForm.courseId.trim()) {
+      formData.append("courseId", libraryPdfForm.courseId.trim());
+    }
+    formData.append("pageCount", libraryPdfForm.pageCount.trim() || "0");
+    formData.append("status", libraryPdfForm.status);
+    formData.append("isActive", String(libraryPdfForm.isActive));
+    if (selectedCourseId) {
+      formData.append("courseId", selectedCourseId);
+    }
+    if (selectedLibraryPdfId) {
+      formData.append("id", selectedLibraryPdfId);
+    }
+    if (libraryPdfFile) {
+      formData.append("file", libraryPdfFile);
+    } else if (libraryPdfForm.fileUrl.trim()) {
+      formData.append("fileUrl", libraryPdfForm.fileUrl.trim());
+    }
+
     const response = await fetch(
       `${apiBaseUrl}/api/admin/library/pdfs${selectedLibraryPdfId ? `/${encodeURIComponent(selectedLibraryPdfId)}` : ""}`,
       {
         method: selectedLibraryPdfId ? "PATCH" : "POST",
         credentials: "include",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          id: selectedLibraryPdfId ?? undefined,
-          title: libraryPdfForm.title.trim(),
-          description: libraryPdfForm.description.trim(),
-          fileUrl: libraryPdfForm.fileUrl.trim(),
-          category: libraryPdfForm.category.trim(),
-          pageCount: Number(libraryPdfForm.pageCount || 0),
-          status: libraryPdfForm.status,
-          isActive: libraryPdfForm.isActive,
-          courseId: selectedCourseId ?? undefined,
-        }),
+        body: formData,
       },
     );
     const json = (await response.json()) as { item?: unknown; error?: string };
@@ -3178,7 +3216,75 @@ function App() {
       return [savedItem, ...current];
     });
     setSelectedLibraryPdfId(savedItem.id);
+    setLibraryPdfFile(null);
+    setLibraryPdfForm({
+      title: savedItem.title,
+      description: savedItem.description,
+      fileUrl: savedItem.fileUrl,
+      category: savedItem.category,
+      courseId: savedItem.courseId ?? "",
+      pageCount: String(savedItem.pageCount ?? 0),
+      status: savedItem.status ?? "draft",
+      isActive: savedItem.isActive ?? true,
+    });
     setCourseMessage(selectedLibraryPdfId ? "PDF actualizado." : "PDF agregado.");
+  }
+
+  async function handleLibraryPdfAction(
+    pdfId: string,
+    action: "publish" | "archive" | "delete",
+  ) {
+    setCourseMessage(null);
+    setCourseError(null);
+
+    try {
+      const response = await fetch(
+        `${apiBaseUrl}/api/admin/library/pdfs/${encodeURIComponent(pdfId)}${action === "publish" ? "/publish" : action === "archive" ? "/archive" : ""}`,
+        {
+          method: action === "delete" ? "DELETE" : "POST",
+          credentials: "include",
+        },
+      );
+
+      const json = (await response.json()) as { item?: AdminLibraryPdf; ok?: boolean; error?: string };
+      if (!response.ok || (action === "delete" ? !json.ok : !json.item)) {
+        throw new Error(
+          json.error ??
+            (action === "publish"
+              ? "No se pudo publicar el PDF."
+              : action === "archive"
+                ? "No se pudo archivar el PDF."
+                : "No se pudo eliminar el PDF."),
+        );
+      }
+
+      if (action === "delete") {
+        setLibraryPdfs((current) => current.filter((item) => item.id !== pdfId));
+        if (selectedLibraryPdfId === pdfId) {
+          resetLibraryPdfDraft(null);
+        }
+      } else {
+        const savedItem = json.item!;
+        setLibraryPdfs((current) =>
+          current.map((item) => (item.id === savedItem.id ? savedItem : item)),
+        );
+        if (selectedLibraryPdfId === pdfId) {
+          resetLibraryPdfDraft(savedItem);
+        }
+      }
+
+      setCourseMessage(
+        action === "publish"
+          ? "PDF publicado."
+          : action === "archive"
+            ? "PDF archivado."
+            : "PDF eliminado.",
+      );
+    } catch (actionError) {
+      setCourseError(
+        actionError instanceof Error ? actionError.message : "No se pudo completar la acción.",
+      );
+    }
   }
 
   function handleOpenBookingDrawer(booking?: AdminBooking, specialistHintId?: string) {
@@ -8535,16 +8641,7 @@ function App() {
                       type="button"
                       className="secondary-button"
                       onClick={() => {
-                        setSelectedLibraryPdfId(null);
-                        setLibraryPdfForm({
-                          title: "",
-                          description: "",
-                          fileUrl: "",
-                          category: "",
-                          pageCount: "",
-                          status: "draft",
-                          isActive: true,
-                        });
+                        resetLibraryPdfDraft(null);
                       }}
                     >
                       Nuevo
@@ -8570,33 +8667,38 @@ function App() {
                         }
                       />
                     </label>
-                    <label>
-                      <span>Archivo</span>
-                      <input
-                        value={libraryPdfForm.fileUrl}
-                        onChange={(event) =>
-                          setLibraryPdfForm((current) => ({ ...current, fileUrl: event.target.value }))
-                        }
-                      />
-                    </label>
                     <div className="form-wide">
-                      <AdminFileUploader
-                        apiBaseUrl={apiBaseUrl}
-                        label="Subir PDF"
-                        description="PDF de biblioteca o material formativo."
-                        accept="application/pdf"
-                        mode="pdf"
-                        value={libraryPdfForm.fileUrl}
-                        category="library"
-                        entityType="library_pdf"
-                        entityId={selectedLibraryPdfId ?? undefined}
-                        onUploaded={(asset) =>
-                          setLibraryPdfForm((current) => ({ ...current, fileUrl: asset.publicUrl }))
-                        }
-                        onClear={() =>
-                          setLibraryPdfForm((current) => ({ ...current, fileUrl: "" }))
-                        }
-                      />
+                      <label className="form-wide">
+                        <span>Archivo PDF</span>
+                        <input
+                          type="file"
+                          accept="application/pdf"
+                          onChange={(event) => {
+                            const file = event.target.files?.[0] ?? null;
+                            setLibraryPdfFile(file);
+                            if (file && !libraryPdfForm.title.trim()) {
+                              const baseName = file.name.replace(/\.pdf$/i, "");
+                              const prettyName = baseName
+                                .replace(/[-_]+/g, " ")
+                                .replace(/\s+/g, " ")
+                                .trim();
+                              if (prettyName) {
+                                setLibraryPdfForm((current) => ({
+                                  ...current,
+                                  title: prettyName,
+                                }));
+                              }
+                            }
+                          }}
+                        />
+                      </label>
+                      <p className="muted-copy" style={{ marginTop: 8 }}>
+                        {libraryPdfFile
+                          ? `Seleccionado: ${libraryPdfFile.name}`
+                          : libraryPdfForm.fileUrl
+                            ? `Archivo actual: ${libraryPdfForm.fileUrl}`
+                            : "Selecciona un PDF para subirlo al servidor."}
+                      </p>
                     </div>
                     <label>
                       <span>Categoría</span>
@@ -8606,6 +8708,22 @@ function App() {
                           setLibraryPdfForm((current) => ({ ...current, category: event.target.value }))
                         }
                       />
+                    </label>
+                    <label>
+                      <span>Curso relacionado</span>
+                      <select
+                        value={libraryPdfForm.courseId}
+                        onChange={(event) =>
+                          setLibraryPdfForm((current) => ({ ...current, courseId: event.target.value }))
+                        }
+                      >
+                        <option value="">Sin curso</option>
+                        {courses.map((course) => (
+                          <option key={course.id} value={course.id}>
+                            {course.title}
+                          </option>
+                        ))}
+                      </select>
                     </label>
                     <label>
                       <span>Páginas</span>
@@ -8646,20 +8764,45 @@ function App() {
                               type="button"
                               className="secondary-button"
                               onClick={() => {
-                                setSelectedLibraryPdfId(pdf.id);
-                                setLibraryPdfForm({
-                                  title: pdf.title,
-                                  description: pdf.description,
-                                  fileUrl: pdf.fileUrl,
-                                  category: pdf.category,
-                                  pageCount: String(pdf.pageCount),
-                                  status: pdf.status ?? "draft",
-                                  isActive: pdf.isActive ?? true,
-                                });
+                                resetLibraryPdfDraft(pdf);
                                 handleSelectCourseDrawerTab("library");
                               }}
                             >
                               Editar
+                            </button>
+                            <button
+                              type="button"
+                              className="secondary-button"
+                              onClick={() => {
+                                if (pdf.fileUrl.trim()) {
+                                  window.open(pdf.fileUrl, "_blank", "noopener,noreferrer");
+                                }
+                              }}
+                            >
+                              Ver
+                            </button>
+                            <button
+                              type="button"
+                              className="secondary-button"
+                              onClick={() =>
+                                void handleLibraryPdfAction(
+                                  pdf.id,
+                                  pdf.status === "published" ? "archive" : "publish",
+                                )
+                              }
+                            >
+                              {pdf.status === "published" ? "Archivar" : "Publicar"}
+                            </button>
+                            <button
+                              type="button"
+                              className="secondary-button"
+                              onClick={() => {
+                                if (window.confirm("¿Eliminar este PDF?")) {
+                                  void handleLibraryPdfAction(pdf.id, "delete");
+                                }
+                              }}
+                            >
+                              Eliminar
                             </button>
                           </div>
                         </article>
