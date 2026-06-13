@@ -164,6 +164,20 @@ npm run build:web
 npm run build:admin
 ```
 
+Landing publica:
+
+```bash
+npm run build:landing
+```
+
+La web que debe salir en `lorenaciente` es la de `webprincipal`.
+En el VPS, el document root debe apuntar al `webprincipal/dist`, no al `apps/web/dist`.
+Si quieres sincronizar el build a un servidor remoto desde esta maquina:
+
+```bash
+DEPLOY_USER=usuario DEPLOY_HOST=tu-vps DEPLOY_PATH=/var/www/lorenaciente ./scripts/deploy-webprincipal.sh
+```
+
 ## Estructura
 
 ```text

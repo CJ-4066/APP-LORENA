@@ -9,6 +9,9 @@
   "scripts": {
     "dev:api": "npm run dev --workspace @lo-renaciente/api",
     "build:api": "npm run build --workspace @lo-renaciente/api",
+    "dev:landing": "npm run dev --prefix webprincipal",
+    "build:landing": "npm run build --prefix webprincipal",
+    "preview:landing": "npm run preview --prefix webprincipal",
     "api:install-service": "./scripts/install-api-launchagent.sh",
     "api:daemon:start": "./scripts/start-api-daemon.sh",
     "api:daemon:stop": "./scripts/stop-api-daemon.sh",
