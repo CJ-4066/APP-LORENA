@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import { createHash } from "node:crypto";
 import { readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -7,7 +8,9 @@ import {
   getCourses,
   getHomePayload,
   listLibraryPdfs,
+  listServices,
 } from "../../data/persistent-store.js";
+import { getSpecialistCatalog } from "../../data/scheduling-store.js";
 import {
   readUploadFile,
   resolveUploadStoragePath,
@@ -31,6 +34,58 @@ export async function registerContentRoutes(app: FastifyInstance) {
   app.get("/courses", async () => {
     return {
       items: getCourses(),
+    };
+  });
+
+  app.get("/version", async () => {
+    const [courses, libraryPdfs, specialists, services] = await Promise.all([
+      Promise.resolve(getCourses()),
+      listLibraryPdfs(),
+      getSpecialistCatalog(),
+      listServices({ includeInactive: true }),
+    ]);
+
+    const snapshot = {
+      courses: courses.map((item) => ({
+        id: item.id,
+        status: item.status ?? "draft",
+        isActive: item.isActive ?? true,
+        updatedAt: item.updatedAt ?? null,
+      })),
+      libraryPdfs: libraryPdfs.map((item) => ({
+        id: item.id,
+        status: item.status ?? "draft",
+        isActive: item.isActive ?? true,
+        updatedAt: item.updatedAt ?? null,
+      })),
+      specialists: specialists.map((item) => ({
+        id: item.id,
+        isActive: item.isActive ?? true,
+        isPublic: item.isPublic ?? true,
+        featured: item.featured ?? false,
+      })),
+      services: services.map((item) => ({
+        id: item.id,
+        isActive: item.isActive ?? true,
+        isVisible: item.isVisible ?? true,
+        premiumIncluded: item.premiumIncluded ?? false,
+      })),
+    };
+    const version = createHash("sha256")
+      .update(JSON.stringify(snapshot))
+      .digest("hex");
+
+    return {
+      item: {
+        version,
+        updatedAt: new Date().toISOString(),
+        counts: {
+          courses: courses.filter((item) => item.status === "published" && item.isActive !== false).length,
+          libraryPdfs: libraryPdfs.filter((item) => item.status === "published" && item.isActive !== false).length,
+          specialists: specialists.filter((item) => item.isPublic !== false && item.isActive !== false).length,
+          services: services.filter((item) => item.isActive !== false && item.isVisible !== false).length,
+        },
+      },
     };
   });
 

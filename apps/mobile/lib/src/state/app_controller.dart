@@ -74,9 +74,11 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   PhoneAuthSession? _session;
   String? _authErrorMessage;
   String? _homeErrorMessage;
+  String? _contentVersion;
   bool _isBusy = false;
   int _currentIndex = 0;
   Timer? _dailyRefreshTimer;
+  Timer? _contentVersionTimer;
 
   PhoneCountry get selectedCountry => _selectedCountry;
   Locale get locale => _locale;
@@ -316,12 +318,14 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       );
       _bootstrap = response.data;
       await _persistBootstrap(response.rawJson);
+      await _syncContentVersionSnapshot();
       _homeErrorMessage = null;
       notifyListeners();
     } catch (_) {
       // Preserve the existing view when a manual refresh fails.
     } finally {
       _scheduleDailyRefresh();
+      _scheduleContentVersionRefresh();
     }
   }
 
@@ -799,11 +803,13 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
 
       _bootstrap = response.data;
       await _persistBootstrap(response.rawJson);
+      await _syncContentVersionSnapshot();
       await _persistSession(currentSession);
       _currentIndex = 0;
       _stage = AppStage.home;
       _homeErrorMessage = null;
       _scheduleDailyRefresh();
+      _scheduleContentVersionRefresh();
       notifyListeners();
     } catch (error) {
       debugPrint('_loadHomeForSession <- error ${_readErrorMessage(error)}');
@@ -819,6 +825,9 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     try {
       final cachedLocale = await _appSettingsCache
           .readLocale()
+          .timeout(const Duration(seconds: 1), onTimeout: () => null);
+      _contentVersion = await _appSettingsCache
+          .readContentVersion()
           .timeout(const Duration(seconds: 1), onTimeout: () => null);
       _seedBootstrap ??= await _seedBootstrapLoader
           .load()
@@ -841,6 +850,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
           _currentIndex = 0;
           _stage = AppStage.home;
           _homeErrorMessage = null;
+          _scheduleContentVersionRefresh();
           notifyListeners();
         } else {
           _stage = AppStage.phoneEntry;
@@ -865,6 +875,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
 
       _stage = AppStage.home;
       _scheduleDailyRefresh();
+      _scheduleContentVersionRefresh();
       notifyListeners();
 
       try {
@@ -873,16 +884,19 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
         );
         _bootstrap = response.data;
         await _persistBootstrap(response.rawJson);
+        await _syncContentVersionSnapshot();
         await _persistSession(_session);
         _stage = AppStage.home;
         _homeErrorMessage = null;
         _scheduleDailyRefresh();
+        _scheduleContentVersionRefresh();
         notifyListeners();
       } catch (_) {
         if (_bootstrap != null) {
           _stage = AppStage.home;
           _homeErrorMessage = null;
           _scheduleDailyRefresh();
+          _scheduleContentVersionRefresh();
           notifyListeners();
           return;
         }
@@ -901,6 +915,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
         _currentIndex = 0;
         _stage = AppStage.home;
         _homeErrorMessage = null;
+        _scheduleContentVersionRefresh();
       } else {
         _bootstrap = null;
         _stage = AppStage.phoneEntry;
@@ -932,6 +947,9 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     _currentIndex = 0;
     _homeErrorMessage = null;
     _stage = publicBootstrap == null ? AppStage.phoneEntry : AppStage.home;
+    if (publicBootstrap != null) {
+      _scheduleContentVersionRefresh();
+    }
   }
 
   AppBootstrap? _resolveStartupBootstrap({
@@ -1477,8 +1495,64 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     await _bootstrapCache.write(rawJson);
   }
 
+  Future<void> _syncContentVersionSnapshot() async {
+    try {
+      final response = await _apiClient.fetchContentVersion();
+      final remoteVersion = response.version.trim();
+      if (remoteVersion.isEmpty) {
+        return;
+      }
+
+      _contentVersion = remoteVersion;
+      await _appSettingsCache.writeContentVersion(remoteVersion);
+    } catch (_) {
+      // Keep the current snapshot when the version endpoint is unavailable.
+    }
+  }
+
+  void _scheduleContentVersionRefresh() {
+    _contentVersionTimer?.cancel();
+
+    if (_stage != AppStage.home) {
+      return;
+    }
+
+    _contentVersionTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) async {
+        if (_stage != AppStage.home) {
+          return;
+        }
+
+        try {
+          final response = await _apiClient.fetchContentVersion();
+          final remoteVersion = response.version.trim();
+          if (remoteVersion.isEmpty) {
+            return;
+          }
+
+          if (_contentVersion == null) {
+            _contentVersion = remoteVersion;
+            await _appSettingsCache.writeContentVersion(remoteVersion);
+            return;
+          }
+
+          if (_contentVersion != remoteVersion) {
+            _contentVersion = remoteVersion;
+            await _appSettingsCache.writeContentVersion(remoteVersion);
+            await refreshHome();
+          }
+        } catch (_) {
+          // Try again on the next tick.
+        }
+      },
+    );
+  }
+
   Future<void> _clearPersistedState() async {
     _cancelDailyRefresh();
+    _contentVersionTimer?.cancel();
+    _contentVersionTimer = null;
     await _sessionCache.clear();
     await _bootstrapCache.clear();
   }
@@ -1576,6 +1650,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _cancelDailyRefresh();
+    _contentVersionTimer?.cancel();
     _apiClient.dispose();
     super.dispose();
   }

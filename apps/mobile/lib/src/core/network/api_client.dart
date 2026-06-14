@@ -25,6 +25,32 @@ class BootstrapResponse {
   final String rawJson;
 }
 
+class ContentVersionResponse {
+  ContentVersionResponse({
+    required this.version,
+    required this.updatedAt,
+    required this.counts,
+  });
+
+  final String version;
+  final String updatedAt;
+  final Map<String, int> counts;
+
+  factory ContentVersionResponse.fromJson(Map<String, dynamic> json) {
+    final countsJson = json['counts'] as Map<String, dynamic>? ?? const {};
+    return ContentVersionResponse(
+      version: json['version'] as String? ?? '',
+      updatedAt: json['updatedAt'] as String? ?? '',
+      counts: {
+        'courses': countsJson['courses'] as int? ?? 0,
+        'libraryPdfs': countsJson['libraryPdfs'] as int? ?? 0,
+        'specialists': countsJson['specialists'] as int? ?? 0,
+        'services': countsJson['services'] as int? ?? 0,
+      },
+    );
+  }
+}
+
 class ApiClient {
   ApiClient({
     required this.baseUrl,
@@ -46,6 +72,15 @@ class ApiClient {
       data: AppBootstrap.fromJson(response),
       rawJson: jsonEncode(response),
     );
+  }
+
+  Future<ContentVersionResponse> fetchContentVersion() async {
+    final response = await _send(
+      method: 'GET',
+      path: '/api/content/version',
+    );
+    final item = response['item'] as Map<String, dynamic>? ?? const {};
+    return ContentVersionResponse.fromJson(item);
   }
 
   Future<PhoneAuthStartResult> startPhoneAuth({
