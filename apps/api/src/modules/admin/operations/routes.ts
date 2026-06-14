@@ -125,6 +125,15 @@ function normalizeLibraryPdfCategory(value: unknown, fallback = "General"): stri
   return trimmed.length > 0 ? trimmed : fallback;
 }
 
+function normalizeNullableLibraryPdfRelation(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 function prettifyFileTitle(fileName: string): string {
   const baseName = fileName.replace(/\.[^.]+$/u, "");
   const normalized = baseName
@@ -167,6 +176,9 @@ async function readLibraryPdfInput(
 
   if (!isMultipart) {
     const body = (request.body ?? {}) as Record<string, unknown>;
+    const hasCourseId = Object.prototype.hasOwnProperty.call(body, "courseId");
+    const hasModuleId = Object.prototype.hasOwnProperty.call(body, "moduleId");
+    const hasLessonId = Object.prototype.hasOwnProperty.call(body, "lessonId");
     return {
       id: pdfId ?? (typeof body.id === "string" ? body.id.trim() : ""),
       title: typeof body.title === "string" ? body.title.trim() : existing?.title ?? "",
@@ -178,18 +190,15 @@ async function readLibraryPdfInput(
         typeof body.fileUrl === "string"
           ? body.fileUrl.trim()
           : existing?.fileUrl ?? "",
-      courseId:
-        typeof body.courseId === "string"
-          ? body.courseId.trim() || null
-          : existing?.courseId ?? null,
-      moduleId:
-        typeof body.moduleId === "string"
-          ? body.moduleId.trim() || null
-          : existing?.moduleId ?? null,
-      lessonId:
-        typeof body.lessonId === "string"
-          ? body.lessonId.trim() || null
-          : existing?.lessonId ?? null,
+      courseId: hasCourseId
+        ? normalizeNullableLibraryPdfRelation(body.courseId)
+        : existing?.courseId ?? null,
+      moduleId: hasModuleId
+        ? normalizeNullableLibraryPdfRelation(body.moduleId)
+        : existing?.moduleId ?? null,
+      lessonId: hasLessonId
+        ? normalizeNullableLibraryPdfRelation(body.lessonId)
+        : existing?.lessonId ?? null,
       category: normalizeLibraryPdfCategory(body.category, existing?.category ?? "General"),
       pageCount: parseNumberField(body.pageCount, existing?.pageCount ?? 0),
       status: normalizeLibraryPdfStatus(body.status ?? existing?.status ?? "draft"),
@@ -219,6 +228,9 @@ async function readLibraryPdfInput(
   }
 
   let fileUrl = fields.fileUrl?.trim() || existing?.fileUrl || "";
+  const hasCourseId = Object.prototype.hasOwnProperty.call(fields, "courseId");
+  const hasModuleId = Object.prototype.hasOwnProperty.call(fields, "moduleId");
+  const hasLessonId = Object.prototype.hasOwnProperty.call(fields, "lessonId");
   if (filePart) {
     if (filePart.mimetype !== "application/pdf") {
       throw new Error("Solo se permiten archivos PDF.");
@@ -245,9 +257,15 @@ async function readLibraryPdfInput(
     title: fields.title?.trim() || existing?.title || "",
     description: fields.description?.trim() || existing?.description || "",
     fileUrl,
-    courseId: fields.courseId?.trim() || existing?.courseId || null,
-    moduleId: fields.moduleId?.trim() || existing?.moduleId || null,
-    lessonId: fields.lessonId?.trim() || existing?.lessonId || null,
+    courseId: hasCourseId
+      ? normalizeNullableLibraryPdfRelation(fields.courseId)
+      : existing?.courseId || null,
+    moduleId: hasModuleId
+      ? normalizeNullableLibraryPdfRelation(fields.moduleId)
+      : existing?.moduleId || null,
+    lessonId: hasLessonId
+      ? normalizeNullableLibraryPdfRelation(fields.lessonId)
+      : existing?.lessonId || null,
     category: normalizeLibraryPdfCategory(fields.category, existing?.category ?? "General"),
     pageCount: parseNumberField(fields.pageCount, existing?.pageCount ?? 0),
     status: normalizeLibraryPdfStatus(fields.status ?? existing?.status ?? "draft"),

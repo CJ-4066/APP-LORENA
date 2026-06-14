@@ -2003,6 +2003,7 @@ function App() {
     fileUrl: "",
     category: "",
     courseId: "",
+    linkToCourse: false,
     pageCount: "",
     status: "published",
     isActive: true,
@@ -2015,6 +2016,7 @@ function App() {
     description: "",
     category: "",
     courseId: "",
+    linkToCourse: false,
     pageCount: "",
     status: "published",
     isActive: true,
@@ -2330,6 +2332,7 @@ function App() {
       fileUrl: "",
       category: "",
       courseId: "",
+      linkToCourse: false,
       pageCount: "",
       status: "draft",
       isActive: true,
@@ -2915,6 +2918,7 @@ function App() {
       fileUrl: pdf?.fileUrl ?? "",
       category: pdf?.category ?? "",
       courseId: pdf?.courseId ?? "",
+      linkToCourse: Boolean(pdf?.courseId),
       pageCount: pdf ? String(pdf.pageCount ?? 0) : "",
       status: pdf?.status ?? "published",
       isActive: pdf?.isActive ?? true,
@@ -3188,15 +3192,14 @@ function App() {
     formData.append("title", libraryPdfForm.title.trim());
     formData.append("description", libraryPdfForm.description.trim());
     formData.append("category", libraryPdfForm.category.trim());
-    if (libraryPdfForm.courseId.trim()) {
-      formData.append("courseId", libraryPdfForm.courseId.trim());
-    }
+    const selectedCourseForLibrary =
+      libraryPdfForm.linkToCourse
+        ? libraryPdfForm.courseId.trim() || selectedCourseId || ""
+        : "";
+    formData.append("courseId", selectedCourseForLibrary);
     formData.append("pageCount", libraryPdfForm.pageCount.trim() || "0");
     formData.append("status", libraryPdfForm.status);
     formData.append("isActive", String(libraryPdfForm.isActive));
-    if (selectedCourseId) {
-      formData.append("courseId", selectedCourseId);
-    }
     if (selectedLibraryPdfId) {
       formData.append("id", selectedLibraryPdfId);
     }
@@ -3237,6 +3240,7 @@ function App() {
       fileUrl: savedItem.fileUrl,
       category: savedItem.category,
       courseId: savedItem.courseId ?? "",
+      linkToCourse: Boolean(savedItem.courseId),
       pageCount: String(savedItem.pageCount ?? 0),
       status: savedItem.status ?? "draft",
       isActive: savedItem.isActive ?? true,
@@ -3260,15 +3264,15 @@ function App() {
 
     try {
       const formData = new FormData();
-      const courseId = selectedCourseId ?? libraryBulkForm.courseId.trim();
+      const courseId = libraryBulkForm.linkToCourse
+        ? libraryBulkForm.courseId.trim() || selectedCourseId || ""
+        : "";
       if (libraryBulkForm.titlePrefix.trim()) {
         formData.append("titlePrefix", libraryBulkForm.titlePrefix.trim());
       }
       formData.append("description", libraryBulkForm.description.trim());
       formData.append("category", libraryBulkForm.category.trim() || "General");
-      if (courseId) {
-        formData.append("courseId", courseId);
-      }
+      formData.append("courseId", courseId);
       formData.append("pageCount", libraryBulkForm.pageCount.trim() || "0");
       formData.append("status", libraryBulkForm.status || "published");
       formData.append("isActive", String(libraryBulkForm.isActive));
@@ -5844,6 +5848,43 @@ function App() {
                       />
                     </label>
                     <label className="form-wide">
+                      <span>Vinculación</span>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                        <label style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <input
+                            type="checkbox"
+                            checked={libraryBulkForm.linkToCourse}
+                            onChange={(event) =>
+                              setLibraryBulkForm((current) => ({
+                                ...current,
+                                linkToCourse: event.target.checked,
+                                courseId: event.target.checked ? current.courseId : "",
+                              }))
+                            }
+                          />
+                          <span>Vincular estos PDFs a un curso</span>
+                        </label>
+                        {libraryBulkForm.linkToCourse ? (
+                          <select
+                            value={libraryBulkForm.courseId}
+                            onChange={(event) =>
+                              setLibraryBulkForm((current) => ({
+                                ...current,
+                                courseId: event.target.value,
+                              }))
+                            }
+                          >
+                            <option value="">Selecciona un curso</option>
+                            {courses.map((course) => (
+                              <option key={course.id} value={course.id}>
+                                {course.title}
+                              </option>
+                            ))}
+                          </select>
+                        ) : null}
+                      </div>
+                    </label>
+                    <label className="form-wide">
                       <span>Descripción</span>
                       <textarea
                         rows={3}
@@ -5856,25 +5897,6 @@ function App() {
                         }
                         placeholder="Descripción compartida para todos los PDFs."
                       />
-                    </label>
-                    <label>
-                      <span>Curso relacionado</span>
-                      <select
-                        value={libraryBulkForm.courseId}
-                        onChange={(event) =>
-                          setLibraryBulkForm((current) => ({
-                            ...current,
-                            courseId: event.target.value,
-                          }))
-                        }
-                      >
-                        <option value="">Sin curso</option>
-                        {courses.map((course) => (
-                          <option key={course.id} value={course.id}>
-                            {course.title}
-                          </option>
-                        ))}
-                      </select>
                     </label>
                     <label>
                       <span>Páginas</span>
@@ -5940,6 +5962,11 @@ function App() {
                   <strong>{new Set(libraryPdfs.map((pdf) => pdf.courseId).filter(Boolean)).size}</strong>
                   <p>Distribución por curso</p>
                 </article>
+                <article className="course-stat-card">
+                  <span>Sin vínculo</span>
+                  <strong>{libraryPdfs.filter((pdf) => !pdf.courseId).length}</strong>
+                  <p>Libros sueltos en la biblioteca</p>
+                </article>
               </div>
 
               <div className="course-subview-grid">
@@ -5960,6 +5987,7 @@ function App() {
                           </div>
                           <div className="course-item-meta">
                             <span>{pdf.category}</span>
+                            <span>{pdf.courseId ? pdf.courseId : "Sin vínculo"}</span>
                             <strong>{pdf.pageCount} páginas</strong>
                             <span className="topbar-pill">{pdf.status ?? "draft"}</span>
                             <button
@@ -8930,21 +8958,42 @@ function App() {
                         }
                       />
                     </label>
-                    <label>
-                      <span>Curso relacionado</span>
-                      <select
-                        value={libraryPdfForm.courseId}
-                        onChange={(event) =>
-                          setLibraryPdfForm((current) => ({ ...current, courseId: event.target.value }))
-                        }
-                      >
-                        <option value="">Sin curso</option>
-                        {courses.map((course) => (
-                          <option key={course.id} value={course.id}>
-                            {course.title}
-                          </option>
-                        ))}
-                      </select>
+                    <label className="form-wide">
+                      <span>Vinculación</span>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                        <label style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <input
+                            type="checkbox"
+                            checked={libraryPdfForm.linkToCourse}
+                            onChange={(event) =>
+                              setLibraryPdfForm((current) => ({
+                                ...current,
+                                linkToCourse: event.target.checked,
+                                courseId: event.target.checked ? current.courseId : "",
+                              }))
+                            }
+                          />
+                          <span>Vincular este PDF a un curso</span>
+                        </label>
+                        {libraryPdfForm.linkToCourse ? (
+                          <select
+                            value={libraryPdfForm.courseId}
+                            onChange={(event) =>
+                              setLibraryPdfForm((current) => ({
+                                ...current,
+                                courseId: event.target.value,
+                              }))
+                            }
+                          >
+                            <option value="">Selecciona un curso</option>
+                            {courses.map((course) => (
+                              <option key={course.id} value={course.id}>
+                                {course.title}
+                              </option>
+                            ))}
+                          </select>
+                        ) : null}
+                      </div>
                     </label>
                     <label>
                       <span>Páginas</span>
@@ -8998,6 +9047,7 @@ function App() {
                           </div>
                           <div className="course-item-meta">
                             <span>{pdf.category}</span>
+                            <span>{pdf.courseId ? pdf.courseId : "Sin vínculo"}</span>
                             <strong>{pdf.pageCount} páginas</strong>
                             <span className="topbar-pill">{pdf.status ?? "draft"}</span>
                             <button
