@@ -1196,6 +1196,196 @@
   gap: 16px;
 }
 
+.library-workspace-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.library-workbench-card,
+.library-summary-card,
+.library-catalog-card,
+.library-recent-card {
+  align-content: start;
+}
+
+.library-panel-head {
+  align-items: flex-start;
+}
+
+.library-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.library-summary-card-tile {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-strong);
+}
+
+.library-summary-card-tile span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.library-summary-card-tile strong {
+  font-family: var(--heading-font);
+  color: var(--text-strong);
+  font-size: 1.7rem;
+}
+
+.library-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.library-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border-soft);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--text-strong);
+  font-size: 0.88rem;
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    background 0.18s ease;
+}
+
+.library-chip:hover {
+  transform: translateY(-1px);
+  border-color: var(--secondary);
+}
+
+.library-chip-active {
+  border-color: var(--secondary);
+  background: var(--secondary-soft);
+}
+
+.library-link-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-strong);
+}
+
+.library-link-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.library-link-preview {
+  display: grid;
+  gap: 6px;
+}
+
+.library-category-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.library-category-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-strong);
+}
+
+.library-category-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.library-category-card-head strong {
+  display: block;
+  font-family: var(--heading-font);
+  color: var(--text-strong);
+}
+
+.library-category-card-head p {
+  margin-top: 4px;
+  color: var(--muted);
+}
+
+.library-category-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.library-category-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.library-mini-list {
+  display: grid;
+  gap: 8px;
+}
+
+.library-mini-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid var(--border-soft);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(249, 246, 255, 0.92));
+}
+
+.library-mini-row strong {
+  display: block;
+  font-family: var(--heading-font);
+  color: var(--text-strong);
+}
+
+.library-mini-row p {
+  margin-top: 4px;
+  color: var(--muted);
+}
+
+.library-mini-meta {
+  display: grid;
+  justify-items: end;
+  align-content: start;
+  gap: 6px;
+  min-width: 148px;
+  text-align: right;
+}
+
+.library-quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
 .course-subview-card {
   display: grid;
   gap: 14px;
@@ -2735,6 +2925,7 @@
   .badge-preview-meta,
   .audit-filters,
   .summary-status-grid,
+  .library-workspace-grid,
   .course-stat-grid,
   .course-drawer-layout,
   .course-editor-grid,
@@ -2807,6 +2998,8 @@
   .badge-route-health,
   .audit-filters,
   .summary-status-grid,
+  .library-workspace-grid,
+  .library-summary-grid,
   .course-stat-grid,
   .course-drawer-layout,
   .course-editor-grid,
@@ -2922,6 +3115,10 @@
     grid-template-columns: 1fr;
   }
 
+  .library-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
   .course-card-head,
   .course-drawer-head {
     grid-template-columns: 1fr;
@@ -2945,11 +3142,23 @@
     justify-content: flex-start;
   }
 
+  .library-link-card-head,
+  .library-category-card-head,
+  .library-mini-row {
+    flex-direction: column;
+  }
+
   .course-item-row {
     flex-direction: column;
   }
 
   .course-item-meta {
+    justify-items: start;
+    text-align: left;
+    min-width: 0;
+  }
+
+  .library-mini-meta {
     justify-items: start;
     text-align: left;
     min-width: 0;
