@@ -291,6 +291,7 @@ class _AuthenticatedShell extends StatelessWidget {
             CoursesScreen(
               data: data,
               onRefresh: controller.refreshHome,
+              contentVersion: controller.contentVersion ?? '',
               canManageCourses: isSpecialist,
             ),
             BookingsScreen(
@@ -352,6 +353,7 @@ class _AuthenticatedShell extends StatelessWidget {
                 CoursesScreen(
                   data: data,
                   onRefresh: controller.refreshHome,
+                  contentVersion: controller.contentVersion ?? '',
                   canManageCourses: true,
                 ),
                 BookingsScreen(
@@ -416,6 +418,7 @@ class _AuthenticatedShell extends StatelessWidget {
                 CoursesScreen(
                   data: data,
                   onRefresh: controller.refreshHome,
+                  contentVersion: controller.contentVersion ?? '',
                 ),
                 BookingsScreen(
                   data: data,

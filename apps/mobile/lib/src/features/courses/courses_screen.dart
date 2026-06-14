@@ -17,11 +17,13 @@ class CoursesScreen extends StatefulWidget {
     super.key,
     required this.data,
     required this.onRefresh,
+    required this.contentVersion,
     this.canManageCourses = false,
   });
 
   final AppBootstrap data;
   final Future<void> Function() onRefresh;
+  final String contentVersion;
   final bool canManageCourses;
 
   @override
@@ -72,6 +74,7 @@ class _CoursesScreenState extends State<CoursesScreen> {
                 key: const ValueKey('courses'),
                 courses: widget.data.courses,
                 refreshTick: _refreshTick,
+                contentVersion: widget.contentVersion,
               ),
             ],
           ),
@@ -734,10 +737,12 @@ class _CoursesPanel extends StatefulWidget {
     super.key,
     required this.courses,
     required this.refreshTick,
+    required this.contentVersion,
   });
 
   final List<Course> courses;
   final int refreshTick;
+  final String contentVersion;
 
   @override
   State<_CoursesPanel> createState() => _CoursesPanelState();
@@ -773,7 +778,10 @@ class _CoursesPanelState extends State<_CoursesPanel> {
   void didUpdateWidget(covariant _CoursesPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
     final coursesChanged = !_sameCourses(oldWidget.courses, widget.courses);
-    if (coursesChanged || oldWidget.refreshTick != widget.refreshTick) {
+    final contentChanged = oldWidget.contentVersion != widget.contentVersion;
+    if (coursesChanged ||
+        oldWidget.refreshTick != widget.refreshTick ||
+        contentChanged) {
       _reloadLibrary();
     }
   }

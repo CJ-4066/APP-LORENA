@@ -88,6 +88,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   PhoneAuthSession? get session => _session;
   String? get authErrorMessage => _authErrorMessage;
   String? get homeErrorMessage => _homeErrorMessage;
+  String? get contentVersion => _contentVersion;
   bool get isBusy => _isBusy;
   int get currentIndex => _currentIndex;
 
