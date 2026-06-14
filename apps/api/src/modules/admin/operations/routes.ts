@@ -54,6 +54,7 @@ import {
   type UpdateShopOrderStatusInput,
   type UpdateShopProductInput,
 } from "../../../data/persistent-store.js";
+import { getLibraryPdfMetadata } from "../../content/library-pdf-renderer.js";
 import {
   deleteSpecialistAvailability,
   getSpecialistAvailability,
@@ -122,6 +123,37 @@ function normalizeLibraryPdfCategory(value: unknown, fallback = "General"): stri
 
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : fallback;
+}
+
+function prettifyFileTitle(fileName: string): string {
+  const baseName = fileName.replace(/\.[^.]+$/u, "");
+  const normalized = baseName
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return normalized.length > 0 ? normalized : "PDF";
+}
+
+async function finalizeLibraryPdfPageCount(
+  item: LibraryPdfRecord,
+  auditMeta: AdminAuditMeta,
+): Promise<LibraryPdfRecord> {
+  try {
+    const metadata = await getLibraryPdfMetadata(item.id, true);
+    if (metadata.pageCount > 0 && metadata.pageCount !== item.pageCount) {
+      return upsertLibraryPdf(
+        {
+          ...item,
+          pageCount: metadata.pageCount,
+        },
+        auditMeta,
+      );
+    }
+  } catch {
+    // If the document cannot be analyzed yet, keep the uploaded record.
+  }
+
+  return item;
 }
 
 async function readLibraryPdfInput(
@@ -235,7 +267,8 @@ async function createOrUpdateLibraryPdf(
     throw new Error("Debes subir un PDF antes de guardar.");
   }
 
-  return upsertLibraryPdf(input, auditMeta);
+  const item = await upsertLibraryPdf(input, auditMeta);
+  return finalizeLibraryPdfPageCount(item, auditMeta);
 }
 
 export async function registerAdminOperationsRoutes(app: FastifyInstance) {
@@ -1196,6 +1229,87 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
       return {
         error:
           error instanceof Error ? error.message : "No se pudo guardar el PDF.",
+      };
+    }
+  });
+
+  app.post("/library/pdfs/bulk", async (request, reply) => {
+    const admin = await requireAdminSession(request, reply);
+    if (!admin) {
+      return { error: getAdminError(reply.statusCode, false) };
+    }
+
+    const fields: Record<string, string> = {};
+    const files: Array<{ filename: string; mimetype: string; bytes: Uint8Array }> = [];
+
+    for await (const part of request.parts()) {
+      if (part.type === "file") {
+        files.push({
+          filename: part.filename,
+          mimetype: part.mimetype,
+          bytes: new Uint8Array(await part.toBuffer()),
+        });
+      } else {
+        fields[part.fieldname] = String(part.value ?? "");
+      }
+    }
+
+    if (files.length === 0) {
+      reply.code(400);
+      return { error: "Selecciona uno o más archivos PDF." };
+    }
+
+    const uploadedBy = buildAdminAuditMeta(admin).changedBy;
+    const auditMeta = buildAdminAuditMeta(admin);
+    const items: LibraryPdfRecord[] = [];
+
+    try {
+      for (const filePart of files) {
+        if (filePart.mimetype !== "application/pdf") {
+          throw new Error("Solo se permiten archivos PDF.");
+        }
+
+        const asset = await createMediaAsset(
+          {
+            originalName: filePart.filename,
+            mimeType: filePart.mimetype,
+            sizeBytes: filePart.bytes.byteLength,
+            category: "library",
+            entityType: "library_pdf",
+            entityId: null,
+            uploadedBy,
+          },
+          filePart.bytes,
+        );
+
+        const item = await createOrUpdateLibraryPdf(
+          {
+            title:
+              fields.titlePrefix?.trim().length
+                ? `${fields.titlePrefix.trim()} ${prettifyFileTitle(filePart.filename)}`
+                : prettifyFileTitle(filePart.filename),
+            description: fields.description?.trim() ?? "",
+            fileUrl: asset.publicUrl,
+            courseId: fields.courseId?.trim() || null,
+            moduleId: fields.moduleId?.trim() || null,
+            lessonId: fields.lessonId?.trim() || null,
+            category: normalizeLibraryPdfCategory(fields.category, "General"),
+            pageCount: parseNumberField(fields.pageCount, 0),
+            status: normalizeLibraryPdfStatus(fields.status ?? "published"),
+            isActive: parseBooleanField(fields.isActive, true),
+          },
+          auditMeta,
+        );
+        items.push(item);
+      }
+
+      reply.code(201);
+      return { items };
+    } catch (error) {
+      reply.code(400);
+      return {
+        error:
+          error instanceof Error ? error.message : "No se pudieron guardar los PDFs.",
       };
     }
   });

@@ -2004,10 +2004,21 @@ function App() {
     category: "",
     courseId: "",
     pageCount: "",
-    status: "draft",
+    status: "published",
     isActive: true,
   });
   const [libraryPdfFile, setLibraryPdfFile] = useState<File | null>(null);
+  const [libraryBulkFiles, setLibraryBulkFiles] = useState<File[]>([]);
+  const [libraryBulkUploading, setLibraryBulkUploading] = useState(false);
+  const [libraryBulkForm, setLibraryBulkForm] = useState({
+    titlePrefix: "",
+    description: "",
+    category: "",
+    courseId: "",
+    pageCount: "",
+    status: "published",
+    isActive: true,
+  });
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [isUserDrawerOpen, setIsUserDrawerOpen] = useState(false);
@@ -2905,7 +2916,7 @@ function App() {
       category: pdf?.category ?? "",
       courseId: pdf?.courseId ?? "",
       pageCount: pdf ? String(pdf.pageCount ?? 0) : "",
-      status: pdf?.status ?? "draft",
+      status: pdf?.status ?? "published",
       isActive: pdf?.isActive ?? true,
     });
   }
@@ -3231,6 +3242,79 @@ function App() {
       isActive: savedItem.isActive ?? true,
     });
     setCourseMessage(selectedLibraryPdfId ? "PDF actualizado." : "PDF agregado.");
+  }
+
+  async function handleSaveBulkLibraryPdfs(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setCourseMessage(null);
+    setCourseError(null);
+
+    if (libraryBulkFiles.length === 0) {
+      setCourseError("Selecciona uno o más PDFs para subir.");
+      return;
+    }
+
+    setLibraryBulkUploading(true);
+
+    const uploadedItems: AdminLibraryPdf[] = [];
+
+    try {
+      const formData = new FormData();
+      const courseId = selectedCourseId ?? libraryBulkForm.courseId.trim();
+      if (libraryBulkForm.titlePrefix.trim()) {
+        formData.append("titlePrefix", libraryBulkForm.titlePrefix.trim());
+      }
+      formData.append("description", libraryBulkForm.description.trim());
+      formData.append("category", libraryBulkForm.category.trim() || "General");
+      if (courseId) {
+        formData.append("courseId", courseId);
+      }
+      formData.append("pageCount", libraryBulkForm.pageCount.trim() || "0");
+      formData.append("status", libraryBulkForm.status || "published");
+      formData.append("isActive", String(libraryBulkForm.isActive));
+      libraryBulkFiles.forEach((file) => {
+        formData.append("file", file);
+      });
+
+      const response = await fetch(`${apiBaseUrl}/api/admin/library/pdfs/bulk`, {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+      const json = (await response.json()) as { items?: AdminLibraryPdf[]; error?: string };
+      if (!response.ok || !json.items) {
+        throw new Error(json.error ?? "No se pudieron subir los PDFs.");
+      }
+
+      uploadedItems.push(...json.items);
+
+      if (uploadedItems.length > 0) {
+        setLibraryPdfs((current) => {
+          const next = [...uploadedItems, ...current];
+          const seen = new Set<string>();
+          return next.filter((item) => {
+            if (seen.has(item.id)) {
+              return false;
+            }
+            seen.add(item.id);
+            return true;
+          });
+        });
+      }
+
+      setLibraryBulkFiles([]);
+      if (uploadedItems.length > 0) {
+        setCourseMessage(
+          `${uploadedItems.length} PDF(s) subido(s) correctamente.`,
+        );
+      } else {
+        setCourseError("No se pudo subir ningún PDF.");
+      }
+    } catch (error) {
+      setCourseError(error instanceof Error ? error.message : "No se pudieron subir los PDFs.");
+    } finally {
+      setLibraryBulkUploading(false);
+    }
   }
 
   async function handleLibraryPdfAction(
@@ -5699,6 +5783,140 @@ function App() {
                     Nuevo PDF
                   </button>
                 </div>
+              </div>
+
+              <div className="course-subview-grid">
+                <article className="course-subview-card">
+                  <div className="panel-head">
+                    <div>
+                      <p className="eyebrow">Carga masiva</p>
+                      <h3>Subir varios PDFs</h3>
+                    </div>
+                    <span className="topbar-pill">Publicado para móvil</span>
+                  </div>
+                  <form
+                    className="badge-form-grid badge-form-grid-compact"
+                    onSubmit={(event) => void handleSaveBulkLibraryPdfs(event)}
+                  >
+                    <label className="form-wide">
+                      <span>Archivos PDF</span>
+                      <input
+                        type="file"
+                        accept="application/pdf"
+                        multiple
+                        onChange={(event) =>
+                          setLibraryBulkFiles(Array.from(event.target.files ?? []))
+                        }
+                      />
+                      <p className="muted-copy" style={{ marginTop: 8 }}>
+                        {libraryBulkFiles.length > 0
+                          ? `${libraryBulkFiles.length} archivo(s) seleccionados: ${libraryBulkFiles
+                              .slice(0, 4)
+                              .map((file) => file.name)
+                              .join(", ")}${libraryBulkFiles.length > 4 ? "..." : ""}`
+                          : "Selecciona uno o varios PDFs completos para publicarlos en la biblioteca móvil."}
+                      </p>
+                    </label>
+                    <label>
+                      <span>Prefijo de título</span>
+                      <input
+                        value={libraryBulkForm.titlePrefix}
+                        onChange={(event) =>
+                          setLibraryBulkForm((current) => ({
+                            ...current,
+                            titlePrefix: event.target.value,
+                          }))
+                        }
+                        placeholder="Ej. Curso de"
+                      />
+                    </label>
+                    <label>
+                      <span>Categoría</span>
+                      <input
+                        value={libraryBulkForm.category}
+                        onChange={(event) =>
+                          setLibraryBulkForm((current) => ({
+                            ...current,
+                            category: event.target.value,
+                          }))
+                        }
+                        placeholder="General"
+                      />
+                    </label>
+                    <label className="form-wide">
+                      <span>Descripción</span>
+                      <textarea
+                        rows={3}
+                        value={libraryBulkForm.description}
+                        onChange={(event) =>
+                          setLibraryBulkForm((current) => ({
+                            ...current,
+                            description: event.target.value,
+                          }))
+                        }
+                        placeholder="Descripción compartida para todos los PDFs."
+                      />
+                    </label>
+                    <label>
+                      <span>Curso relacionado</span>
+                      <select
+                        value={libraryBulkForm.courseId}
+                        onChange={(event) =>
+                          setLibraryBulkForm((current) => ({
+                            ...current,
+                            courseId: event.target.value,
+                          }))
+                        }
+                      >
+                        <option value="">Sin curso</option>
+                        {courses.map((course) => (
+                          <option key={course.id} value={course.id}>
+                            {course.title}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      <span>Páginas</span>
+                      <input
+                        type="number"
+                        value={libraryBulkForm.pageCount}
+                        onChange={(event) =>
+                          setLibraryBulkForm((current) => ({
+                            ...current,
+                            pageCount: event.target.value,
+                          }))
+                        }
+                        placeholder="0"
+                      />
+                    </label>
+                    <label>
+                      <span>Estado</span>
+                      <select
+                        value={libraryBulkForm.status}
+                        onChange={(event) =>
+                          setLibraryBulkForm((current) => ({
+                            ...current,
+                            status: event.target.value as "draft" | "published" | "archived",
+                          }))
+                        }
+                      >
+                        <option value="published">Publicado</option>
+                        <option value="draft">Borrador</option>
+                        <option value="archived">Archivado</option>
+                      </select>
+                    </label>
+                    <div className="editor-actions form-wide">
+                      <button
+                        type="submit"
+                        className="primary-button"
+                        disabled={libraryBulkUploading}
+                      >
+                        {libraryBulkUploading ? "Subiendo..." : "Subir PDFs"}
+                      </button>
+                    </div>
+                  </form>
+                </article>
               </div>
 
               <div className="course-stat-grid">
@@ -8738,6 +8956,25 @@ function App() {
                         }
                       />
                     </label>
+                    <label>
+                      <span>Estado</span>
+                      <select
+                        value={libraryPdfForm.status}
+                        onChange={(event) =>
+                          setLibraryPdfForm((current) => ({
+                            ...current,
+                            status: event.target.value as "draft" | "published" | "archived",
+                          }))
+                        }
+                      >
+                        <option value="published">Publicado</option>
+                        <option value="draft">Borrador</option>
+                        <option value="archived">Archivado</option>
+                      </select>
+                    </label>
+                    <p className="muted-copy form-wide">
+                      Los PDFs publicados aparecen en la biblioteca de la app móvil con el visor completo.
+                    </p>
                     <div className="editor-actions form-wide">
                       <button type="submit" className="primary-button">Guardar PDF</button>
                     </div>
