@@ -495,6 +495,7 @@ const apiBaseUrl =
           window.location.hostname === "0.0.0.0"
         ? `${window.location.protocol === "https:" ? "https:" : "http:"}//127.0.0.1:4000`
         : window.location.origin.replace(/\/+$/u, ""));
+const brandLogoUrl = `${import.meta.env.BASE_URL}branding/lo-renaciente-isotipo.png`;
 const adminBuildStamp = "reset-2026-06-11";
 
 type CourseWorkspaceTab = "data" | "modules" | "lessons" | "resources" | "library" | "publication" | "history";
@@ -1816,7 +1817,7 @@ function BrandLockup({
   return (
     <div className={`brand-lockup ${compact ? "brand-lockup-compact" : ""}`}>
       <img
-        src="/branding/lo-renaciente-isotipo.png"
+        src={brandLogoUrl}
         alt="Lo Renaciente"
         className="brand-lockup-mark"
       />
