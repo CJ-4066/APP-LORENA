@@ -1514,14 +1514,14 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   void _scheduleContentVersionRefresh() {
     _contentVersionTimer?.cancel();
 
-    if (_stage != AppStage.home) {
+    if (_session == null) {
       return;
     }
 
     _contentVersionTimer = Timer.periodic(
       const Duration(seconds: 30),
       (_) async {
-        if (_stage != AppStage.home) {
+        if (_session == null) {
           return;
         }
 
@@ -1541,7 +1541,11 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
           if (_contentVersion != remoteVersion) {
             _contentVersion = remoteVersion;
             await _appSettingsCache.writeContentVersion(remoteVersion);
-            await refreshHome();
+            if (_stage == AppStage.home) {
+              await refreshHome();
+            } else {
+              notifyListeners();
+            }
           }
         } catch (_) {
           // Try again on the next tick.
