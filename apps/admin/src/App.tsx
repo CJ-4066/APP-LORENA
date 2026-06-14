@@ -488,11 +488,13 @@ const apiBaseUrl =
   (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim() ||
   (typeof window === "undefined"
     ? "http://127.0.0.1:4000"
-    : window.location.hostname === "localhost" ||
-        window.location.hostname === "127.0.0.1" ||
-        window.location.hostname === "0.0.0.0"
-      ? `${window.location.protocol === "https:" ? "https:" : "http:"}//127.0.0.1:4000`
-      : window.location.origin.replace(/\/+$/u, ""));
+    : import.meta.env.PROD
+      ? window.location.origin.replace(/\/+$/u, "")
+      : window.location.hostname === "localhost" ||
+          window.location.hostname === "127.0.0.1" ||
+          window.location.hostname === "0.0.0.0"
+        ? `${window.location.protocol === "https:" ? "https:" : "http:"}//127.0.0.1:4000`
+        : window.location.origin.replace(/\/+$/u, ""));
 const adminBuildStamp = "reset-2026-06-11";
 
 type CourseWorkspaceTab = "data" | "modules" | "lessons" | "resources" | "library" | "publication" | "history";
