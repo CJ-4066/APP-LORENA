@@ -318,7 +318,7 @@ export async function getAdminRecentUsers(
         coalesce(i.phone_number, '') ilike $2
       )
       and (
-        $3 is null or
+        $3::text is null or
         (
           $3 = 'client' and not exists (
             select 1 from user_roles ur where ur.user_id = u.id
@@ -326,7 +326,7 @@ export async function getAdminRecentUsers(
         ) or
         (
           $3 <> 'client' and exists (
-            select 1 from user_roles ur where ur.user_id = u.id and ur.role = $3
+            select 1 from user_roles ur where ur.user_id = u.id and ur.role = $3::text
           )
         )
       )
