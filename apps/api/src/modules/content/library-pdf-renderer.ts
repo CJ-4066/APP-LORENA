@@ -33,10 +33,10 @@ const pdfjsRootDir = join(
   dirname(fileURLToPath(import.meta.url)),
   "../../../../../node_modules/pdfjs-dist",
 );
-const pdfjsCMapUrl = pathToFileURL(join(pdfjsRootDir, "cmaps")).toString();
-const pdfjsStandardFontsUrl = pathToFileURL(
+const pdfjsCMapUrl = `${pathToFileURL(join(pdfjsRootDir, "cmaps")).toString()}/`;
+const pdfjsStandardFontsUrl = `${pathToFileURL(
   join(pdfjsRootDir, "standard_fonts"),
-).toString();
+).toString()}/`;
 
 export interface LibraryPdfMetadata {
   id: string;
