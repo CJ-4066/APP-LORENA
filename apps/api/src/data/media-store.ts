@@ -1,5 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { extname, basename } from "node:path";
+import { execFile } from "node:child_process";
+import { basename, extname, join } from "node:path";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { promisify } from "node:util";
 
 import type { QueryResultRow } from "pg";
 
@@ -93,6 +97,7 @@ export interface MediaAssetListOptions {
 
 const mockMediaAssets = new Map<string, StoredMockMediaAsset>();
 const mockMediaAudits: MediaAuditRow[] = [];
+const execFileAsync = promisify(execFile);
 
 const dangerousExtensions = new Set(["exe", "js", "html", "php", "sh"]);
 const allowedImageMimes = new Set([
@@ -431,12 +436,16 @@ async function findAssetRowByStoragePath(storagePath: string): Promise<MediaAsse
 
 export async function createMediaAsset(input: CreateMediaAssetInput, bytes: Uint8Array): Promise<MediaAsset> {
   const { normalizedMimeType, fileName, storagePath, publicUrl } = validateFilePayload(input, bytes);
+  const storedBytes =
+    normalizedMimeType === "application/pdf"
+      ? await maybeOcrPdfBytes(bytes, input.originalName)
+      : bytes;
   const asset: MediaAsset = {
     id: randomUUID(),
     fileName,
     originalName: input.originalName.trim(),
     mimeType: normalizedMimeType,
-    sizeBytes: bytes.byteLength,
+    sizeBytes: storedBytes.byteLength,
     storagePath,
     publicUrl,
     category: input.category,
@@ -448,10 +457,10 @@ export async function createMediaAsset(input: CreateMediaAssetInput, bytes: Uint
     isActive: true,
   };
 
-  await writeUploadFile(storagePath, bytes);
+  await writeUploadFile(storagePath, storedBytes);
 
   if (!isDatabaseConfigured()) {
-    mockMediaAssets.set(asset.id, { asset, bytes });
+    mockMediaAssets.set(asset.id, { asset, bytes: storedBytes });
   } else {
     await query(
       `
@@ -516,6 +525,38 @@ export async function createMediaAsset(input: CreateMediaAssetInput, bytes: Uint
   );
 
   return asset;
+}
+
+async function maybeOcrPdfBytes(bytes: Uint8Array, originalName: string): Promise<Uint8Array> {
+  try {
+    const workDir = await mkdtemp(join(tmpdir(), "lo-renaciente-ocr-"));
+    const inputPath = join(workDir, sanitizeFileName(originalName) || "documento.pdf");
+    const outputPath = join(workDir, "ocr-output.pdf");
+    await writeFile(inputPath, bytes);
+
+    try {
+      await execFileAsync("ocrmypdf", [
+        "--skip-text",
+        "--deskew",
+        "--clean",
+        "--rotate-pages",
+        "--language",
+        "spa+eng",
+        "--output-type",
+        "pdf",
+        "--quiet",
+        inputPath,
+        outputPath,
+      ]);
+
+      const ocrBytes = await readFile(outputPath);
+      return ocrBytes.byteLength > 0 ? ocrBytes : bytes;
+    } finally {
+      await rm(workDir, { recursive: true, force: true });
+    }
+  } catch {
+    return bytes;
+  }
 }
 
 export async function listMediaAssets(options: MediaAssetListOptions = {}): Promise<MediaAsset[]> {
