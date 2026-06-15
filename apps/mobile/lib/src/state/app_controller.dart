@@ -11,6 +11,7 @@ import '../core/config/app_config.dart';
 import '../core/data/birth_place_catalog.dart';
 import '../core/i18n/app_i18n.dart';
 import '../core/network/api_client.dart';
+import '../core/network/content_events_client.dart';
 import '../features/auth/phone_countries.dart';
 import '../models/app_models.dart';
 import '../models/astro_models.dart';
@@ -43,6 +44,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     debugPrint(
         'AppController initialized with API base URL: ${_apiClient.baseUrl}');
     WidgetsBinding.instance.addObserver(this);
+    _startContentRealtimeSync();
     Future<void>.microtask(() async {
       try {
         await _restorePersistedState();
@@ -79,6 +81,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   int _currentIndex = 0;
   Timer? _dailyRefreshTimer;
   Timer? _contentVersionTimer;
+  ContentEventsClient? _contentEventsClient;
 
   PhoneCountry get selectedCountry => _selectedCountry;
   Locale get locale => _locale;
@@ -1511,6 +1514,34 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  void _startContentRealtimeSync() {
+    _contentEventsClient ??= ContentEventsClient(
+      baseUrl: AppConfig.apiBaseUrl,
+    );
+
+    _contentEventsClient!.start(
+      onChanged: (event) {
+        final shouldRefresh =
+            event.entity == 'all' ||
+            event.entity == 'libraryPdf' ||
+            event.entity == 'course' ||
+            event.entity == 'service' ||
+            event.entity == 'specialist' ||
+            event.entity == 'shopProduct' ||
+            event.entity == 'booking';
+
+        if (!shouldRefresh || _session == null) {
+          return;
+        }
+
+        unawaited(refreshHome());
+      },
+      onError: (_) {
+        // Keep polling as a fallback when the SSE stream fails.
+      },
+    );
+  }
+
   void _scheduleContentVersionRefresh() {
     _contentVersionTimer?.cancel();
 
@@ -1656,6 +1687,8 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _cancelDailyRefresh();
     _contentVersionTimer?.cancel();
+    _contentEventsClient?.dispose();
+    _contentEventsClient = null;
     _apiClient.dispose();
     super.dispose();
   }

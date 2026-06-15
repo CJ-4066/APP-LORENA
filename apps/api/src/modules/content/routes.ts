@@ -12,6 +12,10 @@ import {
 } from "../../data/persistent-store.js";
 import { getSpecialistCatalog } from "../../data/scheduling-store.js";
 import {
+  subscribeContentChanges,
+  type PublicContentChangeEvent,
+} from "./content-events.js";
+import {
   readUploadFile,
   resolveUploadStoragePath,
   uploadFileExists,
@@ -31,6 +35,48 @@ const pdfJsRootDir = join(
 );
 
 export async function registerContentRoutes(app: FastifyInstance) {
+  app.get("/events", async (request, reply) => {
+    reply.hijack();
+
+    reply.raw.writeHead(200, {
+      "Content-Type": "text/event-stream; charset=utf-8",
+      "Cache-Control": "no-cache, no-transform",
+      Connection: "keep-alive",
+      "X-Accel-Buffering": "no",
+    });
+
+    const sendEvent = (event: PublicContentChangeEvent) => {
+      if (reply.raw.destroyed) {
+        return;
+      }
+
+      reply.raw.write(`id: ${event.id}\n`);
+      reply.raw.write("event: content.changed\n");
+      reply.raw.write(`data: ${JSON.stringify(event)}\n\n`);
+    };
+
+    reply.raw.write("event: connected\n");
+    reply.raw.write(
+      `data: ${JSON.stringify({
+        ok: true,
+        at: new Date().toISOString(),
+      })}\n\n`,
+    );
+
+    const unsubscribe = subscribeContentChanges(sendEvent);
+
+    const heartbeat = setInterval(() => {
+      if (!reply.raw.destroyed) {
+        reply.raw.write(`: ping ${Date.now()}\n\n`);
+      }
+    }, 25_000);
+
+    request.raw.on("close", () => {
+      clearInterval(heartbeat);
+      unsubscribe();
+    });
+  });
+
   app.get("/courses", async () => {
     return {
       items: getCourses(),

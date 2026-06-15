@@ -55,6 +55,7 @@ import {
   type UpdateShopProductInput,
 } from "../../../data/persistent-store.js";
 import { getLibraryPdfMetadata } from "../../content/library-pdf-renderer.js";
+import { emitContentChanged } from "../../content/content-events.js";
 import {
   deleteSpecialistAvailability,
   getSpecialistAvailability,
@@ -367,6 +368,12 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
         request.body ?? {},
         buildAdminAuditMeta(admin),
       );
+      emitContentChanged({
+        entity: "specialist",
+        action: "updated",
+        entityId: item.id,
+        actor: admin.email,
+      });
       return {
         item: {
           ...item,
@@ -417,6 +424,12 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
         request.body ?? {},
         buildAdminAuditMeta(admin),
       );
+      emitContentChanged({
+        entity: "service",
+        action: "created",
+        entityId: item.id,
+        actor: admin.email,
+      });
       reply.code(201);
       return { item };
     } catch (error) {
@@ -446,13 +459,18 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
     }
 
     try {
-      return {
-        item: await updateServiceOffer(
-          request.params.serviceId,
-          request.body ?? {},
-          buildAdminAuditMeta(admin),
-        ),
-      };
+      const item = await updateServiceOffer(
+        request.params.serviceId,
+        request.body ?? {},
+        buildAdminAuditMeta(admin),
+      );
+      emitContentChanged({
+        entity: "service",
+        action: "updated",
+        entityId: item.id,
+        actor: admin.email,
+      });
+      return { item };
     } catch (error) {
       reply.code(400);
       return {
@@ -503,6 +521,12 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
         },
         buildAdminAuditMeta(admin),
       );
+      emitContentChanged({
+        entity: "specialist",
+        action: "updated",
+        entityId: item.id,
+        actor: admin.email,
+      });
       reply.code(201);
       return { item };
     } catch (error) {
@@ -532,6 +556,12 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
         },
         buildAdminAuditMeta(admin),
       );
+      emitContentChanged({
+        entity: "specialist",
+        action: "updated",
+        entityId: item.id,
+        actor: admin.email,
+      });
       return { item };
     } catch (error) {
       reply.code(400);
@@ -558,6 +588,12 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
           request.params.specialistId,
           buildAdminAuditMeta(admin),
         );
+        emitContentChanged({
+          entity: "specialist",
+          action: "deleted",
+          entityId: request.params.availabilityId,
+          actor: admin.email,
+        });
         reply.code(204);
         return null;
       } catch (error) {
@@ -663,13 +699,18 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
       }
 
       try {
-        return {
-          item: await updateBooking(
-            request.params.bookingId,
-            request.body ?? {},
-            booking.userId,
-          ),
-        };
+        const item = await updateBooking(
+          request.params.bookingId,
+          request.body ?? {},
+          booking.userId,
+        );
+        emitContentChanged({
+          entity: "booking",
+          action: "updated",
+          entityId: item.id,
+          actor: admin.email,
+        });
+        return { item };
       } catch (error) {
         reply.code(400);
         return {
@@ -692,7 +733,7 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
       return { error: "Selecciona un usuario para crear la reserva." };
     }
 
-    try {
+      try {
       const item = await createBooking(
         {
           serviceId: request.body?.serviceId,
@@ -703,6 +744,12 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
         },
         userId,
       );
+      emitContentChanged({
+        entity: "booking",
+        action: "created",
+        entityId: item.id,
+        actor: admin.email,
+      });
       reply.code(201);
       return { item };
     } catch (error) {
@@ -750,6 +797,12 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
             source: "admin",
           } satisfies ShopProductAuditMeta,
         );
+        emitContentChanged({
+          entity: "shopProduct",
+          action: "created",
+          entityId: item.id,
+          actor: admin.email,
+        });
         reply.code(201);
         return { item };
       } catch (error) {
@@ -781,6 +834,12 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
             source: "admin",
           } satisfies ShopProductAuditMeta,
         );
+        emitContentChanged({
+          entity: "shopProduct",
+          action: "updated",
+          entityId: item.id,
+          actor: admin.email,
+        });
         return { item };
       } catch (error) {
         reply.code(400);
@@ -858,6 +917,12 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
 
     try {
       const item = await createCourse(request.body as never, buildAdminAuditMeta(admin));
+      emitContentChanged({
+        entity: "course",
+        action: "created",
+        entityId: item.id,
+        actor: admin.email,
+      });
       reply.code(201);
       return { item };
     } catch (error) {
@@ -881,6 +946,12 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
         request.body as never,
         buildAdminAuditMeta(admin),
       );
+      emitContentChanged({
+        entity: "course",
+        action: "updated",
+        entityId: item.id,
+        actor: admin.email,
+      });
       return { item };
     } catch (error) {
       reply.code(400);
@@ -899,6 +970,12 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
 
     try {
       const item = await archiveCourse(request.params.courseId, buildAdminAuditMeta(admin));
+      emitContentChanged({
+        entity: "course",
+        action: "archived",
+        entityId: item.id,
+        actor: admin.email,
+      });
       return { item };
     } catch (error) {
       reply.code(400);
@@ -916,7 +993,14 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
     }
 
     try {
-      return { item: await publishCourse(request.params.courseId, buildAdminAuditMeta(admin)) };
+      const item = await publishCourse(request.params.courseId, buildAdminAuditMeta(admin));
+      emitContentChanged({
+        entity: "course",
+        action: "published",
+        entityId: item.id,
+        actor: admin.email,
+      });
+      return { item };
     } catch (error) {
       reply.code(400);
       return {
@@ -933,9 +1017,14 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
     }
 
     try {
-      return {
-        item: await unpublishCourse(request.params.courseId, buildAdminAuditMeta(admin)),
-      };
+      const item = await unpublishCourse(request.params.courseId, buildAdminAuditMeta(admin));
+      emitContentChanged({
+        entity: "course",
+        action: "unpublished",
+        entityId: item.id,
+        actor: admin.email,
+      });
+      return { item };
     } catch (error) {
       reply.code(400);
       return {
@@ -972,6 +1061,12 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
         request.body as never,
         buildAdminAuditMeta(admin),
       );
+      emitContentChanged({
+        entity: "course",
+        action: "updated",
+        entityId: request.params.courseId,
+        actor: admin.email,
+      });
       reply.code(201);
       return { item };
     } catch (error) {
@@ -996,6 +1091,12 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
         request.body as never,
         buildAdminAuditMeta(admin),
       );
+      emitContentChanged({
+        entity: "course",
+        action: "updated",
+        entityId: request.params.courseId,
+        actor: admin.email,
+      });
       return { item };
     } catch (error) {
       reply.code(400);
@@ -1018,6 +1119,12 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
         request.params.moduleId,
         buildAdminAuditMeta(admin),
       );
+      emitContentChanged({
+        entity: "course",
+        action: "updated",
+        entityId: request.params.courseId,
+        actor: admin.email,
+      });
       return { item };
     } catch (error) {
       reply.code(400);
@@ -1062,6 +1169,12 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
         request.body as never,
         buildAdminAuditMeta(admin),
       );
+      emitContentChanged({
+        entity: "course",
+        action: "updated",
+        entityId: request.params.courseId,
+        actor: admin.email,
+      });
       reply.code(201);
       return { item };
     } catch (error) {
@@ -1087,6 +1200,12 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
         request.body as never,
         buildAdminAuditMeta(admin),
       );
+      emitContentChanged({
+        entity: "course",
+        action: "updated",
+        entityId: request.params.courseId,
+        actor: admin.email,
+      });
       return { item };
     } catch (error) {
       reply.code(400);
@@ -1110,6 +1229,12 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
         request.params.lessonId,
         buildAdminAuditMeta(admin),
       );
+      emitContentChanged({
+        entity: "course",
+        action: "updated",
+        entityId: request.params.courseId,
+        actor: admin.email,
+      });
       return { item };
     } catch (error) {
       reply.code(400);
@@ -1149,6 +1274,12 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
         request.body as never,
         buildAdminAuditMeta(admin),
       );
+      emitContentChanged({
+        entity: "course",
+        action: "updated",
+        entityId: courseId,
+        actor: admin.email,
+      });
       reply.code(201);
       return { item };
     } catch (error) {
@@ -1175,6 +1306,12 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
         } as never,
         buildAdminAuditMeta(admin),
       );
+      emitContentChanged({
+        entity: "course",
+        action: "updated",
+        entityId: request.params.courseId,
+        actor: admin.email,
+      });
       return { item };
     } catch (error) {
       reply.code(400);
@@ -1197,6 +1334,12 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
         request.params.resourceId,
         buildAdminAuditMeta(admin),
       );
+      emitContentChanged({
+        entity: "course",
+        action: "updated",
+        entityId: request.params.courseId,
+        actor: admin.email,
+      });
       return { ok: true };
     } catch (error) {
       reply.code(400);
@@ -1240,6 +1383,12 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
     try {
       const input = await readLibraryPdfInput(request, buildAdminAuditMeta(admin).changedBy);
       const item = await createOrUpdateLibraryPdf(input, buildAdminAuditMeta(admin));
+      emitContentChanged({
+        entity: "libraryPdf",
+        action: item.status === "published" ? "published" : "updated",
+        entityId: item.id,
+        actor: admin.email,
+      });
       reply.code(201);
       return { item };
     } catch (error) {
@@ -1318,6 +1467,12 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
           },
           auditMeta,
         );
+        emitContentChanged({
+          entity: "libraryPdf",
+          action: item.status === "published" ? "published" : "updated",
+          entityId: item.id,
+          actor: admin.email,
+        });
         items.push(item);
       }
 
@@ -1345,6 +1500,12 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
         request.params.pdfId,
       );
       const item = await createOrUpdateLibraryPdf(input, buildAdminAuditMeta(admin));
+      emitContentChanged({
+        entity: "libraryPdf",
+        action: item.status === "published" ? "published" : "updated",
+        entityId: item.id,
+        actor: admin.email,
+      });
       return { item };
     } catch (error) {
       reply.code(400);
@@ -1363,6 +1524,12 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
 
     try {
       await deleteLibraryPdf(request.params.pdfId, buildAdminAuditMeta(admin));
+      emitContentChanged({
+        entity: "libraryPdf",
+        action: "deleted",
+        entityId: request.params.pdfId,
+        actor: admin.email,
+      });
       return { ok: true };
     } catch (error) {
       reply.code(400);
@@ -1393,6 +1560,12 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
         },
         buildAdminAuditMeta(admin),
       );
+      emitContentChanged({
+        entity: "libraryPdf",
+        action: "published",
+        entityId: item.id,
+        actor: admin.email,
+      });
       return { item };
     } catch (error) {
       reply.code(400);
@@ -1423,6 +1596,12 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
         },
         buildAdminAuditMeta(admin),
       );
+      emitContentChanged({
+        entity: "libraryPdf",
+        action: "archived",
+        entityId: item.id,
+        actor: admin.email,
+      });
       return { item };
     } catch (error) {
       reply.code(400);
