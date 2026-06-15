@@ -8,6 +8,7 @@ import { getLibraryPdfById } from "../../data/persistent-store.js";
 import {
   getMediaAssetBytes,
   getMediaAssetByPublicPath,
+  listMediaAssets,
 } from "../../data/media-store.js";
 import {
   readUploadFile,
@@ -232,7 +233,7 @@ async function loadLibraryPdfBytes(
 
   const record = await getLibraryPdfById(pdfId);
   if (record?.fileUrl?.trim()) {
-    const storedBytes = await loadStoredLibraryPdfBytes(record.fileUrl.trim());
+    const storedBytes = await loadStoredLibraryPdfBytes(pdfId, record.fileUrl.trim());
     if (storedBytes) {
       const tempPath = `${cachePath}.${Date.now()}.tmp`;
       await writeUploadFile(tempPath, storedBytes);
@@ -299,10 +300,24 @@ async function fetchAndCacheLibraryPdf(
   throw new Error("No se pudo abrir el PDF de la biblioteca.");
 }
 
-async function loadStoredLibraryPdfBytes(fileUrl: string): Promise<Uint8Array | null> {
+async function loadStoredLibraryPdfBytes(
+  pdfId: string,
+  fileUrl: string,
+): Promise<Uint8Array | null> {
   const normalized = fileUrl.trim();
   if (!normalized) {
     return null;
+  }
+
+  const linkedAsset = (await listMediaAssets({
+    category: "library",
+    entityType: "library_pdf",
+    entityId: pdfId,
+    includeInactive: true,
+    limit: 1,
+  }))[0];
+  if (linkedAsset?.mimeType === "application/pdf") {
+    return getMediaAssetBytes(linkedAsset.id);
   }
 
   try {
