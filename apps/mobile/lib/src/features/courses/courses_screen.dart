@@ -821,17 +821,21 @@ class _CoursesPanelState extends State<_CoursesPanel> {
   Future<List<SharedDriveCategory>> _loadCategories() async {
     final categories = await _libraryService.fetchRootCategories();
     if (categories.isNotEmpty) {
+      final preferredCategory = categories.firstWhere(
+        (category) => category.id == 'general',
+        orElse: () => categories.first,
+      );
       if (mounted) {
         setState(() {
-          _selectedCategory = categories.first;
+          _selectedCategory = preferredCategory;
           _documentsFuture = _libraryService.fetchDocumentsForCategory(
-            categories.first.id,
+            preferredCategory.id,
           );
         });
       } else {
-        _selectedCategory = categories.first;
+        _selectedCategory = preferredCategory;
         _documentsFuture = _libraryService.fetchDocumentsForCategory(
-          categories.first.id,
+          preferredCategory.id,
         );
       }
     }
