@@ -2047,6 +2047,7 @@ function App() {
   const [libraryBulkProgress, setLibraryBulkProgress] = useState(0);
   const [librarySearch, setLibrarySearch] = useState("");
   const [libraryFilter, setLibraryFilter] = useState<"all" | "free" | "linked" | "published">("all");
+  const [libraryCategoryFilter, setLibraryCategoryFilter] = useState("all");
   const [libraryBulkForm, setLibraryBulkForm] = useState({
     description: "",
     category: "",
@@ -4919,6 +4920,7 @@ function App() {
     return left.title.localeCompare(right.title);
   });
   const librarySearchTerm = librarySearch.trim().toLowerCase();
+  const libraryCategoryFilterKey = normalizeLibraryCategoryKey(libraryCategoryFilter);
   const libraryFolderInputProps = {
     webkitdirectory: "",
     directory: "",
@@ -4934,6 +4936,9 @@ function App() {
       .join(" ")
       .toLowerCase();
     const matchesSearch = !librarySearchTerm || searchableText.includes(librarySearchTerm);
+    const matchesCategory =
+      libraryCategoryFilterKey === "all" ||
+      normalizeLibraryCategoryKey(pdf.category ?? "") === libraryCategoryFilterKey;
     const matchesFilter =
       libraryFilter === "all"
         ? true
@@ -4943,7 +4948,7 @@ function App() {
             ? Boolean(pdf.courseId)
             : pdf.status === "published" && pdf.isActive !== false;
 
-    return matchesSearch && matchesFilter;
+    return matchesSearch && matchesCategory && matchesFilter;
   });
   const libraryStandaloneCount = libraryPdfs.filter((pdf) => !pdf.courseId).length;
   const libraryLinkedCount = libraryPdfs.filter((pdf) => Boolean(pdf.courseId)).length;
@@ -6411,7 +6416,7 @@ function App() {
                       <p className="eyebrow">Catálogo</p>
                       <h3>PDFs publicados</h3>
                       <p className="hero-copy">
-                        Filtra por estado o busca por título, categoría o curso.
+                        Filtra por estado, categoría o busca por título o curso.
                       </p>
                     </div>
                     <span className="topbar-pill">{libraryVisiblePdfs.length} visibles</span>
@@ -6423,6 +6428,18 @@ function App() {
                       onChange={(event) => setLibrarySearch(event.target.value)}
                       placeholder="Buscar PDF, categoría o curso"
                     />
+                    <select
+                      className="library-search"
+                      value={libraryCategoryFilter}
+                      onChange={(event) => setLibraryCategoryFilter(event.target.value)}
+                    >
+                      <option value="all">Todas las categorías</option>
+                      {libraryCategorySummaries.map((category) => (
+                        <option key={category.key} value={category.label}>
+                          {category.label}
+                        </option>
+                      ))}
+                    </select>
                     <div className="library-filter-pills" role="tablist" aria-label="Filtros de biblioteca">
                       {[
                         ["all", "Todo"],
