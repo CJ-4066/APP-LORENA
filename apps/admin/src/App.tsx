@@ -1226,6 +1226,110 @@ function SidebarIcon({
   }
 }
 
+type ActionIconName =
+  | "login"
+  | "logout"
+  | "upload"
+  | "folder-upload"
+  | "edit"
+  | "delete"
+  | "refresh"
+  | "publish"
+  | "archive"
+  | "save";
+
+function ActionIcon({
+  name,
+}: {
+  name: ActionIconName;
+}) {
+  switch (name) {
+    case "login":
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M10 17l5-5-5-5" />
+          <path d="M15 12H4" />
+          <path d="M20 4v16" />
+        </svg>
+      );
+    case "logout":
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M14 17l5-5-5-5" />
+          <path d="M19 12H9" />
+          <path d="M12 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6" />
+        </svg>
+      );
+    case "upload":
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 16V4" />
+          <path d="m8 8 4-4 4 4" />
+          <path d="M5 20h14" />
+        </svg>
+      );
+    case "folder-upload":
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+          <path d="M12 11v6" />
+          <path d="m9 14 3-3 3 3" />
+        </svg>
+      );
+    case "edit":
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 20h9" />
+          <path d="m16.5 3.5 4 4L8 20l-4 1 1-4z" />
+        </svg>
+      );
+    case "delete":
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 7h16" />
+          <path d="M10 11v6M14 11v6" />
+          <path d="M6 7l1 13h10l1-13" />
+          <path d="M9 7V4h6v3" />
+        </svg>
+      );
+    case "refresh":
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M20 12a8 8 0 0 0-14-5" />
+          <path d="M6 4v3h3" />
+          <path d="M4 12a8 8 0 0 0 14 5" />
+          <path d="M18 20v-3h-3" />
+        </svg>
+      );
+    case "publish":
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 4v12" />
+          <path d="m8 8 4-4 4 4" />
+          <path d="M5 20h14" />
+        </svg>
+      );
+    case "archive":
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 6h16v4H4z" />
+          <path d="M6 10v8h12v-8" />
+          <path d="M10 14h4" />
+        </svg>
+      );
+    case "save":
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M5 4h11l3 3v13H5z" />
+          <path d="M8 4v6h8V4" />
+          <path d="M8 14h8" />
+        </svg>
+      );
+    default:
+      return null;
+  }
+}
+
 function formatDate(value: string): string {
   return new Intl.DateTimeFormat("es-PE", {
     dateStyle: "medium",
@@ -5073,8 +5177,11 @@ function App() {
                 placeholder="Tu contraseña"
               />
             </label>
-            <button type="submit" className="primary-button" disabled={loginLoading}>
-              {loginLoading ? "Ingresando..." : "Ingresar"}
+            <button type="submit" className="primary-button button-with-icon" disabled={loginLoading}>
+              <span className="button-icon" aria-hidden="true">
+                <ActionIcon name="login" />
+              </span>
+              <span>{loginLoading ? "Ingresando..." : "Ingresar"}</span>
             </button>
             {loginErrorMessage ? (
               <p className="badge-feedback badge-feedback-error">{loginErrorMessage}</p>
@@ -5118,7 +5225,10 @@ function App() {
             <span>Sesión activa</span>
             <strong>Cuenta activa</strong>
             <p>{adminUser?.email ?? "Sin email"}</p>
-            <button type="button" className="secondary-button" onClick={() => void handleLogout()}>
+            <button type="button" className="secondary-button button-with-icon" onClick={() => void handleLogout()}>
+              <span className="button-icon" aria-hidden="true">
+                <ActionIcon name="logout" />
+              </span>
               Cerrar sesión
             </button>
           </div>
@@ -6228,7 +6338,12 @@ function App() {
                         </select>
                       </label>
                       <div className="editor-actions form-wide">
-                        <button type="submit" className="primary-button">Subir PDF</button>
+                        <button type="submit" className="primary-button button-with-icon">
+                          <span className="button-icon" aria-hidden="true">
+                            <ActionIcon name="upload" />
+                          </span>
+                          <span>Subir PDF</span>
+                        </button>
                       </div>
                     </form>
                   </article>
@@ -6387,10 +6502,13 @@ function App() {
                       <div className="editor-actions form-wide">
                         <button
                           type="submit"
-                          className="primary-button"
+                          className="primary-button button-with-icon"
                           disabled={libraryBulkUploading}
                         >
-                          {libraryBulkUploading ? "Subiendo..." : "Subir carpeta"}
+                          <span className="button-icon" aria-hidden="true">
+                            <ActionIcon name="folder-upload" />
+                          </span>
+                          <span>{libraryBulkUploading ? "Subiendo..." : "Subir carpeta"}</span>
                         </button>
                       </div>
                       {libraryBulkUploading ? (
@@ -6483,20 +6601,26 @@ function App() {
                           <div className="library-list-actions">
                             <button
                               type="button"
-                              className="secondary-button"
+                              className="secondary-button button-with-icon"
                               onClick={() => openLibraryPdfEditor(pdf)}
                             >
+                              <span className="button-icon" aria-hidden="true">
+                                <ActionIcon name="edit" />
+                              </span>
                               Editar
                             </button>
                             <button
                               type="button"
-                              className="secondary-button"
+                              className="danger-button button-with-icon"
                               onClick={() => {
                                 if (window.confirm(`¿Eliminar "${pdf.title}"?`)) {
                                   void handleLibraryPdfAction(pdf.id, "delete");
                                 }
                               }}
                             >
+                              <span className="button-icon" aria-hidden="true">
+                                <ActionIcon name="delete" />
+                              </span>
                               Eliminar
                             </button>
                           </div>
@@ -7192,9 +7316,12 @@ function App() {
                   <span>Usuario</span>
                   <strong>Cuenta activa</strong>
                   <p>{adminUser?.email ?? "Sin email"}</p>
-                  <button type="button" className="secondary-button" onClick={() => void handleLogout()}>
-                    Cerrar sesión
-                  </button>
+              <button type="button" className="secondary-button button-with-icon" onClick={() => void handleLogout()}>
+                <span className="button-icon" aria-hidden="true">
+                  <ActionIcon name="logout" />
+                </span>
+                Cerrar sesión
+              </button>
                 </div>
               </article>
 
@@ -9602,14 +9729,23 @@ function App() {
                     </div>
                   </div>
                   <div className="course-publication-actions">
-                    <button type="button" className="primary-button" onClick={() => void handlePublishCourse("publish")}>
-                      Publicar
+                    <button type="button" className="primary-button button-with-icon" onClick={() => void handlePublishCourse("publish")}>
+                      <span className="button-icon" aria-hidden="true">
+                        <ActionIcon name="publish" />
+                      </span>
+                      <span>Publicar</span>
                     </button>
-                    <button type="button" className="secondary-button" onClick={() => void handlePublishCourse("unpublish")}>
-                      Volver a borrador
+                    <button type="button" className="secondary-button button-with-icon" onClick={() => void handlePublishCourse("unpublish")}>
+                      <span className="button-icon" aria-hidden="true">
+                        <ActionIcon name="refresh" />
+                      </span>
+                      <span>Volver a borrador</span>
                     </button>
-                    <button type="button" className="danger-button" onClick={() => void handlePublishCourse("archive")}>
-                      Archivar
+                    <button type="button" className="danger-button button-with-icon" onClick={() => void handlePublishCourse("archive")}>
+                      <span className="button-icon" aria-hidden="true">
+                        <ActionIcon name="archive" />
+                      </span>
+                      <span>Archivar</span>
                     </button>
                   </div>
                 </article>
