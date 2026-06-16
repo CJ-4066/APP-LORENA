@@ -2028,9 +2028,9 @@ function App() {
     description: "",
     fileUrl: "",
     category: "",
+    assignCategory: false,
     courseId: "",
     linkToCourse: false,
-    pageCount: "",
     status: "published",
     isActive: true,
   });
@@ -2041,12 +2041,11 @@ function App() {
   const [librarySearch, setLibrarySearch] = useState("");
   const [libraryFilter, setLibraryFilter] = useState<"all" | "free" | "linked" | "published">("all");
   const [libraryBulkForm, setLibraryBulkForm] = useState({
-    titlePrefix: "",
     description: "",
     category: "",
+    assignCategory: false,
     courseId: "",
     linkToCourse: false,
-    pageCount: "",
     status: "published",
     isActive: true,
   });
@@ -2360,9 +2359,9 @@ function App() {
       description: "",
       fileUrl: "",
       category: "",
+      assignCategory: false,
       courseId: "",
       linkToCourse: false,
-      pageCount: "",
       status: "draft",
       isActive: true,
     });
@@ -2946,9 +2945,9 @@ function App() {
       description: pdf?.description ?? "",
       fileUrl: pdf?.fileUrl ?? "",
       category: pdf?.category ?? "",
+      assignCategory: Boolean(pdf?.category?.trim()),
       courseId: pdf?.courseId ?? "",
       linkToCourse: Boolean(pdf?.courseId),
-      pageCount: pdf ? String(pdf.pageCount ?? 0) : "",
       status: pdf?.status ?? "published",
       isActive: pdf?.isActive ?? true,
     });
@@ -3216,8 +3215,10 @@ function App() {
       setCourseError("Selecciona un archivo PDF para subir.");
       return;
     }
-    const normalizedCategory = formatLibraryCategoryLabel(libraryPdfForm.category);
-    if (!normalizedCategory.trim()) {
+    const normalizedCategory = libraryPdfForm.assignCategory
+      ? formatLibraryCategoryLabel(libraryPdfForm.category)
+      : "";
+    if (libraryPdfForm.assignCategory && !normalizedCategory.trim()) {
       setCourseError("Elige o crea una categoría para el PDF.");
       return;
     }
@@ -3235,7 +3236,6 @@ function App() {
       return;
     }
     formData.append("courseId", selectedCourseForLibrary);
-    formData.append("pageCount", libraryPdfForm.pageCount.trim() || "0");
     formData.append("status", libraryPdfForm.status);
     formData.append("isActive", String(libraryPdfForm.isActive));
     if (selectedLibraryPdfId) {
@@ -3277,9 +3277,9 @@ function App() {
       description: savedItem.description,
       fileUrl: savedItem.fileUrl,
       category: savedItem.category,
+      assignCategory: Boolean(savedItem.category?.trim()),
       courseId: savedItem.courseId ?? "",
       linkToCourse: Boolean(savedItem.courseId),
-      pageCount: String(savedItem.pageCount ?? 0),
       status: savedItem.status ?? "draft",
       isActive: savedItem.isActive ?? true,
     });
@@ -3296,8 +3296,10 @@ function App() {
       setCourseError("Selecciona uno o más PDFs para subir.");
       return;
     }
-    const normalizedCategory = formatLibraryCategoryLabel(libraryBulkForm.category);
-    if (!normalizedCategory.trim()) {
+    const normalizedCategory = libraryBulkForm.assignCategory
+      ? formatLibraryCategoryLabel(libraryBulkForm.category)
+      : "";
+    if (libraryBulkForm.assignCategory && !normalizedCategory.trim()) {
       setCourseError("Elige o crea una categoría para los PDFs.");
       return;
     }
@@ -3315,13 +3317,9 @@ function App() {
       if (libraryBulkForm.linkToCourse && !courseId) {
         throw new Error("Selecciona un curso para vincular estos PDFs o desactiva la vinculación.");
       }
-      if (libraryBulkForm.titlePrefix.trim()) {
-        formData.append("titlePrefix", libraryBulkForm.titlePrefix.trim());
-      }
       formData.append("description", libraryBulkForm.description.trim());
       formData.append("category", normalizedCategory);
       formData.append("courseId", courseId);
-      formData.append("pageCount", libraryBulkForm.pageCount.trim() || "0");
       formData.append("status", libraryBulkForm.status || "published");
       formData.append("isActive", String(libraryBulkForm.isActive));
       libraryBulkFiles.forEach((file) => {
@@ -4887,9 +4885,6 @@ function App() {
   const selectedLibraryCourse = libraryPdfForm.linkToCourse
     ? courses.find((course) => course.id === libraryPdfForm.courseId) ?? null
     : null;
-  const selectedBulkCourse = libraryBulkForm.linkToCourse
-    ? courses.find((course) => course.id === libraryBulkForm.courseId) ?? null
-    : null;
   const openLibraryPdfEditor = (pdf: AdminLibraryPdf) => {
     resetLibraryPdfDraft(pdf);
     setActiveSection("courses");
@@ -5988,20 +5983,190 @@ function App() {
                   <article className="course-subview-card library-workbench-card">
                     <div className="panel-head library-panel-head">
                       <div>
-                        <p className="eyebrow">Carga rápida</p>
-                        <h3>Subir PDFs</h3>
-                        <p className="hero-copy">
-                          Una sola acción para subir uno o varios archivos. La categoría y el vínculo al curso se pueden definir aparte.
-                        </p>
+                        <p className="eyebrow">PDF único</p>
+                        <h3>Subir un archivo</h3>
                       </div>
-                      <span className="topbar-pill">Visible en móvil</span>
+                      <span className="topbar-pill">1 PDF</span>
+                    </div>
+                    <form
+                      className="badge-form-grid badge-form-grid-compact"
+                      onSubmit={(event) => void handleSaveLibraryPdf(event)}
+                    >
+                      <label className="form-wide">
+                        <span>Archivo PDF</span>
+                        <input
+                          type="file"
+                          accept="application/pdf"
+                          onChange={(event) => {
+                            const file = event.target.files?.[0] ?? null;
+                            setLibraryPdfFile(file);
+                            if (file && !libraryPdfForm.title.trim()) {
+                              const baseName = file.name.replace(/\.pdf$/i, "");
+                              const prettyName = baseName
+                                .replace(/[-_]+/g, " ")
+                                .replace(/\s+/g, " ")
+                                .trim();
+                              if (prettyName) {
+                                setLibraryPdfForm((current) => ({
+                                  ...current,
+                                  title: prettyName,
+                                }));
+                              }
+                            }
+                          }}
+                        />
+                        <p className="muted-copy" style={{ marginTop: 8 }}>
+                          {libraryPdfFile
+                            ? `Seleccionado: ${libraryPdfFile.name}`
+                            : libraryPdfForm.fileUrl
+                              ? "Archivo cargado anteriormente"
+                              : "Selecciona un PDF para subirlo."}
+                        </p>
+                      </label>
+                      <label className="form-wide">
+                        <span>Título</span>
+                        <input
+                          value={libraryPdfForm.title}
+                          onChange={(event) =>
+                            setLibraryPdfForm((current) => ({ ...current, title: event.target.value }))
+                          }
+                          placeholder="Nombre del PDF"
+                        />
+                      </label>
+                      <label className="form-wide">
+                        <div className="library-toggle-row">
+                          <span>Categoría</span>
+                          <label className="switch-row compact">
+                            <input
+                              type="checkbox"
+                              checked={libraryPdfForm.assignCategory}
+                              onChange={(event) =>
+                                setLibraryPdfForm((current) => ({
+                                  ...current,
+                                  assignCategory: event.target.checked,
+                                  category: event.target.checked ? current.category : "",
+                                }))
+                              }
+                            />
+                            <span>Asignar</span>
+                          </label>
+                        </div>
+                        {libraryPdfForm.assignCategory ? (
+                          <>
+                            <input
+                              list="library-category-suggestions"
+                              value={libraryPdfForm.category}
+                              onChange={(event) =>
+                                setLibraryPdfForm((current) => ({ ...current, category: event.target.value }))
+                              }
+                              placeholder="Ej. Tarot, Guías, Rituales"
+                            />
+                            <datalist id="library-category-suggestions">
+                              {libraryCategorySuggestions.map((category) => (
+                                <option key={category} value={category} />
+                              ))}
+                            </datalist>
+                            <div className="library-chip-row">
+                              {libraryCategorySuggestions.length > 0 ? (
+                                libraryCategorySuggestions.slice(0, 6).map((category) => (
+                                  <button
+                                    key={category}
+                                    type="button"
+                                    className={`library-chip${libraryPdfForm.category.trim().toLowerCase() === category.toLowerCase() ? " library-chip-active" : ""}`}
+                                    onClick={() =>
+                                      setLibraryPdfForm((current) => ({
+                                        ...current,
+                                        category,
+                                      }))
+                                    }
+                                  >
+                                    {category}
+                                  </button>
+                                ))
+                              ) : (
+                                <span className="muted-copy">Sin categorías aún.</span>
+                              )}
+                            </div>
+                          </>
+                        ) : (
+                          <p className="muted-copy">Se guardará como General.</p>
+                        )}
+                      </label>
+                      <div className="library-link-card form-wide">
+                        <div className="library-link-card-head">
+                          <div>
+                            <span className="course-drawer-kicker">Curso</span>
+                            <strong>Vinculación opcional</strong>
+                          </div>
+                          <label className="switch-row">
+                            <input
+                              type="checkbox"
+                              checked={libraryPdfForm.linkToCourse}
+                              onChange={(event) =>
+                                setLibraryPdfForm((current) => ({
+                                  ...current,
+                                  linkToCourse: event.target.checked,
+                                  courseId: event.target.checked ? current.courseId : "",
+                                }))
+                              }
+                            />
+                            <span>Vincular</span>
+                          </label>
+                        </div>
+                        {libraryPdfForm.linkToCourse ? (
+                          <select
+                            value={libraryPdfForm.courseId}
+                            onChange={(event) =>
+                              setLibraryPdfForm((current) => ({ ...current, courseId: event.target.value }))
+                            }
+                          >
+                            <option value="">Selecciona un curso</option>
+                            {courses.map((course) => (
+                              <option key={course.id} value={course.id}>
+                                {course.title}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <p className="muted-copy">El PDF quedará suelto en la biblioteca.</p>
+                        )}
+                      </div>
+                      <label>
+                        <span>Estado</span>
+                        <select
+                          value={libraryPdfForm.status}
+                          onChange={(event) =>
+                            setLibraryPdfForm((current) => ({
+                              ...current,
+                              status: event.target.value as "draft" | "published" | "archived",
+                            }))
+                          }
+                        >
+                          <option value="published">Publicado</option>
+                          <option value="draft">Borrador</option>
+                          <option value="archived">Archivado</option>
+                        </select>
+                      </label>
+                      <div className="editor-actions form-wide">
+                        <button type="submit" className="primary-button">Subir PDF</button>
+                      </div>
+                    </form>
+                  </article>
+
+                  <article className="course-subview-card library-workbench-card">
+                    <div className="panel-head library-panel-head">
+                      <div>
+                        <p className="eyebrow">Carpeta</p>
+                        <h3>Subir varios PDFs</h3>
+                      </div>
+                      <span className="topbar-pill">Múltiples archivos</span>
                     </div>
                     <form
                       className="badge-form-grid badge-form-grid-compact"
                       onSubmit={(event) => void handleSaveBulkLibraryPdfs(event)}
                     >
                       <label className="form-wide">
-                        <span>PDFs</span>
+                        <span>Carpeta o PDFs</span>
                         <input
                           type="file"
                           accept="application/pdf"
@@ -6019,87 +6184,72 @@ function App() {
                         />
                         <p className="muted-copy" style={{ marginTop: 8 }}>
                           {libraryBulkFiles.length > 0
-                            ? `${libraryBulkFiles.length} archivo(s): ${libraryBulkFiles
-                                .slice(0, 3)
-                                .map((file) => file.webkitRelativePath || file.name)
-                                .join(", ")}${libraryBulkFiles.length > 3 ? "..." : ""}`
-                            : "Selecciona uno o varios PDFs para publicarlos en la biblioteca."}
+                            ? `${libraryBulkFiles.length} archivo(s) seleccionados`
+                            : "Selecciona una carpeta con PDFs o varios archivos a la vez."}
                         </p>
                       </label>
-                      <div className="library-inline-grid">
-                        <label>
-                          <span>Prefijo de título</span>
-                          <input
-                            value={libraryBulkForm.titlePrefix}
-                            onChange={(event) =>
-                              setLibraryBulkForm((current) => ({
-                                ...current,
-                                titlePrefix: event.target.value,
-                              }))
-                            }
-                            placeholder="Ej. Guía de"
-                          />
-                        </label>
-                        <label>
-                          <span>Páginas</span>
-                          <input
-                            type="number"
-                            value={libraryBulkForm.pageCount}
-                            onChange={(event) =>
-                              setLibraryBulkForm((current) => ({
-                                ...current,
-                                pageCount: event.target.value,
-                              }))
-                            }
-                            placeholder="0"
-                          />
-                        </label>
-                      </div>
                       <label className="form-wide">
-                        <span>Categoría</span>
-                        <input
-                          list="library-category-suggestions"
-                          value={libraryBulkForm.category}
-                          onChange={(event) =>
-                            setLibraryBulkForm((current) => ({
-                              ...current,
-                              category: event.target.value,
-                            }))
-                          }
-                          placeholder="Ej. Tarot, Guías, Rituales"
-                        />
-                        <datalist id="library-category-suggestions">
-                          {libraryCategorySuggestions.map((category) => (
-                            <option key={category} value={category} />
-                          ))}
-                        </datalist>
-                        <div className="library-chip-row">
-                          {libraryCategorySuggestions.length > 0 ? (
-                            libraryCategorySuggestions.slice(0, 8).map((category) => (
-                              <button
-                                key={category}
-                                type="button"
-                                className={`library-chip${libraryBulkForm.category.trim().toLowerCase() === category.toLowerCase() ? " library-chip-active" : ""}`}
-                                onClick={() =>
-                                  setLibraryBulkForm((current) => ({
-                                    ...current,
-                                    category,
-                                  }))
-                                }
-                              >
-                                {category}
-                              </button>
-                            ))
-                          ) : (
-                            <span className="muted-copy">Crea la primera categoría al subir el primer PDF.</span>
-                          )}
+                        <div className="library-toggle-row">
+                          <span>Categoría</span>
+                          <label className="switch-row compact">
+                            <input
+                              type="checkbox"
+                              checked={libraryBulkForm.assignCategory}
+                              onChange={(event) =>
+                                setLibraryBulkForm((current) => ({
+                                  ...current,
+                                  assignCategory: event.target.checked,
+                                  category: event.target.checked ? current.category : "",
+                                }))
+                              }
+                            />
+                            <span>Asignar</span>
+                          </label>
                         </div>
+                        {libraryBulkForm.assignCategory ? (
+                          <>
+                            <input
+                              list="library-category-suggestions"
+                              value={libraryBulkForm.category}
+                              onChange={(event) =>
+                                setLibraryBulkForm((current) => ({
+                                  ...current,
+                                  category: event.target.value,
+                                }))
+                              }
+                              placeholder="Ej. Tarot, Guías, Rituales"
+                            />
+                            <div className="library-chip-row">
+                              {libraryCategorySuggestions.length > 0 ? (
+                                libraryCategorySuggestions.slice(0, 6).map((category) => (
+                                  <button
+                                    key={category}
+                                    type="button"
+                                    className={`library-chip${libraryBulkForm.category.trim().toLowerCase() === category.toLowerCase() ? " library-chip-active" : ""}`}
+                                    onClick={() =>
+                                      setLibraryBulkForm((current) => ({
+                                        ...current,
+                                        category,
+                                      }))
+                                    }
+                                  >
+                                    {category}
+                                  </button>
+                                ))
+                              ) : (
+                                <span className="muted-copy">Sin categorías aún.</span>
+                              )}
+                            </div>
+                          </>
+                        ) : (
+                          <p className="muted-copy">Se guardará como General.</p>
+                        )}
                       </label>
                       <div className="library-link-card form-wide">
                         <div className="library-link-card-head">
                           <div>
-                            <span className="course-drawer-kicker">Vinculación opcional</span>
-                            <strong>Con o sin curso</strong>
+                            <span className="course-drawer-kicker">Curso</span>
+                            <strong>Vinculación opcional</strong>
                           </div>
                           <label className="switch-row">
                             <input
@@ -6116,9 +6266,6 @@ function App() {
                             <span>Vincular</span>
                           </label>
                         </div>
-                        <p className="muted-copy">
-                          La categoría define cómo aparece en la biblioteca. El vínculo al curso es independiente.
-                        </p>
                         {libraryBulkForm.linkToCourse ? (
                           <select
                             value={libraryBulkForm.courseId}
@@ -6137,70 +6284,32 @@ function App() {
                             ))}
                           </select>
                         ) : (
-                          <div className="library-link-preview">
-                            <span className="topbar-pill">Sin curso</span>
-                            <p>
-                              {selectedBulkCourse
-                                ? `Si activas la vinculación, se asociará con ${selectedBulkCourse.title}.`
-                                : "Quedará como material libre dentro de la categoría elegida."}
-                            </p>
-                          </div>
+                          <p className="muted-copy">Quedará libre en la biblioteca.</p>
                         )}
                       </div>
-                      <label className="form-wide">
-                        <span>Descripción</span>
-                        <textarea
-                          rows={3}
-                          value={libraryBulkForm.description}
+                      <label>
+                        <span>Estado</span>
+                        <select
+                          value={libraryBulkForm.status}
                           onChange={(event) =>
                             setLibraryBulkForm((current) => ({
                               ...current,
-                              description: event.target.value,
+                              status: event.target.value as "draft" | "published" | "archived",
                             }))
                           }
-                          placeholder="Descripción breve para el material."
-                        />
+                        >
+                          <option value="published">Publicado</option>
+                          <option value="draft">Borrador</option>
+                          <option value="archived">Archivado</option>
+                        </select>
                       </label>
-                      <div className="library-inline-grid">
-                        <label>
-                          <span>Estado</span>
-                          <select
-                            value={libraryBulkForm.status}
-                            onChange={(event) =>
-                              setLibraryBulkForm((current) => ({
-                                ...current,
-                                status: event.target.value as "draft" | "published" | "archived",
-                              }))
-                            }
-                          >
-                            <option value="published">Publicado</option>
-                            <option value="draft">Borrador</option>
-                            <option value="archived">Archivado</option>
-                          </select>
-                        </label>
-                        <label>
-                          <span>Activo</span>
-                          <select
-                            value={libraryBulkForm.isActive ? "true" : "false"}
-                            onChange={(event) =>
-                              setLibraryBulkForm((current) => ({
-                                ...current,
-                                isActive: event.target.value === "true",
-                              }))
-                            }
-                          >
-                            <option value="true">Sí</option>
-                            <option value="false">No</option>
-                          </select>
-                        </label>
-                      </div>
                       <div className="editor-actions form-wide">
                         <button
                           type="submit"
                           className="primary-button"
                           disabled={libraryBulkUploading}
                         >
-                          {libraryBulkUploading ? "Subiendo..." : "Subir PDFs"}
+                          {libraryBulkUploading ? "Subiendo..." : "Subir carpeta"}
                         </button>
                       </div>
                       {libraryBulkUploading ? (
@@ -6217,69 +6326,6 @@ function App() {
                         </div>
                       ) : null}
                     </form>
-                  </article>
-
-                  <article className="course-subview-card library-summary-card">
-                    <div className="panel-head library-panel-head">
-                      <div>
-                        <p className="eyebrow">Categorías</p>
-                        <h3>Organización rápida</h3>
-                        <p className="hero-copy">
-                          Usa una categoría existente o crea una nueva. Así la app móvil puede filtrar el contenido sin mezclarlo con cursos.
-                        </p>
-                      </div>
-                      <span className="topbar-pill">{libraryCategorySummaries.length} categorías</span>
-                    </div>
-                    {libraryCategorySummaries.length > 0 ? (
-                      <div className="library-category-stack">
-                        {libraryCategorySummaries.slice(0, 6).map((summary) => (
-                          <article key={summary.key} className="library-category-card">
-                            <div className="library-category-card-head">
-                              <div>
-                                <strong>{summary.label}</strong>
-                                <p>{summary.count} PDF{summary.count === 1 ? "" : "s"}</p>
-                              </div>
-                              <span className="topbar-pill">{summary.publishedCount} publicados</span>
-                            </div>
-                            <div className="library-category-meta">
-                              <span>{summary.linkedCount} con curso</span>
-                              <span>{summary.count - summary.linkedCount} libres</span>
-                            </div>
-                            <div className="library-category-actions">
-                              <button
-                                type="button"
-                                className="secondary-button"
-                                onClick={() =>
-                                  setLibraryBulkForm((current) => ({
-                                    ...current,
-                                    category: summary.label,
-                                  }))
-                                }
-                              >
-                                Usar en carga
-                              </button>
-                              <button
-                                type="button"
-                                className="secondary-button"
-                                onClick={() =>
-                                  setLibraryPdfForm((current) => ({
-                                    ...current,
-                                    category: summary.label,
-                                  }))
-                                }
-                              >
-                                Usar en editor
-                              </button>
-                            </div>
-                          </article>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="empty-state">
-                        <h3>No hay categorías todavía.</h3>
-                        <p>Se crearán cuando subas el primer PDF.</p>
-                      </div>
-                    )}
                   </article>
                 </div>
 
@@ -9237,87 +9283,76 @@ function App() {
                         onChange={(event) =>
                           setLibraryPdfForm((current) => ({ ...current, title: event.target.value }))
                         }
-                      />
-                    </label>
-                    <label className="form-wide">
-                      <span>Descripción</span>
-                      <textarea
-                        rows={3}
-                        value={libraryPdfForm.description}
-                        onChange={(event) =>
-                          setLibraryPdfForm((current) => ({ ...current, description: event.target.value }))
-                        }
-                      />
-                    </label>
-                    <div className="form-wide">
-                      <label className="form-wide">
-                        <span>Archivo PDF</span>
-                        <input
-                          type="file"
-                          accept="application/pdf"
-                          onChange={(event) => {
-                            const file = event.target.files?.[0] ?? null;
-                            setLibraryPdfFile(file);
-                            if (file && !libraryPdfForm.title.trim()) {
-                              const baseName = file.name.replace(/\.pdf$/i, "");
-                              const prettyName = baseName
-                                .replace(/[-_]+/g, " ")
-                                .replace(/\s+/g, " ")
-                                .trim();
-                              if (prettyName) {
-                                setLibraryPdfForm((current) => ({
-                                  ...current,
-                                  title: prettyName,
-                                }));
-                              }
-                            }
-                          }}
                         />
                       </label>
+                    <label className="form-wide">
+                      <span>Archivo PDF</span>
+                      <input
+                        type="file"
+                        accept="application/pdf"
+                        onChange={(event) => {
+                          const file = event.target.files?.[0] ?? null;
+                          setLibraryPdfFile(file);
+                          if (file && !libraryPdfForm.title.trim()) {
+                            const baseName = file.name.replace(/\.pdf$/i, "");
+                            const prettyName = baseName
+                              .replace(/[-_]+/g, " ")
+                              .replace(/\s+/g, " ")
+                              .trim();
+                            if (prettyName) {
+                              setLibraryPdfForm((current) => ({
+                                ...current,
+                                title: prettyName,
+                              }));
+                            }
+                          }
+                        }}
+                      />
                       <p className="muted-copy" style={{ marginTop: 8 }}>
                         {libraryPdfFile
                           ? `Seleccionado: ${libraryPdfFile.name}`
                           : libraryPdfForm.fileUrl
-                            ? `Archivo actual: ${libraryPdfForm.fileUrl}`
+                            ? "Archivo actual cargado"
                             : "Selecciona un PDF para subirlo al servidor."}
                       </p>
-                    </div>
+                    </label>
                     <label className="form-wide">
-                      <span>Categoría de biblioteca</span>
-                      <input
-                        list="library-category-suggestions"
-                        value={libraryPdfForm.category}
-                        onChange={(event) =>
-                          setLibraryPdfForm((current) => ({ ...current, category: event.target.value }))
-                        }
-                        placeholder="Ej. Guías, Tarot, Ritual"
-                      />
-                      <datalist id="library-category-suggestions">
-                        {libraryCategorySuggestions.map((category) => (
-                          <option key={category} value={category} />
-                        ))}
-                      </datalist>
-                      <p className="muted-copy">
-                        Selecciona una categoría existente o escribe una nueva.
-                      </p>
-                      <div className="library-chip-row">
-                        {libraryCategorySuggestions.length > 0 ? (
-                          libraryCategorySuggestions.slice(0, 8).map((category) => (
-                            <button
-                              key={category}
-                              type="button"
-                              className={`library-chip${libraryPdfForm.category.trim().toLowerCase() === category.toLowerCase() ? " library-chip-active" : ""}`}
-                              onClick={() =>
-                                setLibraryPdfForm((current) => ({ ...current, category }))
-                              }
-                            >
-                              {category}
-                            </button>
-                          ))
-                        ) : (
-                          <span className="muted-copy">Aún no hay categorías creadas.</span>
-                        )}
+                      <div className="library-toggle-row">
+                        <span>Categoría</span>
+                        <label className="switch-row compact">
+                          <input
+                            type="checkbox"
+                            checked={libraryPdfForm.assignCategory}
+                            onChange={(event) =>
+                              setLibraryPdfForm((current) => ({
+                                ...current,
+                                assignCategory: event.target.checked,
+                                category: event.target.checked ? current.category : "",
+                              }))
+                            }
+                          />
+                          <span>Asignar</span>
+                        </label>
                       </div>
+                      {libraryPdfForm.assignCategory ? (
+                        <>
+                          <input
+                            list="library-category-suggestions"
+                            value={libraryPdfForm.category}
+                            onChange={(event) =>
+                              setLibraryPdfForm((current) => ({ ...current, category: event.target.value }))
+                            }
+                            placeholder="Ej. Guías, Tarot, Ritual"
+                          />
+                          <datalist id="library-category-suggestions">
+                            {libraryCategorySuggestions.map((category) => (
+                              <option key={category} value={category} />
+                            ))}
+                          </datalist>
+                        </>
+                      ) : (
+                        <p className="muted-copy">Se guardará como General.</p>
+                      )}
                     </label>
                     <div className="library-link-card form-wide">
                       <div className="library-link-card-head">
@@ -9369,16 +9404,6 @@ function App() {
                       )}
                     </div>
                     <label>
-                      <span>Páginas</span>
-                      <input
-                        type="number"
-                        value={libraryPdfForm.pageCount}
-                        onChange={(event) =>
-                          setLibraryPdfForm((current) => ({ ...current, pageCount: event.target.value }))
-                        }
-                      />
-                    </label>
-                    <label>
                       <span>Estado</span>
                       <select
                         value={libraryPdfForm.status}
@@ -9394,9 +9419,6 @@ function App() {
                         <option value="archived">Archivado</option>
                       </select>
                     </label>
-                    <p className="muted-copy form-wide">
-                      Los PDFs publicados aparecen en la biblioteca de la app móvil con el visor completo.
-                    </p>
                     <div className="editor-actions form-wide">
                       <button type="submit" className="primary-button">Guardar PDF</button>
                     </div>
