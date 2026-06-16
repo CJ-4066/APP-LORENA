@@ -2957,6 +2957,7 @@ function App() {
   }
 
   function resetLibraryPdfDraft(pdf?: AdminLibraryPdf | null) {
+    const nextStatus = pdf?.status === "published" ? "published" : "draft";
     setSelectedLibraryPdfId(pdf?.id ?? null);
     setLibraryPdfFile(null);
     setLibraryPdfForm({
@@ -2967,7 +2968,7 @@ function App() {
       assignCategory: Boolean(pdf?.category?.trim()),
       courseId: pdf?.courseId ?? "",
       linkToCourse: Boolean(pdf?.courseId),
-      status: pdf?.status ?? "published",
+      status: nextStatus,
       isActive: pdf?.isActive ?? true,
     });
   }
@@ -6162,13 +6163,12 @@ function App() {
                           onChange={(event) =>
                             setLibraryPdfForm((current) => ({
                               ...current,
-                              status: event.target.value as "draft" | "published" | "archived",
+                              status: event.target.value as "draft" | "published",
                             }))
                           }
                         >
                           <option value="published">Publicado</option>
                           <option value="draft">Borrador</option>
-                          <option value="archived">Archivado</option>
                         </select>
                       </label>
                       <div className="editor-actions form-wide">
@@ -6318,13 +6318,12 @@ function App() {
                           onChange={(event) =>
                             setLibraryBulkForm((current) => ({
                               ...current,
-                              status: event.target.value as "draft" | "published" | "archived",
+                              status: event.target.value as "draft" | "published",
                             }))
                           }
                         >
                           <option value="published">Publicado</option>
                           <option value="draft">Borrador</option>
-                          <option value="archived">Archivado</option>
                         </select>
                       </label>
                       <div className="editor-actions form-wide">
@@ -9434,13 +9433,12 @@ function App() {
                         onChange={(event) =>
                           setLibraryPdfForm((current) => ({
                             ...current,
-                            status: event.target.value as "draft" | "published" | "archived",
+                            status: event.target.value as "draft" | "published",
                           }))
                         }
                       >
                         <option value="published">Publicado</option>
                         <option value="draft">Borrador</option>
-                        <option value="archived">Archivado</option>
                       </select>
                     </label>
                     <div className="editor-actions form-wide">

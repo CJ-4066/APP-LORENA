@@ -110,11 +110,11 @@ function parseNumberField(value: unknown, fallback: number): number {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-function normalizeLibraryPdfStatus(value: unknown): "draft" | "published" | "archived" {
-  if (value === "published" || value === "archived") {
+function normalizeLibraryPdfFormStatus(value: unknown, fallback = "draft"): "draft" | "published" {
+  if (value === "published" || value === "draft") {
     return value;
   }
-  return "draft";
+  return fallback === "published" ? "published" : "draft";
 }
 
 function normalizeLibraryPdfCategory(value: unknown, fallback = "General"): string {
@@ -202,7 +202,7 @@ async function readLibraryPdfInput(
         : existing?.lessonId ?? null,
       category: normalizeLibraryPdfCategory(body.category, existing?.category ?? "General"),
       pageCount: parseNumberField(body.pageCount, existing?.pageCount ?? 0),
-      status: normalizeLibraryPdfStatus(body.status ?? existing?.status ?? "draft"),
+      status: normalizeLibraryPdfFormStatus(body.status ?? existing?.status ?? "draft", existing?.status === "published" ? "published" : "draft"),
       isActive: parseBooleanField(body.isActive, existing?.isActive ?? true),
     };
   }
@@ -269,7 +269,10 @@ async function readLibraryPdfInput(
       : existing?.lessonId || null,
     category: normalizeLibraryPdfCategory(fields.category, existing?.category ?? "General"),
     pageCount: parseNumberField(fields.pageCount, existing?.pageCount ?? 0),
-    status: normalizeLibraryPdfStatus(fields.status ?? existing?.status ?? "draft"),
+    status: normalizeLibraryPdfFormStatus(
+      fields.status ?? existing?.status ?? "draft",
+      existing?.status === "published" ? "published" : "draft",
+    ),
     isActive: parseBooleanField(fields.isActive, existing?.isActive ?? true),
   };
 }
@@ -1462,7 +1465,7 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
             lessonId: fields.lessonId?.trim() || null,
             category: normalizeLibraryPdfCategory(fields.category, "General"),
             pageCount: parseNumberField(fields.pageCount, 0),
-            status: normalizeLibraryPdfStatus(fields.status ?? "published"),
+            status: normalizeLibraryPdfFormStatus(fields.status ?? "published", "published"),
             isActive: parseBooleanField(fields.isActive, true),
           },
           auditMeta,
@@ -1588,21 +1591,14 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
         reply.code(404);
         return { error: "El PDF no existe." };
       }
-      const item = await upsertLibraryPdf(
-        {
-          ...current,
-          status: "archived",
-          isActive: false,
-        },
-        buildAdminAuditMeta(admin),
-      );
+      await deleteLibraryPdf(request.params.pdfId, buildAdminAuditMeta(admin));
       emitContentChanged({
         entity: "libraryPdf",
         action: "archived",
-        entityId: item.id,
+        entityId: current.id,
         actor: admin.email,
       });
-      return { item };
+      return { item: { ...current, status: "archived", isActive: false } };
     } catch (error) {
       reply.code(400);
       return {
