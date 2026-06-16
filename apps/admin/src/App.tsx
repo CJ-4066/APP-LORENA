@@ -2206,7 +2206,6 @@ function App() {
   const [libraryBulkFiles, setLibraryBulkFiles] = useState<File[]>([]);
   const [libraryBulkUploading, setLibraryBulkUploading] = useState(false);
   const [libraryBulkProgress, setLibraryBulkProgress] = useState(0);
-  const [libraryBulkReviewOpen, setLibraryBulkReviewOpen] = useState(false);
   const [libraryBulkNotice, setLibraryBulkNotice] = useState<LibraryNotice | null>(null);
   const [librarySearch, setLibrarySearch] = useState("");
   const [libraryFilter, setLibraryFilter] = useState<"all" | "free" | "linked" | "published">("all");
@@ -3535,7 +3534,6 @@ function App() {
     setCourseError(null);
     setLibraryBulkNotice(null);
     setLibraryBulkProgress(0);
-    setLibraryBulkReviewOpen(false);
 
     if (libraryBulkFiles.length === 0) {
       setLibraryBulkNotice({
@@ -3713,7 +3711,7 @@ function App() {
       }
     }
 
-    setLibraryBulkReviewOpen(true);
+    await performBulkLibraryUpload();
   }
 
   async function handleLibraryPdfAction(
@@ -6649,6 +6647,23 @@ function App() {
                           <option value="draft">Borrador</option>
                         </select>
                       </label>
+                      {libraryBulkFiles.length > 0 ? (
+                        <section className="library-bulk-preview form-wide" aria-live="polite">
+                          <div>
+                            <span>Listo para publicar</span>
+                            <strong>{buildBulkUploadSummary().count} PDF(s)</strong>
+                            <p>
+                              Categoría: {buildBulkUploadSummary().category} · Curso: {buildBulkUploadSummary().courseLabel}
+                            </p>
+                          </div>
+                          <div className="library-bulk-preview-pills">
+                            <span className="topbar-pill">{libraryBulkForm.status === "published" ? "Publicado" : "Borrador"}</span>
+                            <span className="topbar-pill">
+                              {libraryBulkForm.linkToCourse ? "Con vínculo" : "Sin vínculo"}
+                            </span>
+                          </div>
+                        </section>
+                      ) : null}
                       <div className="editor-actions form-wide">
                         <button
                           type="submit"
@@ -9888,75 +9903,6 @@ function App() {
                 </article>
               </div>
 
-                {libraryBulkReviewOpen ? (
-                  <div
-                    className="library-bulk-modal-backdrop"
-                    role="dialog"
-                    aria-modal="true"
-                    aria-labelledby="library-bulk-modal-title"
-                  >
-                    <section className="library-bulk-modal">
-                      <div className="library-bulk-modal-head">
-                        <div>
-                          <p className="eyebrow">Confirmar carga</p>
-                          <h3 id="library-bulk-modal-title">Revisar publicación de carpeta</h3>
-                        </div>
-                        <button
-                          type="button"
-                          className="secondary-button"
-                          onClick={() => setLibraryBulkReviewOpen(false)}
-                          aria-label="Cerrar confirmación"
-                        >
-                          <ActionIcon name="close" />
-                        </button>
-                      </div>
-                      {(() => {
-                        const summary = buildBulkUploadSummary();
-                        return (
-                          <>
-                            <div className="library-bulk-modal-summary">
-                              <div>
-                                <span>Archivos</span>
-                                <strong>{summary.count}</strong>
-                              </div>
-                              <div>
-                                <span>Categoría</span>
-                                <strong>{summary.category}</strong>
-                              </div>
-                              <div>
-                                <span>Curso</span>
-                                <strong>{summary.courseLabel}</strong>
-                              </div>
-                            </div>
-                            <p className="muted-copy">
-                              La subida se publicará con la categoría seleccionada. Si algún archivo falla,
-                              el resto seguirá subiendo y verás un aviso al terminar.
-                            </p>
-                            <div className="editor-actions">
-                              <button
-                                type="button"
-                                className="secondary-button"
-                                onClick={() => setLibraryBulkReviewOpen(false)}
-                              >
-                                Cancelar
-                              </button>
-                              <button
-                                type="button"
-                                className="primary-button button-with-icon"
-                                onClick={() => void performBulkLibraryUpload()}
-                              >
-                                <span className="button-icon" aria-hidden="true">
-                                  <ActionIcon name="folder-upload" />
-                                </span>
-                                <span>Subir {summary.count} PDF(s)</span>
-                              </button>
-                            </div>
-                          </>
-                        );
-                      })()}
-                    </section>
-                  </div>
-                ) : null}
               </>
             ) : null}
 

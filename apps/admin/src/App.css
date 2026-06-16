@@ -1442,6 +1442,46 @@
   transition: width 0.2s ease;
 }
 
+.library-bulk-preview {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(103, 89, 170, 0.16);
+  background:
+    radial-gradient(circle at top right, rgba(255, 255, 255, 0.86), transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(244, 240, 255, 0.92));
+}
+
+.library-bulk-preview span {
+  color: var(--muted);
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.library-bulk-preview strong {
+  display: block;
+  margin-top: 4px;
+  font-family: var(--heading-font);
+  color: var(--text-strong);
+  font-size: 1.1rem;
+}
+
+.library-bulk-preview p {
+  margin-top: 4px;
+  color: var(--muted);
+}
+
+.library-bulk-preview-pills {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .library-notice {
   display: grid;
   grid-template-columns: 42px minmax(0, 1fr) auto;
@@ -1519,71 +1559,6 @@
 
 .library-notice-close {
   padding-inline: 12px;
-}
-
-.library-bulk-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 58;
-  display: grid;
-  place-items: center;
-  padding: 24px;
-  background: rgba(13, 14, 36, 0.48);
-  backdrop-filter: blur(10px);
-}
-
-.library-bulk-modal {
-  width: min(100%, 560px);
-  display: grid;
-  gap: 16px;
-  padding: 24px;
-  border-radius: 28px;
-  border: 1px solid var(--border);
-  background:
-    radial-gradient(circle at top right, rgba(255, 255, 255, 0.96), transparent 26%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 242, 255, 0.96));
-  box-shadow: 0 30px 80px rgba(11, 10, 28, 0.34);
-}
-
-.library-bulk-modal-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  align-items: flex-start;
-}
-
-.library-bulk-modal-head h3 {
-  font-family: var(--heading-font);
-  color: var(--text-strong);
-  font-size: 1.35rem;
-}
-
-.library-bulk-modal-summary {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.library-bulk-modal-summary div {
-  display: grid;
-  gap: 6px;
-  padding: 14px;
-  border-radius: 18px;
-  border: 1px solid var(--border-soft);
-  background: var(--surface-strong);
-}
-
-.library-bulk-modal-summary span {
-  color: var(--muted);
-  font-size: 0.76rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.library-bulk-modal-summary strong {
-  font-family: var(--heading-font);
-  font-size: 1.12rem;
-  color: var(--text-strong);
 }
 
 .library-category-stack {
