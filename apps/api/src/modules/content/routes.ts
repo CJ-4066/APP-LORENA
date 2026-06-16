@@ -278,11 +278,13 @@ export async function registerContentRoutes(app: FastifyInstance) {
     try {
       const refresh = String(request.query.refresh ?? "").trim() === "1";
       const bytes = await loadLibraryPdfBytes(pdfId, refresh);
-      reply
-        .header("Content-Type", "application/pdf")
-        .header("Content-Disposition", `inline; filename="${pdfId}.pdf"`)
-        .header("Cache-Control", "public, max-age=86400, stale-while-revalidate=604800");
-      return reply.send(Buffer.from(bytes));
+      reply.raw.writeHead(200, {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `inline; filename="${pdfId}.pdf"`,
+        "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
+      });
+      reply.raw.end(Buffer.from(bytes));
+      return reply;
     } catch (error) {
       reply.code(502);
       return {
