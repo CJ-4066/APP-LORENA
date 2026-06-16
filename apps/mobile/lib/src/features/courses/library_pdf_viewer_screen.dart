@@ -129,7 +129,7 @@ class _LibraryPdfViewerScreenState extends State<LibraryPdfViewerScreen> {
 
   String _pageImageUrl(int pageNumber) {
     final refreshPart = _refreshing ? '&refresh=1' : '';
-    return '$_baseUrl/api/content/library/pdfs/${widget.document.id}/pages/$pageNumber/image?width=2200$refreshPart';
+    return '$_baseUrl/api/content/library/pdfs/${widget.document.id}/pages/$pageNumber/image?width=3200$refreshPart';
   }
 
   String _searchUrl(String query) {
@@ -255,7 +255,7 @@ class _LibraryPdfViewerScreenState extends State<LibraryPdfViewerScreen> {
     try {
       final refreshPart = _refreshing ? '&refresh=1' : '';
       final url =
-          '$_baseUrl/api/content/library/pdfs/${widget.document.id}/pages/$pageNumber/text?width=2200$refreshPart';
+          '$_baseUrl/api/content/library/pdfs/${widget.document.id}/pages/$pageNumber/text?width=3200$refreshPart';
       final response = await _client.get(Uri.parse(url));
       if (response.statusCode < 200 || response.statusCode >= 300) {
         return null;

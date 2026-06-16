@@ -98,7 +98,7 @@ export async function renderLibraryPdfPageImage(
   width = 1200,
   refresh = false,
 ): Promise<Uint8Array> {
-  const safeWidth = Math.min(Math.max(Math.trunc(width) || 1200, 360), 2400);
+  const safeWidth = Math.min(Math.max(Math.trunc(width) || 1200, 360), 3200);
   const cachePath = buildPageImageCachePath(pdfId, pageNumber, safeWidth);
   if (!refresh && (await uploadFileExists(cachePath))) {
     return readUploadFile(cachePath);
@@ -144,7 +144,7 @@ export async function getLibraryPdfPageTextLayout(
   width = 1200,
   refresh = false,
 ): Promise<LibraryPdfTextLayout> {
-  const safeWidth = Math.min(Math.max(Math.trunc(width) || 1200, 360), 2400);
+  const safeWidth = Math.min(Math.max(Math.trunc(width) || 1200, 360), 3200);
   const loaded = await openPdfDocument(pdfId, refresh);
   try {
     if (pageNumber < 1 || pageNumber > loaded.document.numPages) {
