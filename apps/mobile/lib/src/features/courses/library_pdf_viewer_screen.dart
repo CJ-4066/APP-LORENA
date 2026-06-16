@@ -163,12 +163,6 @@ class _LibraryPdfViewerScreenState extends State<LibraryPdfViewerScreen> {
       return;
     }
 
-    setState(() {
-      _loading = false;
-      _loadFailureMessage =
-          details.description.isNotEmpty ? details.description : details.error;
-    });
-
     if (_fallbackNavigationScheduled) {
       return;
     }
