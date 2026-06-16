@@ -9,6 +9,7 @@ import '../../core/config/app_config.dart';
 import '../../core/i18n/app_i18n.dart';
 import '../../core/theme/app_palette.dart';
 import '../../core/widgets/mystic_ui.dart';
+import '../../core/widgets/in_app_webview_screen.dart';
 import 'shared_drive_library_service.dart';
 
 class LibraryPdfViewerScreen extends StatefulWidget {
@@ -34,6 +35,7 @@ class _LibraryPdfViewerScreenState extends State<LibraryPdfViewerScreen> {
   PdfTextSearchResult? _searchResult;
   bool _loading = true;
   bool _searchBusy = false;
+  bool _fallbackNavigationScheduled = false;
   int _currentPage = 1;
   String? _errorMessage;
   String? _loadFailureMessage;
@@ -165,6 +167,26 @@ class _LibraryPdfViewerScreenState extends State<LibraryPdfViewerScreen> {
       _loading = false;
       _loadFailureMessage =
           details.description.isNotEmpty ? details.description : details.error;
+    });
+
+    if (_fallbackNavigationScheduled) {
+      return;
+    }
+
+    _fallbackNavigationScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute<void>(
+          builder: (_) => InAppWebViewScreen(
+            title: _metadata?.title ?? widget.document.title,
+            url: widget.document.viewUrl,
+          ),
+        ),
+      );
     });
   }
 
