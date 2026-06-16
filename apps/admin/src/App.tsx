@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useState, type CSSProperties, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type FormEvent,
+} from "react";
 
 import "./App.css";
 import { AdminFileUploader } from "./components/AdminFileUploader";
@@ -2049,6 +2056,7 @@ function App() {
     status: "published",
     isActive: true,
   });
+  const libraryBulkInputRef = useRef<HTMLInputElement | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [isUserDrawerOpen, setIsUserDrawerOpen] = useState(false);
@@ -3434,6 +3442,9 @@ function App() {
       }
 
       setLibraryBulkFiles([]);
+      if (libraryBulkInputRef.current) {
+        libraryBulkInputRef.current.value = "";
+      }
       await refreshLibraryPdfs();
       setLibraryFilter("all");
       setLibrarySearch("");
@@ -6235,16 +6246,18 @@ function App() {
                           type="file"
                           accept="application/pdf"
                           multiple
+                          ref={libraryBulkInputRef}
                           {...libraryFolderInputProps}
-                          onChange={(event) =>
+                          onChange={(event) => {
                             setLibraryBulkFiles(
                               Array.from(event.target.files ?? []).filter(
                                 (file) =>
                                   file.type === "application/pdf" ||
                                   file.name.toLowerCase().endsWith(".pdf"),
                               ),
-                            )
-                          }
+                            );
+                            event.currentTarget.value = "";
+                          }}
                         />
                         <p className="muted-copy" style={{ marginTop: 8 }}>
                           {libraryBulkFiles.length > 0

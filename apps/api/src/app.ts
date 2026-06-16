@@ -36,7 +36,7 @@ export async function buildServer() {
   const appEnv = getAppEnv();
   const app = Fastify({
     logger: true,
-    bodyLimit: Math.max(appEnv.maxPdfUploadMb * 12, 250) * 1024 * 1024,
+    bodyLimit: Math.max(appEnv.maxPdfUploadMb * 50, 512) * 1024 * 1024,
   });
 
   await app.register(cors, {
@@ -45,7 +45,7 @@ export async function buildServer() {
   });
   await app.register(multipart, {
     limits: {
-      files: 25,
+      files: 50,
       fileSize: appEnv.maxPdfUploadMb * 1024 * 1024,
     },
   });
