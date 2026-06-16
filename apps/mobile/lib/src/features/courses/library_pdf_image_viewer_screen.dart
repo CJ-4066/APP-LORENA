@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -28,6 +29,7 @@ class _LibraryPdfImageViewerScreenState
     extends State<LibraryPdfImageViewerScreen> {
   final http.Client _client = http.Client();
   final TextEditingController _pageController = TextEditingController(text: '1');
+  final Map<int, Future<Uint8List?>> _pageImageCache = {};
 
   _LibraryPdfMetadata? _metadata;
   bool _loading = true;
@@ -42,6 +44,29 @@ class _LibraryPdfImageViewerScreenState
     final base =
         '${AppConfig.apiBaseUrl}/api/content/library/pdfs/${widget.document.id}/pages/$pageNumber/image?width=1800';
     return refresh ? '$base&refresh=1' : base;
+  }
+
+  Future<Uint8List?> _loadPageBytes(int pageNumber) {
+    final key = _refreshing ? -pageNumber : pageNumber;
+    return _pageImageCache.putIfAbsent(key, () async {
+      try {
+        final response = await _client.get(Uri.parse(
+          _pageImageUrl(pageNumber, refresh: _refreshing),
+        ));
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          return null;
+        }
+
+        final contentType = response.headers['content-type'] ?? '';
+        if (!contentType.contains('image/png') || response.bodyBytes.isEmpty) {
+          return null;
+        }
+
+        return response.bodyBytes;
+      } catch (_) {
+        return null;
+      }
+    });
   }
 
   @override
@@ -100,6 +125,7 @@ class _LibraryPdfImageViewerScreenState
         _refreshing = false;
         _currentPage = 1;
         _pageController.text = '1';
+        _pageImageCache.clear();
       });
     } catch (error) {
       if (!mounted) {
@@ -310,26 +336,37 @@ class _LibraryPdfImageViewerScreenState
                   ),
             ),
           ),
-          Image.network(
-            _pageImageUrl(pageNumber, refresh: _refreshing),
-            fit: BoxFit.fitWidth,
-            errorBuilder: (context, error, stackTrace) => Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text(
-                context.l10n.ts('No se pudo cargar esta página.'),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppPalette.mutedLavender,
-                    ),
-              ),
-            ),
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) {
-                return child;
+          FutureBuilder<Uint8List?>(
+            future: _loadPageBytes(pageNumber),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const Padding(
+                  padding: EdgeInsets.all(36),
+                  child: Center(child: CircularProgressIndicator()),
+                );
               }
 
-              return const Padding(
-                padding: EdgeInsets.all(24),
-                child: Center(child: CircularProgressIndicator()),
+              final bytes = snapshot.data;
+              if (bytes == null) {
+                return Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(
+                    context.l10n.ts('No se pudo cargar esta página.'),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppPalette.mutedLavender,
+                        ),
+                  ),
+                );
+              }
+
+              return InteractiveViewer(
+                minScale: 1.0,
+                maxScale: 5.0,
+                child: Image.memory(
+                  bytes,
+                  fit: BoxFit.contain,
+                  gaplessPlayback: true,
+                ),
               );
             },
           ),
@@ -353,18 +390,27 @@ class _LibraryPdfImageViewerScreenState
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : meta == null
+              : meta == null
               ? _buildErrorPanel(context)
               : Column(
                   children: [
                     _buildTopControls(context),
                     Expanded(
-                      child: ListView.builder(
-                        itemCount: meta.pageCount,
-                        itemBuilder: (context, index) => _buildPageImage(
-                          context,
-                          index + 1,
-                        ),
+                      child: ListView(
+                        children: [
+                          _buildPageImage(context, _currentPage),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                            child: Text(
+                              context.l10n.ts(
+                                'Si no ves bien el contenido, usa ampliar con dos dedos o cambia de página.',
+                              ),
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: AppPalette.mutedLavender,
+                                  ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
