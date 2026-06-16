@@ -19,6 +19,20 @@ type HealthResponse = {
   };
 };
 
+type LibraryBulkFailure = {
+  fileName: string;
+  error: string;
+};
+
+type LibraryNoticeTone = "success" | "warning" | "error" | "info";
+
+type LibraryNotice = {
+  tone: LibraryNoticeTone;
+  title: string;
+  message: string;
+  details?: string[];
+};
+
 type AdminBooking = {
   id: string;
   userId?: string;
@@ -1236,7 +1250,12 @@ type ActionIconName =
   | "refresh"
   | "publish"
   | "archive"
-  | "save";
+  | "save"
+  | "success"
+  | "warning"
+  | "info"
+  | "close"
+  | "files";
 
 function ActionIcon({
   name,
@@ -1323,6 +1342,44 @@ function ActionIcon({
           <path d="M5 4h11l3 3v13H5z" />
           <path d="M8 4v6h8V4" />
           <path d="M8 14h8" />
+        </svg>
+      );
+    case "success":
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 12a8 8 0 1 0 16 0a8 8 0 1 0-16 0" />
+          <path d="m8 12 3 3 5-6" />
+        </svg>
+      );
+    case "warning":
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 4 3.5 19h17z" />
+          <path d="M12 9v4" />
+          <circle cx="12" cy="16.5" r="1" />
+        </svg>
+      );
+    case "info":
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="8" />
+          <path d="M12 10v6" />
+          <path d="M12 7.5h.01" />
+        </svg>
+      );
+    case "close":
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="m6 6 12 12" />
+          <path d="m18 6-12 12" />
+        </svg>
+      );
+    case "files":
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M7 4h7l4 4v12H7z" />
+          <path d="M14 4v4h4" />
+          <path d="M10 12h4M10 16h4" />
         </svg>
       );
     default:
@@ -2149,6 +2206,8 @@ function App() {
   const [libraryBulkFiles, setLibraryBulkFiles] = useState<File[]>([]);
   const [libraryBulkUploading, setLibraryBulkUploading] = useState(false);
   const [libraryBulkProgress, setLibraryBulkProgress] = useState(0);
+  const [libraryBulkReviewOpen, setLibraryBulkReviewOpen] = useState(false);
+  const [libraryBulkNotice, setLibraryBulkNotice] = useState<LibraryNotice | null>(null);
   const [librarySearch, setLibrarySearch] = useState("");
   const [libraryFilter, setLibraryFilter] = useState<"all" | "free" | "linked" | "published">("all");
   const [libraryCategoryFilter, setLibraryCategoryFilter] = useState("all");
@@ -3452,28 +3511,55 @@ function App() {
     setCourseMessage(selectedLibraryPdfId ? "PDF actualizado." : "PDF agregado.");
   }
 
-  async function handleSaveBulkLibraryPdfs(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function buildBulkUploadSummary() {
+    const count = libraryBulkFiles.length;
+    const category = libraryBulkForm.assignCategory
+      ? formatLibraryCategoryLabel(libraryBulkForm.category)
+      : "General";
+    const courseId = libraryBulkForm.linkToCourse
+      ? libraryBulkForm.courseId.trim() || selectedCourseId || ""
+      : "";
+    const courseLabel = courseId
+      ? courses.find((course) => course.id === courseId)?.title ?? "Curso seleccionado"
+      : "Sin vínculo";
+
+    return {
+      count,
+      category,
+      courseLabel,
+    };
+  }
+
+  async function performBulkLibraryUpload() {
     setCourseMessage(null);
     setCourseError(null);
+    setLibraryBulkNotice(null);
     setLibraryBulkProgress(0);
+    setLibraryBulkReviewOpen(false);
 
     if (libraryBulkFiles.length === 0) {
-      setCourseError("Selecciona uno o más PDFs para subir.");
+      setLibraryBulkNotice({
+        tone: "error",
+        title: "Sin archivos",
+        message: "Selecciona uno o más PDFs antes de publicar la carpeta.",
+      });
       return;
     }
+
     const normalizedCategory = libraryBulkForm.assignCategory
       ? formatLibraryCategoryLabel(libraryBulkForm.category)
       : "";
     if (libraryBulkForm.assignCategory && !normalizedCategory.trim()) {
-      setCourseError("Elige o crea una categoría para los PDFs.");
+      setLibraryBulkNotice({
+        tone: "warning",
+        title: "Categoría incompleta",
+        message: "Elige o crea una categoría para los PDFs antes de continuar.",
+      });
       return;
     }
 
     setLibraryBulkUploading(true);
     setLibraryBulkProgress(0);
-
-    const uploadedItems: AdminLibraryPdf[] = [];
 
     try {
       const formData = new FormData();
@@ -3492,7 +3578,12 @@ function App() {
         formData.append("file", file);
       });
 
-      const json = await new Promise<{ items?: AdminLibraryPdf[]; error?: string }>((resolve, reject) => {
+      const json = await new Promise<{
+        items?: AdminLibraryPdf[];
+        error?: string;
+        warning?: string;
+        failures?: LibraryBulkFailure[];
+      }>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open("POST", `${apiBaseUrl}/api/admin/library/pdfs/bulk`);
         xhr.withCredentials = true;
@@ -3511,7 +3602,12 @@ function App() {
 
         xhr.onload = () => {
           try {
-            const payload = JSON.parse(xhr.responseText) as { items?: AdminLibraryPdf[]; error?: string };
+            const payload = JSON.parse(xhr.responseText) as {
+              items?: AdminLibraryPdf[];
+              error?: string;
+              warning?: string;
+              failures?: LibraryBulkFailure[];
+            };
             if (xhr.status < 200 || xhr.status >= 300) {
               reject(new Error(payload.error ?? "No se pudieron subir los PDFs."));
               return;
@@ -3525,26 +3621,21 @@ function App() {
         xhr.send(formData);
       });
 
-      if (!json.items) {
-        throw new Error(json.error ?? "No se pudieron subir los PDFs.");
+      if (!json.items || json.items.length === 0) {
+        throw new Error(json.error ?? "No se pudo subir ningún PDF.");
       }
 
-      uploadedItems.push(...json.items);
-      setLibraryBulkProgress(100);
-
-      if (uploadedItems.length > 0) {
-        setLibraryPdfs((current) => {
-          const next = [...uploadedItems, ...current];
-          const seen = new Set<string>();
-          return next.filter((item) => {
-            if (seen.has(item.id)) {
-              return false;
-            }
-            seen.add(item.id);
-            return true;
-          });
+      setLibraryPdfs((current) => {
+        const next = [...json.items!, ...current];
+        const seen = new Set<string>();
+        return next.filter((item) => {
+          if (seen.has(item.id)) {
+            return false;
+          }
+          seen.add(item.id);
+          return true;
         });
-      }
+      });
 
       setLibraryBulkFiles([]);
       if (libraryBulkInputRef.current) {
@@ -3553,17 +3644,76 @@ function App() {
       await refreshLibraryPdfs();
       setLibraryFilter("all");
       setLibrarySearch("");
-      if (uploadedItems.length > 0) {
-        setCourseMessage(`${uploadedItems.length} PDF(s) publicados y visibles en la biblioteca.`);
+
+      const failures = json.failures ?? [];
+      if (failures.length > 0) {
+        setLibraryBulkNotice({
+          tone: "warning",
+          title: "Carga parcial",
+          message: json.warning ?? `Se publicaron ${json.items.length} PDF(s) y ${failures.length} quedaron pendientes.`,
+          details: failures.slice(0, 4).map((failure) => `${failure.fileName}: ${failure.error}`),
+        });
       } else {
-        setCourseError("No se pudo subir ningún PDF.");
+        setLibraryBulkNotice({
+          tone: "success",
+          title: "Carga completada",
+          message: `${json.items.length} PDF(s) publicados y visibles en la biblioteca.`,
+        });
       }
     } catch (error) {
-      setCourseError(error instanceof Error ? error.message : "No se pudieron subir los PDFs.");
+      const message = error instanceof Error ? error.message : "No se pudieron subir los PDFs.";
+      setLibraryBulkNotice({
+        tone: "error",
+        title: "No se pudo publicar",
+        message,
+      });
+      setCourseError(message);
     } finally {
       setLibraryBulkUploading(false);
       setTimeout(() => setLibraryBulkProgress(0), 1000);
     }
+  }
+
+  async function handleSaveBulkLibraryPdfs(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setCourseMessage(null);
+    setCourseError(null);
+    setLibraryBulkNotice(null);
+
+    if (libraryBulkFiles.length === 0) {
+      setLibraryBulkNotice({
+        tone: "error",
+        title: "Sin archivos",
+        message: "Selecciona uno o más PDFs para subir.",
+      });
+      return;
+    }
+
+    const normalizedCategory = libraryBulkForm.assignCategory
+      ? formatLibraryCategoryLabel(libraryBulkForm.category)
+      : "";
+    if (libraryBulkForm.assignCategory && !normalizedCategory.trim()) {
+      setLibraryBulkNotice({
+        tone: "warning",
+        title: "Categoría incompleta",
+        message: "Elige o crea una categoría para los PDFs antes de continuar.",
+      });
+      return;
+    }
+
+    if (libraryBulkForm.linkToCourse) {
+      const courseId = libraryBulkForm.courseId.trim() || selectedCourseId || "";
+      if (!courseId) {
+        setLibraryBulkNotice({
+          tone: "warning",
+          title: "Falta curso",
+          message: "Selecciona un curso o desactiva la vinculación para continuar.",
+        });
+        return;
+      }
+    }
+
+    setLibraryBulkReviewOpen(true);
   }
 
   async function handleLibraryPdfAction(
@@ -9475,6 +9625,45 @@ function App() {
             ) : null}
 
             {courseDrawerTab === "library" ? (
+              <>
+                {libraryBulkNotice ? (
+                  <section className={`library-notice library-notice-${libraryBulkNotice.tone}`}>
+                    <div className="library-notice-icon" aria-hidden="true">
+                      <ActionIcon
+                        name={
+                          libraryBulkNotice.tone === "success"
+                            ? "success"
+                            : libraryBulkNotice.tone === "warning"
+                              ? "warning"
+                              : libraryBulkNotice.tone === "info"
+                                ? "info"
+                                : "close"
+                        }
+                      />
+                    </div>
+                    <div className="library-notice-copy">
+                      <strong>{libraryBulkNotice.title}</strong>
+                      <p>{libraryBulkNotice.message}</p>
+                      {libraryBulkNotice.details && libraryBulkNotice.details.length > 0 ? (
+                        <ul>
+                          {libraryBulkNotice.details.map((detail) => (
+                            <li key={detail}>{detail}</li>
+                          ))}
+                        </ul>
+                      ) : null}
+                    </div>
+                    <button
+                      type="button"
+                      className="secondary-button library-notice-close"
+                      onClick={() => setLibraryBulkNotice(null)}
+                    >
+                      <span className="button-icon" aria-hidden="true">
+                        <ActionIcon name="close" />
+                      </span>
+                    </button>
+                  </section>
+                ) : null}
+
               <div className="course-subview-grid">
                 <article className="course-subview-card">
                   <div className="panel-head">
@@ -9698,6 +9887,77 @@ function App() {
                   )}
                 </article>
               </div>
+
+                {libraryBulkReviewOpen ? (
+                  <div
+                    className="library-bulk-modal-backdrop"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby="library-bulk-modal-title"
+                  >
+                    <section className="library-bulk-modal">
+                      <div className="library-bulk-modal-head">
+                        <div>
+                          <p className="eyebrow">Confirmar carga</p>
+                          <h3 id="library-bulk-modal-title">Revisar publicación de carpeta</h3>
+                        </div>
+                        <button
+                          type="button"
+                          className="secondary-button"
+                          onClick={() => setLibraryBulkReviewOpen(false)}
+                          aria-label="Cerrar confirmación"
+                        >
+                          <ActionIcon name="close" />
+                        </button>
+                      </div>
+                      {(() => {
+                        const summary = buildBulkUploadSummary();
+                        return (
+                          <>
+                            <div className="library-bulk-modal-summary">
+                              <div>
+                                <span>Archivos</span>
+                                <strong>{summary.count}</strong>
+                              </div>
+                              <div>
+                                <span>Categoría</span>
+                                <strong>{summary.category}</strong>
+                              </div>
+                              <div>
+                                <span>Curso</span>
+                                <strong>{summary.courseLabel}</strong>
+                              </div>
+                            </div>
+                            <p className="muted-copy">
+                              La subida se publicará con la categoría seleccionada. Si algún archivo falla,
+                              el resto seguirá subiendo y verás un aviso al terminar.
+                            </p>
+                            <div className="editor-actions">
+                              <button
+                                type="button"
+                                className="secondary-button"
+                                onClick={() => setLibraryBulkReviewOpen(false)}
+                              >
+                                Cancelar
+                              </button>
+                              <button
+                                type="button"
+                                className="primary-button button-with-icon"
+                                onClick={() => void performBulkLibraryUpload()}
+                              >
+                                <span className="button-icon" aria-hidden="true">
+                                  <ActionIcon name="folder-upload" />
+                                </span>
+                                <span>Subir {summary.count} PDF(s)</span>
+                              </button>
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </section>
+                  </div>
+                ) : null}
+              </>
             ) : null}
 
             {courseDrawerTab === "publication" ? (

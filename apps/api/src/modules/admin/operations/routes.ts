@@ -1435,9 +1435,10 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
     const uploadedBy = buildAdminAuditMeta(admin).changedBy;
     const auditMeta = buildAdminAuditMeta(admin);
     const items: LibraryPdfRecord[] = [];
+    const failures: Array<{ fileName: string; error: string }> = [];
 
-    try {
-      for (const filePart of files) {
+    for (const filePart of files) {
+      try {
         if (filePart.mimetype !== "application/pdf") {
           throw new Error("Solo se permiten archivos PDF.");
         }
@@ -1480,17 +1481,34 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
           actor: admin.email,
         });
         items.push(item);
+      } catch (error) {
+        failures.push({
+          fileName: filePart.filename,
+          error: error instanceof Error ? error.message : "No se pudo guardar este PDF.",
+        });
       }
+    }
 
-      reply.code(201);
-      return { items };
-    } catch (error) {
+    if (items.length === 0) {
       reply.code(400);
       return {
         error:
-          error instanceof Error ? error.message : "No se pudieron guardar los PDFs.",
+          failures[0]?.error ?? "No se pudieron guardar los PDFs.",
+        failures,
       };
     }
+
+    if (failures.length > 0) {
+      reply.code(207);
+      return {
+        items,
+        warning: `Se publicaron ${items.length} PDF(s) y ${failures.length} quedaron pendientes.`,
+        failures,
+      };
+    }
+
+    reply.code(201);
+    return { items };
   });
 
   app.patch<{ Params: { pdfId: string } }>("/library/pdfs/:pdfId", async (request, reply) => {
