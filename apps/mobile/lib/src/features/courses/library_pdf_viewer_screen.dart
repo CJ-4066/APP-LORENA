@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
@@ -29,10 +30,10 @@ class _LibraryPdfViewerScreenState extends State<LibraryPdfViewerScreen> {
   final TextEditingController _searchController = TextEditingController();
 
   _LibraryPdfMetadata? _metadata;
+  Uint8List? _pdfBytes;
   PdfTextSearchResult? _searchResult;
   bool _loading = true;
   bool _searchBusy = false;
-  bool _refreshing = false;
   int _currentPage = 1;
   String? _errorMessage;
   String? _loadFailureMessage;
@@ -65,21 +66,20 @@ class _LibraryPdfViewerScreenState extends State<LibraryPdfViewerScreen> {
       _loading = true;
       _errorMessage = null;
       _loadFailureMessage = null;
-      if (refresh) {
-        _refreshing = true;
-      }
+      _pdfBytes = null;
     });
 
     try {
       final meta = await _fetchMetadata(refresh: refresh);
+      final pdfBytes = await _fetchPdfBytes(refresh: refresh);
       if (!mounted) {
         return;
       }
 
       setState(() {
         _metadata = meta;
+        _pdfBytes = pdfBytes;
         _loading = false;
-        _refreshing = false;
         _currentPage = 1;
         _pageController.text = '1';
       });
@@ -90,7 +90,6 @@ class _LibraryPdfViewerScreenState extends State<LibraryPdfViewerScreen> {
 
       setState(() {
         _loading = false;
-        _refreshing = false;
         _errorMessage = error.toString();
       });
     }
@@ -120,6 +119,21 @@ class _LibraryPdfViewerScreenState extends State<LibraryPdfViewerScreen> {
       title: (title != null && title.isNotEmpty) ? title : widget.document.title,
       pageCount: pageCount,
     );
+  }
+
+  Future<Uint8List> _fetchPdfBytes({bool refresh = false}) async {
+    final uri = Uri.parse(refresh ? '$_pdfUrl?refresh=1' : _pdfUrl);
+    final response = await _client.get(uri);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('No se pudo descargar el PDF.');
+    }
+
+    final contentType = response.headers['content-type'] ?? '';
+    if (!contentType.contains('application/pdf') || response.bodyBytes.isEmpty) {
+      throw Exception('La API no devolvió un PDF válido.');
+    }
+
+    return response.bodyBytes;
   }
 
   void _onDocumentLoaded(PdfDocumentLoadedDetails details) {
@@ -445,9 +459,13 @@ class _LibraryPdfViewerScreenState extends State<LibraryPdfViewerScreen> {
   }
 
   Widget _buildPdfViewer(BuildContext context) {
-    final pdfUrl = _refreshing ? '$_pdfUrl?refresh=1' : _pdfUrl;
-    return SfPdfViewer.network(
-      pdfUrl,
+    final bytes = _pdfBytes;
+    if (bytes == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return SfPdfViewer.memory(
+      bytes,
       controller: _pdfViewerController,
       canShowScrollHead: true,
       canShowScrollStatus: true,
