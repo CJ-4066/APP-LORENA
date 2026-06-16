@@ -1359,7 +1359,10 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
       return { error: getAdminError(reply.statusCode, false) };
     }
 
-    return { items: await listLibraryPdfs() };
+    const items = (await listLibraryPdfs()).filter(
+      (item) => item.status !== "archived" && item.isActive !== false,
+    );
+    return { items };
   });
 
   app.get<{ Params: { pdfId: string } }>("/library/pdfs/:pdfId", async (request, reply) => {
