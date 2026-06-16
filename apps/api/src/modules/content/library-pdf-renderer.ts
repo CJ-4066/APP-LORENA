@@ -1,7 +1,11 @@
 import { createCanvas, DOMMatrix, ImageData, Path2D } from "@napi-rs/canvas";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
-import { rename } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { readFile, rename, writeFile } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { promisify } from "node:util";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { getLibraryPdfById } from "../../data/persistent-store.js";
@@ -30,6 +34,7 @@ if (!globalCanvas.Path2D) {
 }
 
 const pdfRequestCache = new Map<string, Promise<Uint8Array>>();
+const execFileAsync = promisify(execFile);
 const pdfjsRootDir = join(
   dirname(fileURLToPath(import.meta.url)),
   "../../../../../node_modules/pdfjs-dist",
@@ -109,11 +114,70 @@ export async function renderLibraryPdfPageImage(
     if (pageNumber < 1 || pageNumber > loaded.document.numPages) {
       throw new Error("La página solicitada no existe.");
     }
+  } finally {
+    await destroyPdfDocument(loaded.document);
+  }
 
+  const bytes = await loadLibraryPdfBytes(pdfId, refresh);
+  const gsBytes = await renderPdfPageImageWithGhostscript(bytes, pageNumber, safeWidth);
+  if (gsBytes) {
+    await writeUploadFile(cachePath, gsBytes);
+    return gsBytes;
+  }
+
+  const pdfjsBytes = await renderPdfPageImageWithPdfjs(pdfId, pageNumber, safeWidth, refresh);
+  await writeUploadFile(cachePath, pdfjsBytes);
+  return pdfjsBytes;
+}
+
+async function renderPdfPageImageWithGhostscript(
+  bytes: Uint8Array,
+  pageNumber: number,
+  width: number,
+): Promise<Uint8Array | null> {
+  try {
+    const workDir = await mkdtemp(join(tmpdir(), "lo-renaciente-page-"));
+    const inputPath = join(workDir, "input.pdf");
+    const outputPath = join(workDir, "page.png");
+    await writeFile(inputPath, bytes);
+
+    try {
+      const args = [
+        "-q",
+        "-dSAFER",
+        "-dBATCH",
+        "-dNOPAUSE",
+        "-dUseCropBox",
+        "-sDEVICE=png16m",
+        `-r${Math.max(150, Math.round(width / 8))}`,
+        `-dFirstPage=${pageNumber}`,
+        `-dLastPage=${pageNumber}`,
+        `-sOutputFile=${outputPath}`,
+        inputPath,
+      ];
+      await execFileAsync("gs", args);
+      const imageBytes = await readFile(outputPath);
+      return imageBytes.byteLength > 0 ? new Uint8Array(imageBytes) : null;
+    } finally {
+      await rm(workDir, { recursive: true, force: true });
+    }
+  } catch {
+    return null;
+  }
+}
+
+async function renderPdfPageImageWithPdfjs(
+  pdfId: string,
+  pageNumber: number,
+  width: number,
+  refresh = false,
+): Promise<Uint8Array> {
+  const loaded = await openPdfDocument(pdfId, refresh);
+  try {
     const page = await loaded.document.getPage(pageNumber);
     try {
       const baseViewport = page.getViewport({ scale: 1 });
-      const scale = safeWidth / baseViewport.width;
+      const scale = width / baseViewport.width;
       const viewport = page.getViewport({ scale });
       const canvas = createCanvas(
         Math.ceil(viewport.width),
@@ -127,9 +191,7 @@ export async function renderLibraryPdfPageImage(
         canvasContext: context as any,
         viewport,
       } as any).promise;
-      const imageBytes = canvas.toBuffer("image/png");
-      await writeUploadFile(cachePath, imageBytes);
-      return imageBytes;
+      return canvas.toBuffer("image/png");
     } finally {
       page.cleanup?.();
     }
