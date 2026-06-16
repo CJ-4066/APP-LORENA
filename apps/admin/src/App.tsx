@@ -4860,6 +4860,14 @@ function App() {
   const selectedBulkCourse = libraryBulkForm.linkToCourse
     ? courses.find((course) => course.id === libraryBulkForm.courseId) ?? null
     : null;
+  const openLibraryPdfEditor = (pdf: AdminLibraryPdf) => {
+    resetLibraryPdfDraft(pdf);
+    setActiveSection("courses");
+    setIsCourseDrawerOpen(true);
+    setSelectedCourseId(pdf.courseId ?? null);
+    setCourseDrawerTab("library");
+    window.history.pushState({}, "", buildCourseWorkspaceUrl(pdf.courseId ?? null, "library"));
+  };
   const selectedBooking = selectedBookingId
     ? bookings.find((booking) => booking.id === selectedBookingId) ?? null
     : null;
@@ -6294,44 +6302,20 @@ function App() {
                             <button
                               type="button"
                               className="secondary-button"
-                              onClick={() => {
-                                resetLibraryPdfDraft(pdf);
-                                handleSelectCourseDrawerTab("library");
-                              }}
+                              onClick={() => openLibraryPdfEditor(pdf)}
                             >
                               Editar
                             </button>
                             <button
                               type="button"
                               className="secondary-button"
-                              onClick={() =>
-                                void handleLibraryPdfAction(
-                                  pdf.id,
-                                  pdf.status === "published" ? "archive" : "publish",
-                                )
-                              }
-                            >
-                              {pdf.status === "published" ? "Archivar" : "Publicar"}
-                            </button>
-                            <button
-                              type="button"
-                              className="secondary-button"
                               onClick={() => {
-                                if (pdf.fileUrl.trim()) {
-                                  window.open(pdf.fileUrl, "_blank", "noopener,noreferrer");
+                                if (window.confirm(`¿Eliminar "${pdf.title}"?`)) {
+                                  void handleLibraryPdfAction(pdf.id, "delete");
                                 }
                               }}
                             >
-                              Ver
-                            </button>
-                            <button
-                              type="button"
-                              className="secondary-button"
-                              onClick={() =>
-                                openCourseWorkspaceTab(pdf.courseId ?? null, "library")
-                              }
-                            >
-                              Abrir curso
+                              Eliminar
                             </button>
                           </div>
                         </article>
@@ -8375,12 +8359,20 @@ function App() {
           <div className="course-workspace-shell">
             <div className="audit-detail-head course-drawer-head">
               <div>
-                <p className="eyebrow">Cursos</p>
+                <p className="eyebrow">{courseDrawerTab === "library" ? "Biblioteca" : "Cursos"}</p>
                 <h2 id="course-drawer-title">
-                  {selectedCourse ? `Editar ${selectedCourse.title}` : "Nuevo curso"}
+                  {courseDrawerTab === "library"
+                    ? selectedLibraryPdfId
+                      ? "Editar PDF"
+                      : "Nuevo PDF"
+                    : selectedCourse
+                      ? `Editar ${selectedCourse.title}`
+                      : "Nuevo curso"}
                 </h2>
                 <p className="badge-editor-copy">
-                  Datos del curso, módulos, lecciones, biblioteca PDF y publicación.
+                  {courseDrawerTab === "library"
+                    ? "Datos del PDF, categoría, vínculo opcional y publicación."
+                    : "Datos del curso, módulos, lecciones, biblioteca PDF y publicación."}
                 </p>
               </div>
               <div className="course-drawer-head-actions">
@@ -9395,10 +9387,7 @@ function App() {
                             <button
                               type="button"
                               className="secondary-button"
-                              onClick={() => {
-                                resetLibraryPdfDraft(pdf);
-                                handleSelectCourseDrawerTab("library");
-                              }}
+                              onClick={() => openLibraryPdfEditor(pdf)}
                             >
                               Editar
                             </button>
@@ -9406,30 +9395,7 @@ function App() {
                               type="button"
                               className="secondary-button"
                               onClick={() => {
-                                if (pdf.fileUrl.trim()) {
-                                  window.open(pdf.fileUrl, "_blank", "noopener,noreferrer");
-                                }
-                              }}
-                            >
-                              Ver
-                            </button>
-                            <button
-                              type="button"
-                              className="secondary-button"
-                              onClick={() =>
-                                void handleLibraryPdfAction(
-                                  pdf.id,
-                                  pdf.status === "published" ? "archive" : "publish",
-                                )
-                              }
-                            >
-                              {pdf.status === "published" ? "Archivar" : "Publicar"}
-                            </button>
-                            <button
-                              type="button"
-                              className="secondary-button"
-                              onClick={() => {
-                                if (window.confirm("¿Eliminar este PDF?")) {
+                                if (window.confirm(`¿Eliminar "${pdf.title}"?`)) {
                                   void handleLibraryPdfAction(pdf.id, "delete");
                                 }
                               }}
