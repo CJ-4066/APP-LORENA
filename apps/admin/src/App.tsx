@@ -2413,6 +2413,25 @@ function App() {
     clearProtectedState();
   }, [clearProtectedState]);
 
+  const refreshLibraryPdfs = useCallback(async () => {
+    const response = await fetch(`${apiBaseUrl}/api/admin/library/pdfs`, {
+      credentials: "include",
+      cache: "no-store",
+    });
+
+    if (response.status === 401 || response.status === 403) {
+      handleSessionInvalid("Tu sesión de admin expiró.");
+      return;
+    }
+
+    if (!response.ok) {
+      throw new Error("No se pudo recargar la biblioteca.");
+    }
+
+    const json = (await response.json()) as { items?: AdminLibraryPdf[] };
+    setLibraryPdfs(json.items ?? []);
+  }, [apiBaseUrl, handleSessionInvalid]);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -3283,6 +3302,7 @@ function App() {
       status: savedItem.status ?? "draft",
       isActive: savedItem.isActive ?? true,
     });
+    await refreshLibraryPdfs();
     setCourseMessage(selectedLibraryPdfId ? "PDF actualizado." : "PDF agregado.");
   }
 
@@ -3381,6 +3401,9 @@ function App() {
       }
 
       setLibraryBulkFiles([]);
+      await refreshLibraryPdfs();
+      setLibraryFilter("all");
+      setLibrarySearch("");
       if (uploadedItems.length > 0) {
         setCourseMessage(`${uploadedItems.length} PDF(s) publicados y visibles en la biblioteca.`);
       } else {
@@ -3436,6 +3459,7 @@ function App() {
           resetLibraryPdfDraft(savedItem);
         }
       }
+      await refreshLibraryPdfs();
 
       setCourseMessage(
         action === "publish"
