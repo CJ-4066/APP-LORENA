@@ -6666,14 +6666,21 @@ function App() {
                       ) : null}
                       <div className="editor-actions form-wide">
                         <button
-                          type="submit"
+                          type="button"
                           className="primary-button button-with-icon"
-                          disabled={libraryBulkUploading}
+                          disabled={libraryBulkUploading || libraryBulkFiles.length === 0}
+                          onClick={() => void performBulkLibraryUpload()}
                         >
                           <span className="button-icon" aria-hidden="true">
                             <ActionIcon name="folder-upload" />
                           </span>
-                          <span>{libraryBulkUploading ? "Subiendo..." : "Subir carpeta"}</span>
+                          <span>
+                            {libraryBulkUploading
+                              ? "Subiendo..."
+                              : libraryBulkFiles.length > 0
+                                ? `Subir ${libraryBulkFiles.length} archivo(s)`
+                                : "Subir carpeta"}
+                          </span>
                         </button>
                       </div>
                       {libraryBulkUploading ? (
@@ -6688,6 +6695,10 @@ function App() {
                             Subiendo PDFs: {libraryBulkProgress}% completado.
                           </p>
                         </div>
+                      ) : libraryBulkFiles.length > 0 ? (
+                        <p className="muted-copy form-wide">
+                          Pulsa el botón para publicar {libraryBulkFiles.length} PDF(s) con la categoría seleccionada.
+                        </p>
                       ) : null}
                     </form>
                   </article>
