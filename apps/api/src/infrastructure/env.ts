@@ -105,7 +105,7 @@ const appEnv: AppEnv = {
   uploadPublicPath: process.env.UPLOAD_PUBLIC_PATH?.trim() || "/uploads",
   storagePublicBaseUrl: process.env.STORAGE_PUBLIC_BASE_URL?.trim() || null,
   maxImageUploadMb: readInt(process.env.MAX_IMAGE_UPLOAD_MB, 5, "MAX_IMAGE_UPLOAD_MB"),
-  maxPdfUploadMb: readInt(process.env.MAX_PDF_UPLOAD_MB, 25, "MAX_PDF_UPLOAD_MB"),
+  maxPdfUploadMb: readInt(process.env.MAX_PDF_UPLOAD_MB, 50, "MAX_PDF_UPLOAD_MB"),
 };
 
 export function getAppEnv(): AppEnv {

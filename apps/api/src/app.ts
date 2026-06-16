@@ -2,6 +2,7 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import multipart from "@fastify/multipart";
 
+import { getAppEnv } from "./infrastructure/env.js";
 import { pingDatabase } from "./infrastructure/database.js";
 import { pingRedis } from "./infrastructure/redis.js";
 import { pingStorage } from "./infrastructure/storage.js";
@@ -32,9 +33,10 @@ import { registerTarotRoutes } from "./modules/tarot/routes.js";
 import { registerAdminUploadRoutes } from "./modules/admin/uploads/routes.js";
 
 export async function buildServer() {
+  const appEnv = getAppEnv();
   const app = Fastify({
     logger: true,
-    bodyLimit: 30 * 1024 * 1024,
+    bodyLimit: Math.max(appEnv.maxPdfUploadMb * 12, 250) * 1024 * 1024,
   });
 
   await app.register(cors, {
@@ -44,7 +46,7 @@ export async function buildServer() {
   await app.register(multipart, {
     limits: {
       files: 25,
-      fileSize: 25 * 1024 * 1024,
+      fileSize: appEnv.maxPdfUploadMb * 1024 * 1024,
     },
   });
 
