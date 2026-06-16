@@ -2713,6 +2713,38 @@ function App() {
   }, [authStatus, auditFilters, handleSessionInvalid]);
 
   useEffect(() => {
+    if (authStatus !== "authenticated") {
+      return;
+    }
+
+    const eventSource = new EventSource(`${apiBaseUrl}/api/content/events`, {
+      withCredentials: true,
+    });
+
+    const handleContentChange = (event: MessageEvent<string>) => {
+      try {
+        const payload = JSON.parse(event.data) as {
+          entity?: string;
+          action?: string;
+        };
+
+        if (payload.entity === "libraryPdf" || payload.entity === "all") {
+          void refreshLibraryPdfs();
+        }
+      } catch {
+        // Ignore malformed events and keep listening.
+      }
+    };
+
+    eventSource.addEventListener("content.changed", handleContentChange as EventListener);
+
+    return () => {
+      eventSource.removeEventListener("content.changed", handleContentChange as EventListener);
+      eventSource.close();
+    };
+  }, [apiBaseUrl, authStatus, refreshLibraryPdfs]);
+
+  useEffect(() => {
     let cancelled = false;
 
     async function loadCourseAudit() {
@@ -4907,6 +4939,9 @@ function App() {
   const libraryPublishedCount = libraryPdfs.filter(
     (pdf) => pdf.status === "published" && pdf.isActive !== false,
   ).length;
+  const libraryArchivedCount = libraryPdfs.filter(
+    (pdf) => pdf.status === "archived" || pdf.isActive === false,
+  ).length;
   const selectedLibraryCourse = libraryPdfForm.linkToCourse
     ? courses.find((course) => course.id === libraryPdfForm.courseId) ?? null
     : null;
@@ -6001,6 +6036,11 @@ function App() {
                     <span>Con curso</span>
                     <strong>{libraryLinkedCount}</strong>
                     <p>Material conectado al aula</p>
+                  </article>
+                  <article className="library-metric-card">
+                    <span>Archivados</span>
+                    <strong>{libraryArchivedCount}</strong>
+                    <p>Ocultos del catálogo y de la app</p>
                   </article>
                 </div>
 
