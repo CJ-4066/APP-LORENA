@@ -1196,9 +1196,73 @@
   gap: 16px;
 }
 
+.library-shell {
+  display: grid;
+  gap: 18px;
+}
+
+.library-hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  padding: 22px;
+  border-radius: 28px;
+  border: 1px solid var(--border-soft);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(248, 243, 255, 0.94)),
+    var(--surface);
+  box-shadow: 0 18px 42px rgba(31, 24, 58, 0.07);
+}
+
+.library-hero-copy {
+  display: grid;
+  gap: 8px;
+  max-width: 720px;
+}
+
+.library-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.library-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.library-metric-card {
+  display: grid;
+  gap: 6px;
+  padding: 16px;
+  border-radius: 20px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-strong);
+}
+
+.library-metric-card span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.library-metric-card strong {
+  font-family: var(--heading-font);
+  color: var(--text-strong);
+  font-size: 1.8rem;
+}
+
+.library-metric-card p {
+  color: var(--muted);
+}
+
 .library-workspace-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr);
+  grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr);
   gap: 16px;
   margin-bottom: 16px;
 }
@@ -1212,6 +1276,12 @@
 
 .library-panel-head {
   align-items: flex-start;
+}
+
+.library-inline-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
 }
 
 .library-summary-grid {
@@ -1296,6 +1366,49 @@
 .library-link-preview {
   display: grid;
   gap: 6px;
+}
+
+.library-toolbar {
+  display: grid;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.library-search {
+  width: 100%;
+}
+
+.library-filter-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.library-filter-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border-soft);
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--text-strong);
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    background 0.18s ease;
+}
+
+.library-filter-pill:hover {
+  transform: translateY(-1px);
+  border-color: var(--secondary);
+}
+
+.library-filter-pill-active {
+  border-color: var(--secondary);
+  background: var(--secondary-soft);
 }
 
 .library-category-stack {
@@ -1384,6 +1497,55 @@
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 14px;
+}
+
+.library-list {
+  display: grid;
+  gap: 10px;
+}
+
+.library-list-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid var(--border-soft);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(250, 247, 255, 0.94));
+}
+
+.library-list-main {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.library-list-title strong {
+  display: block;
+  font-family: var(--heading-font);
+  color: var(--text-strong);
+  font-size: 1.03rem;
+}
+
+.library-list-title p {
+  margin-top: 4px;
+  color: var(--muted);
+}
+
+.library-list-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.library-list-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 .course-subview-card {
@@ -2925,6 +3087,7 @@
   .badge-preview-meta,
   .audit-filters,
   .summary-status-grid,
+  .library-metrics,
   .library-workspace-grid,
   .course-stat-grid,
   .course-drawer-layout,
@@ -2953,6 +3116,14 @@
   .service-editor-card,
   .availability-create-card {
     grid-template-columns: 1fr;
+  }
+
+  .library-hero {
+    flex-direction: column;
+  }
+
+  .library-hero-actions {
+    justify-content: flex-start;
   }
 }
 
@@ -2998,6 +3169,7 @@
   .badge-route-health,
   .audit-filters,
   .summary-status-grid,
+  .library-metrics,
   .library-workspace-grid,
   .library-summary-grid,
   .course-stat-grid,
@@ -3008,6 +3180,15 @@
   .course-editor-switches,
   .audit-table-head,
   .audit-row {
+    grid-template-columns: 1fr;
+  }
+
+  .library-inline-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .library-list-row {
+    display: grid;
     grid-template-columns: 1fr;
   }
 
@@ -3142,6 +3323,10 @@
     justify-content: flex-start;
   }
 
+  .library-list-actions {
+    justify-content: flex-start;
+  }
+
   .library-link-card-head,
   .library-category-card-head,
   .library-mini-row {
@@ -3162,6 +3347,14 @@
     justify-items: start;
     text-align: left;
     min-width: 0;
+  }
+
+  .library-hero {
+    padding: 18px;
+  }
+
+  .library-metric-card {
+    padding: 14px;
   }
 
   .product-card-head,
