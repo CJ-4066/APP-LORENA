@@ -2037,6 +2037,7 @@ function App() {
   const [libraryPdfFile, setLibraryPdfFile] = useState<File | null>(null);
   const [libraryBulkFiles, setLibraryBulkFiles] = useState<File[]>([]);
   const [libraryBulkUploading, setLibraryBulkUploading] = useState(false);
+  const [libraryBulkProgress, setLibraryBulkProgress] = useState(0);
   const [librarySearch, setLibrarySearch] = useState("");
   const [libraryFilter, setLibraryFilter] = useState<"all" | "free" | "linked" | "published">("all");
   const [libraryBulkForm, setLibraryBulkForm] = useState({
@@ -3289,6 +3290,7 @@ function App() {
     event.preventDefault();
     setCourseMessage(null);
     setCourseError(null);
+    setLibraryBulkProgress(0);
 
     if (libraryBulkFiles.length === 0) {
       setCourseError("Selecciona uno o más PDFs para subir.");
@@ -3301,6 +3303,7 @@ function App() {
     }
 
     setLibraryBulkUploading(true);
+    setLibraryBulkProgress(0);
 
     const uploadedItems: AdminLibraryPdf[] = [];
 
@@ -3325,17 +3328,45 @@ function App() {
         formData.append("file", file);
       });
 
-      const response = await fetch(`${apiBaseUrl}/api/admin/library/pdfs/bulk`, {
-        method: "POST",
-        credentials: "include",
-        body: formData,
+      const json = await new Promise<{ items?: AdminLibraryPdf[]; error?: string }>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", `${apiBaseUrl}/api/admin/library/pdfs/bulk`);
+        xhr.withCredentials = true;
+
+        xhr.upload.onprogress = (event) => {
+          if (!event.lengthComputable) {
+            return;
+          }
+
+          setLibraryBulkProgress(Math.round((event.loaded / event.total) * 100));
+        };
+
+        xhr.onerror = () => {
+          reject(new Error("No se pudieron subir los PDFs."));
+        };
+
+        xhr.onload = () => {
+          try {
+            const payload = JSON.parse(xhr.responseText) as { items?: AdminLibraryPdf[]; error?: string };
+            if (xhr.status < 200 || xhr.status >= 300) {
+              reject(new Error(payload.error ?? "No se pudieron subir los PDFs."));
+              return;
+            }
+            resolve(payload);
+          } catch {
+            reject(new Error("No se pudo leer la respuesta de subida."));
+          }
+        };
+
+        xhr.send(formData);
       });
-      const json = (await response.json()) as { items?: AdminLibraryPdf[]; error?: string };
-      if (!response.ok || !json.items) {
+
+      if (!json.items) {
         throw new Error(json.error ?? "No se pudieron subir los PDFs.");
       }
 
       uploadedItems.push(...json.items);
+      setLibraryBulkProgress(100);
 
       if (uploadedItems.length > 0) {
         setLibraryPdfs((current) => {
@@ -3353,9 +3384,7 @@ function App() {
 
       setLibraryBulkFiles([]);
       if (uploadedItems.length > 0) {
-        setCourseMessage(
-          `${uploadedItems.length} PDF(s) subido(s) correctamente.`,
-        );
+        setCourseMessage(`${uploadedItems.length} PDF(s) publicados y visibles en la biblioteca.`);
       } else {
         setCourseError("No se pudo subir ningún PDF.");
       }
@@ -3363,6 +3392,7 @@ function App() {
       setCourseError(error instanceof Error ? error.message : "No se pudieron subir los PDFs.");
     } finally {
       setLibraryBulkUploading(false);
+      setTimeout(() => setLibraryBulkProgress(0), 1000);
     }
   }
 
@@ -6173,6 +6203,19 @@ function App() {
                           {libraryBulkUploading ? "Subiendo..." : "Subir PDFs"}
                         </button>
                       </div>
+                      {libraryBulkUploading ? (
+                        <div className="library-upload-progress form-wide" aria-live="polite">
+                          <div className="library-upload-progress-bar" aria-hidden="true">
+                            <div
+                              className="library-upload-progress-fill"
+                              style={{ width: `${Math.max(8, Math.min(libraryBulkProgress, 100))}%` }}
+                            />
+                          </div>
+                          <p className="muted-copy">
+                            Subiendo PDFs: {libraryBulkProgress}% completado.
+                          </p>
+                        </div>
+                      ) : null}
                     </form>
                   </article>
 
