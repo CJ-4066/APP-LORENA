@@ -9,7 +9,7 @@ import '../../core/config/app_config.dart';
 import '../../core/i18n/app_i18n.dart';
 import '../../core/theme/app_palette.dart';
 import '../../core/widgets/mystic_ui.dart';
-import '../../core/widgets/in_app_webview_screen.dart';
+import 'library_pdf_image_viewer_screen.dart';
 import 'shared_drive_library_service.dart';
 
 class LibraryPdfViewerScreen extends StatefulWidget {
@@ -181,9 +181,9 @@ class _LibraryPdfViewerScreenState extends State<LibraryPdfViewerScreen> {
 
       Navigator.of(context).pushReplacement(
         MaterialPageRoute<void>(
-          builder: (_) => InAppWebViewScreen(
+          builder: (_) => LibraryPdfImageViewerScreen(
             title: _metadata?.title ?? widget.document.title,
-            url: widget.document.viewUrl,
+            document: widget.document,
           ),
         ),
       );
