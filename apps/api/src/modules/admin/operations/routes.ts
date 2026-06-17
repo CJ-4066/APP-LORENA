@@ -126,6 +126,15 @@ function normalizeLibraryPdfCategory(value: unknown, fallback = "General"): stri
   return trimmed.length > 0 ? trimmed : fallback;
 }
 
+function isSupportedLibraryDocumentMime(mimeType: string): boolean {
+  const normalized = mimeType.trim().toLowerCase();
+  return (
+    normalized === "application/pdf" ||
+    normalized === "application/msword" ||
+    normalized === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  );
+}
+
 function normalizeNullableLibraryPdfRelation(value: unknown): string | null {
   if (typeof value !== "string") {
     return null;
@@ -233,8 +242,8 @@ async function readLibraryPdfInput(
   const hasModuleId = Object.prototype.hasOwnProperty.call(fields, "moduleId");
   const hasLessonId = Object.prototype.hasOwnProperty.call(fields, "lessonId");
   if (filePart) {
-    if (filePart.mimetype !== "application/pdf") {
-      throw new Error("Solo se permiten archivos PDF.");
+    if (!isSupportedLibraryDocumentMime(filePart.mimetype)) {
+      throw new Error("Solo se permiten archivos PDF, DOC o DOCX.");
     }
 
     const asset = await createMediaAsset(
@@ -1439,8 +1448,8 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
 
     for (const filePart of files) {
       try {
-        if (filePart.mimetype !== "application/pdf") {
-          throw new Error("Solo se permiten archivos PDF.");
+        if (!isSupportedLibraryDocumentMime(filePart.mimetype)) {
+          throw new Error("Solo se permiten archivos PDF, DOC o DOCX.");
         }
 
         const asset = await createMediaAsset(

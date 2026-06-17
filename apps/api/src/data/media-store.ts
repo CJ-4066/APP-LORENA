@@ -106,7 +106,15 @@ const allowedImageMimes = new Set([
   "image/webp",
   "image/svg+xml",
 ]);
-const allowedDocumentMimes = new Set(["application/pdf"]);
+const allowedDocumentMimes = new Set([
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+]);
+const officeDocumentMimes = new Set([
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+]);
 
 function toIsoString(value: Date | string | null): string {
   if (value == null) {
@@ -190,6 +198,37 @@ function detectMimeType(bytes: Uint8Array): string | null {
     return "application/pdf";
   }
 
+  if (
+    bytes.length >= 8 &&
+    bytes[0] === 0xd0 &&
+    bytes[1] === 0xcf &&
+    bytes[2] === 0x11 &&
+    bytes[3] === 0xe0 &&
+    bytes[4] === 0xa1 &&
+    bytes[5] === 0xb1 &&
+    bytes[6] === 0x1a &&
+    bytes[7] === 0xe1
+  ) {
+    return "application/msword";
+  }
+
+  if (
+    bytes.length >= 4 &&
+    bytes[0] === 0x50 &&
+    bytes[1] === 0x4b &&
+    bytes[2] === 0x03 &&
+    bytes[3] === 0x04
+  ) {
+    const zipText = readUtf8(bytes);
+    if (
+      zipText.includes("[Content_Types].xml") ||
+      zipText.includes("word/") ||
+      zipText.includes("docProps/")
+    ) {
+      return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    }
+  }
+
   const text = readUtf8(bytes).trim();
   if (text.startsWith("<svg") || text.includes("<svg")) {
     const hasScript = /<script[\s>]/i.test(text) || /on\w+\s*=/i.test(text) || /javascript:/i.test(text);
@@ -222,6 +261,62 @@ function validateMimeForCategory(category: MediaAssetCategory, mimeType: string)
   }
 
   throw new Error("Formato no permitido.");
+}
+
+async function convertOfficeDocumentToPdfBytes(
+  bytes: Uint8Array,
+  originalName: string,
+): Promise<Uint8Array> {
+  const workDir = await mkdtemp(join(tmpdir(), "lo-renaciente-office-"));
+  const sanitizedOriginal = sanitizeFileName(originalName);
+  const inputFileName =
+    sanitizedOriginal.endsWith(".docx") || sanitizedOriginal.endsWith(".doc")
+      ? sanitizedOriginal
+      : `${sanitizedOriginal}.docx`;
+  const inputPath = join(workDir, inputFileName);
+  const outputPath = join(
+    workDir,
+    `${basename(inputFileName, extname(inputFileName))}.pdf`,
+  );
+
+  await writeFile(inputPath, bytes);
+
+  try {
+    const candidates = ["libreoffice", "soffice"];
+    let lastError: unknown = null;
+
+    for (const binary of candidates) {
+      try {
+        await execFileAsync(binary, [
+          "--headless",
+          "--nologo",
+          "--nolockcheck",
+          "--nodefault",
+          "--norestore",
+          "--convert-to",
+          "pdf",
+          "--outdir",
+          workDir,
+          inputPath,
+        ]);
+
+        const convertedBytes = await readFile(outputPath);
+        if (convertedBytes.byteLength > 0) {
+          return new Uint8Array(convertedBytes);
+        }
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    throw new Error(
+      lastError instanceof Error && lastError.message.trim().length > 0
+        ? `No se pudo convertir el documento a PDF: ${lastError.message}`
+        : "No se pudo convertir el documento a PDF. Instala LibreOffice en el servidor.",
+    );
+  } finally {
+    await rm(workDir, { recursive: true, force: true });
+  }
 }
 
 function validateFilePayload(input: CreateMediaAssetInput, bytes: Uint8Array): {
@@ -436,18 +531,35 @@ async function findAssetRowByStoragePath(storagePath: string): Promise<MediaAsse
 
 export async function createMediaAsset(input: CreateMediaAssetInput, bytes: Uint8Array): Promise<MediaAsset> {
   const { normalizedMimeType, fileName, storagePath, publicUrl } = validateFilePayload(input, bytes);
-  const storedBytes =
-    normalizedMimeType === "application/pdf"
-      ? await maybeOcrPdfBytes(bytes, input.originalName)
-      : bytes;
+  let storedMimeType = normalizedMimeType;
+  let storedFileName = fileName;
+  let storedStoragePath = storagePath;
+  let storedPublicUrl = publicUrl;
+  let storedBytes = bytes;
+
+  if (officeDocumentMimes.has(normalizedMimeType)) {
+    storedBytes = await convertOfficeDocumentToPdfBytes(bytes, input.originalName);
+    storedMimeType = "application/pdf";
+    storedFileName = `${basename(fileName, extname(fileName))}.pdf`;
+    storedStoragePath = getUploadStoragePath(
+      getCategoryFolder(input.category),
+      storedFileName,
+    );
+    storedPublicUrl = getResolvedPublicUrl(
+      `${getUploadPublicPrefix()}/${storedStoragePath}`.replaceAll("//", "/"),
+    );
+  } else if (normalizedMimeType === "application/pdf") {
+    storedBytes = await maybeOcrPdfBytes(bytes, input.originalName);
+  }
+
   const asset: MediaAsset = {
     id: randomUUID(),
-    fileName,
+    fileName: storedFileName,
     originalName: input.originalName.trim(),
-    mimeType: normalizedMimeType,
+    mimeType: storedMimeType,
     sizeBytes: storedBytes.byteLength,
-    storagePath,
-    publicUrl,
+    storagePath: storedStoragePath,
+    publicUrl: storedPublicUrl,
     category: input.category,
     entityType: input.entityType?.trim() || null,
     entityId: input.entityId?.trim() || null,

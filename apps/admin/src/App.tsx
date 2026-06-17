@@ -922,6 +922,28 @@ function formatLibraryCategoryLabel(value: string): string {
     .join(" ");
 }
 
+function isSupportedLibraryFile(file: File): boolean {
+  const name = file.name.toLowerCase();
+  const mimeType = file.type.toLowerCase();
+  return (
+    mimeType === "application/pdf" ||
+    mimeType === "application/msword" ||
+    mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+    name.endsWith(".pdf") ||
+    name.endsWith(".doc") ||
+    name.endsWith(".docx")
+  );
+}
+
+function prettifyLibraryFileTitle(fileName: string): string {
+  const baseName = fileName.replace(/\.[^.]+$/u, "");
+  const normalized = baseName
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return normalized.length > 0 ? normalized : "Documento";
+}
+
 const badgePathMeta: BadgePathMeta[] = [
   {
     pathId: "despertar_path",
@@ -6335,16 +6357,12 @@ function App() {
                         <span>Archivo PDF</span>
                         <input
                           type="file"
-                          accept="application/pdf"
+                          accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                           onChange={(event) => {
                             const file = event.target.files?.[0] ?? null;
                             setLibraryPdfFile(file);
                             if (file && !libraryPdfForm.title.trim()) {
-                              const baseName = file.name.replace(/\.pdf$/i, "");
-                              const prettyName = baseName
-                                .replace(/[-_]+/g, " ")
-                                .replace(/\s+/g, " ")
-                                .trim();
+                              const prettyName = prettifyLibraryFileTitle(file.name);
                               if (prettyName) {
                                 setLibraryPdfForm((current) => ({
                                   ...current,
@@ -6359,7 +6377,7 @@ function App() {
                             ? `Seleccionado: ${libraryPdfFile.name}`
                             : libraryPdfForm.fileUrl
                               ? "Archivo cargado anteriormente"
-                              : "Selecciona un PDF para subirlo."}
+                              : "Selecciona un PDF, DOC o DOCX para subirlo."}
                         </p>
                       </label>
                       <label className="form-wide">
@@ -6490,7 +6508,7 @@ function App() {
                           <span className="button-icon" aria-hidden="true">
                             <ActionIcon name="upload" />
                           </span>
-                          <span>Subir PDF</span>
+                          <span>Subir archivo</span>
                         </button>
                       </div>
                     </form>
@@ -6512,17 +6530,13 @@ function App() {
                         <span>Carpeta o PDFs</span>
                         <input
                           type="file"
-                          accept="application/pdf"
+                          accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                           multiple
                           ref={libraryBulkInputRef}
                           {...libraryFolderInputProps}
                           onChange={(event) => {
                             setLibraryBulkFiles(
-                              Array.from(event.target.files ?? []).filter(
-                                (file) =>
-                                  file.type === "application/pdf" ||
-                                  file.name.toLowerCase().endsWith(".pdf"),
-                              ),
+                              Array.from(event.target.files ?? []).filter((file) => isSupportedLibraryFile(file)),
                             );
                             event.currentTarget.value = "";
                           }}
@@ -9720,24 +9734,20 @@ function App() {
                         }
                         />
                       </label>
-                    <label className="form-wide">
-                      <span>Archivo PDF</span>
-                      <input
-                        type="file"
-                        accept="application/pdf"
-                        onChange={(event) => {
-                          const file = event.target.files?.[0] ?? null;
-                          setLibraryPdfFile(file);
-                          if (file && !libraryPdfForm.title.trim()) {
-                            const baseName = file.name.replace(/\.pdf$/i, "");
-                            const prettyName = baseName
-                              .replace(/[-_]+/g, " ")
-                              .replace(/\s+/g, " ")
-                              .trim();
-                            if (prettyName) {
-                              setLibraryPdfForm((current) => ({
-                                ...current,
-                                title: prettyName,
+                      <label className="form-wide">
+                        <span>Archivo PDF, DOC o DOCX</span>
+                        <input
+                          type="file"
+                          accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                          onChange={(event) => {
+                            const file = event.target.files?.[0] ?? null;
+                            setLibraryPdfFile(file);
+                            if (file && !libraryPdfForm.title.trim()) {
+                              const prettyName = prettifyLibraryFileTitle(file.name);
+                              if (prettyName) {
+                                setLibraryPdfForm((current) => ({
+                                  ...current,
+                                  title: prettyName,
                               }));
                             }
                           }
@@ -9748,7 +9758,7 @@ function App() {
                           ? `Seleccionado: ${libraryPdfFile.name}`
                           : libraryPdfForm.fileUrl
                             ? "Archivo actual cargado"
-                            : "Selecciona un PDF para subirlo al servidor."}
+                            : "Selecciona un PDF, DOC o DOCX para subirlo al servidor."}
                       </p>
                     </label>
                     <label className="form-wide">
