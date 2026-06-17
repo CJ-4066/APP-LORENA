@@ -240,6 +240,31 @@ function detectMimeType(bytes: Uint8Array): string | null {
   return null;
 }
 
+function resolveUploadMimeType(input: CreateMediaAssetInput, bytes: Uint8Array): string {
+  const declaredMimeType = input.mimeType.trim().toLowerCase();
+  const detectedMimeType = detectMimeType(bytes);
+
+  if (!declaredMimeType || declaredMimeType === "application/octet-stream") {
+    if (detectedMimeType) {
+      return detectedMimeType;
+    }
+    throw new Error("Formato no permitido.");
+  }
+
+  if (allowedDocumentMimes.has(declaredMimeType) || allowedImageMimes.has(declaredMimeType)) {
+    if (detectedMimeType && detectedMimeType !== declaredMimeType) {
+      throw new Error("Formato no permitido.");
+    }
+    return declaredMimeType;
+  }
+
+  if (detectedMimeType) {
+    return detectedMimeType;
+  }
+
+  throw new Error("Formato no permitido.");
+}
+
 function validateMimeForCategory(category: MediaAssetCategory, mimeType: string): void {
   const imageAllowed =
     category === "product" || category === "course" || category === "lesson" || category === "general";
@@ -335,13 +360,8 @@ function validateFilePayload(input: CreateMediaAssetInput, bytes: Uint8Array): {
     throw new Error("Formato no permitido.");
   }
 
-  const normalizedMimeType = input.mimeType.trim().toLowerCase();
+  const normalizedMimeType = resolveUploadMimeType(input, bytes);
   if (!normalizedMimeType) {
-    throw new Error("El tipo MIME es obligatorio.");
-  }
-
-  const detectedMimeType = detectMimeType(bytes);
-  if (!detectedMimeType || detectedMimeType !== normalizedMimeType) {
     throw new Error("Formato no permitido.");
   }
 

@@ -242,10 +242,6 @@ async function readLibraryPdfInput(
   const hasModuleId = Object.prototype.hasOwnProperty.call(fields, "moduleId");
   const hasLessonId = Object.prototype.hasOwnProperty.call(fields, "lessonId");
   if (filePart) {
-    if (!isSupportedLibraryDocumentMime(filePart.mimetype)) {
-      throw new Error("Solo se permiten archivos PDF, DOC o DOCX.");
-    }
-
     const asset = await createMediaAsset(
       {
         originalName: filePart.filename,
@@ -1448,10 +1444,6 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
 
     for (const filePart of files) {
       try {
-        if (!isSupportedLibraryDocumentMime(filePart.mimetype)) {
-          throw new Error("Solo se permiten archivos PDF, DOC o DOCX.");
-        }
-
         const asset = await createMediaAsset(
           {
             originalName: filePart.filename,
