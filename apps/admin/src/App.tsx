@@ -1128,6 +1128,11 @@ function isAdminSection(value: string | null): value is AdminSection {
 
 function getInitialAdminSection(): AdminSection {
   if (typeof window !== "undefined") {
+    const hashSection = window.location.hash.replace("#", "").trim();
+    if (isAdminSection(hashSection)) {
+      return hashSection;
+    }
+
     const stored = window.localStorage.getItem(adminSectionStorageKey);
     if (isAdminSection(stored)) {
       return stored;
@@ -2442,6 +2447,9 @@ function App() {
         setCourseDrawerTab("data");
       }
 
+      if (typeof window !== "undefined") {
+        window.history.replaceState({}, "", `${window.location.pathname}${window.location.search}#${section}`);
+      }
       setActiveSection(section);
     },
     [isCourseDrawerOpen, requestDeveloperAccess],
@@ -2613,7 +2621,6 @@ function App() {
     setBadgeError(null);
     setSavingBadgeId(null);
     setError(null);
-    setActiveSection("specialists");
     setDeveloperSection("badges");
     setDeveloperAccessGranted(false);
     setDeveloperAccessModalOpen(false);
