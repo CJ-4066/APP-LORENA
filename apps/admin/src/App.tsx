@@ -1108,8 +1108,6 @@ const userAccessByPreset: Record<UserAccessPreset, string[]> = {
   admin: ["Usuarios", "Especialistas", "Servicios", "Agenda", "Tienda", "Cursos", "Biblioteca", "Auditoría"],
 };
 
-const adminSectionStorageKey = "lo-renaciente-admin-active-section";
-
 function isAdminSection(value: string | null): value is AdminSection {
   return (
     value === "specialists" ||
@@ -1131,11 +1129,6 @@ function getInitialAdminSection(): AdminSection {
     const hashSection = window.location.hash.replace("#", "").trim();
     if (isAdminSection(hashSection)) {
       return hashSection;
-    }
-
-    const stored = window.localStorage.getItem(adminSectionStorageKey);
-    if (isAdminSection(stored)) {
-      return stored;
     }
 
     if (window.location.pathname.startsWith("/courses")) {
@@ -2473,12 +2466,6 @@ function App() {
       window.removeEventListener("popstate", syncRouteState);
     };
   }, []);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(adminSectionStorageKey, activeSection);
-    }
-  }, [activeSection]);
 
   const clearProtectedState = useCallback(() => {
     setSpecialists([]);
