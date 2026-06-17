@@ -1108,6 +1108,39 @@ const userAccessByPreset: Record<UserAccessPreset, string[]> = {
   admin: ["Usuarios", "Especialistas", "Servicios", "Agenda", "Tienda", "Cursos", "Biblioteca", "Auditoría"],
 };
 
+const adminSectionStorageKey = "lo-renaciente-admin-active-section";
+
+function isAdminSection(value: string | null): value is AdminSection {
+  return (
+    value === "specialists" ||
+    value === "services" ||
+    value === "agenda" ||
+    value === "bookings" ||
+    value === "orders" ||
+    value === "shop" ||
+    value === "courses" ||
+    value === "library" ||
+    value === "users" ||
+    value === "community" ||
+    value === "developer"
+  );
+}
+
+function getInitialAdminSection(): AdminSection {
+  if (typeof window !== "undefined") {
+    const stored = window.localStorage.getItem(adminSectionStorageKey);
+    if (isAdminSection(stored)) {
+      return stored;
+    }
+
+    if (window.location.pathname.startsWith("/courses")) {
+      return "courses";
+    }
+  }
+
+  return "specialists";
+}
+
 function getUserAccessSummary(user: AdminUser): string[] {
   const roles = user.roles.length > 0 ? user.roles : [];
   const access = new Set<string>(userAccessByPreset[user.accountType]);
@@ -2075,9 +2108,7 @@ function BadgePreviewArtwork({
 
 function App() {
   const [authStatus, setAuthStatus] = useState<AuthStatus>("loading");
-  const [activeSection, setActiveSection] = useState<AdminSection>(() =>
-    window.location.pathname.startsWith("/courses") ? "courses" : "specialists",
-  );
+  const [activeSection, setActiveSection] = useState<AdminSection>(getInitialAdminSection);
   const [adminUser, setAdminUser] = useState<AdminSession | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
   const [loginEmail, setLoginEmail] = useState("");
@@ -2434,6 +2465,12 @@ function App() {
       window.removeEventListener("popstate", syncRouteState);
     };
   }, []);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(adminSectionStorageKey, activeSection);
+    }
+  }, [activeSection]);
 
   const clearProtectedState = useCallback(() => {
     setSpecialists([]);
@@ -3081,9 +3118,8 @@ function App() {
       }
 
       setAdminUser(json.item);
-    setAuthStatus("authenticated");
-    setActiveSection("specialists");
-    setAuthError(null);
+      setAuthStatus("authenticated");
+      setAuthError(null);
       setError(null);
       setLoginPassword("");
     } catch (loginException) {
@@ -5293,25 +5329,7 @@ function App() {
     );
 
   if (authStatus === "loading") {
-    return (
-      <main className="admin-shell admin-auth-shell container-xxl" data-build={adminBuildStamp}>
-        <section className="admin-auth-panel">
-          <AuthParticles />
-          <div className="auth-hero">
-            <BrandLockup />
-            <h1>Validando sesión segura</h1>
-            <p className="hero-copy">
-              Comprobamos tu sesión de administrador antes de mostrar la interfaz.
-            </p>
-          </div>
-          <div className="auth-loading-card">
-            <span>Sesión</span>
-            <strong>Verificando acceso...</strong>
-            <p>Espera un momento mientras confirmamos tu identidad.</p>
-          </div>
-        </section>
-      </main>
-    );
+    return null;
   }
 
   if (authStatus !== "authenticated") {
