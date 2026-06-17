@@ -34,6 +34,7 @@ import { registerAdminUploadRoutes } from "./modules/admin/uploads/routes.js";
 
 export async function buildServer() {
   const appEnv = getAppEnv();
+  const maxMultipartFiles = 100;
   const app = Fastify({
     logger: true,
     bodyLimit: Math.max(appEnv.maxPdfUploadMb * 50, 512) * 1024 * 1024,
@@ -45,7 +46,7 @@ export async function buildServer() {
   });
   await app.register(multipart, {
     limits: {
-      files: 50,
+      files: maxMultipartFiles,
       fileSize: appEnv.maxPdfUploadMb * 1024 * 1024,
     },
   });
