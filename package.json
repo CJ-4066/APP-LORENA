@@ -18,6 +18,7 @@
     "api:daemon:status": "./scripts/status-api-daemon.sh",
     "mobile:ios:device": "./scripts/run-ios-device.sh",
     "mobile:android:wifi": "./scripts/run-android-wifi.sh",
+    "mobile:android:public": "./scripts/build-android-public.sh",
     "tailnet:install": "./scripts/install-tailscale-userspace-launchagent.sh",
     "api:tailnet": "./scripts/publish-api-tailscale.sh",
     "dev:web": "npm run dev --workspace @lo-renaciente/web",
