@@ -792,30 +792,34 @@ class _NumerologySectionBody extends StatelessWidget {
                   children: [
                     Text(_buildLocalizedNumerologySummary(profile!, l10n)),
                     const SizedBox(height: 14),
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
-                      children: [
-                        _StatCard(
-                          title: l10n.ts('Sendero'),
-                          value: profile!.coreNumbers.lifePath.displayValue,
-                          description: profile!.coreNumbers.lifePath.archetype,
-                          accent: _numerologyInk,
-                        ),
-                        _StatCard(
-                          title: l10n.ts('Expresión'),
-                          value: profile!.coreNumbers.expression.displayValue,
-                          description:
-                              profile!.coreNumbers.expression.archetype,
-                          accent: _numerologyAccent,
-                        ),
-                        _StatCard(
-                          title: l10n.ts('Año personal'),
-                          value: profile!.cycles.personalYear.displayValue,
-                          description: profile!.cycles.personalYear.archetype,
-                          accent: _numerologyAccentAlt,
-                        ),
-                      ],
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          _StatCard(
+                            title: l10n.ts('Sendero'),
+                            value: profile!.coreNumbers.lifePath.displayValue,
+                            description:
+                                profile!.coreNumbers.lifePath.archetype,
+                            accent: _numerologyInk,
+                          ),
+                          const SizedBox(width: 12),
+                          _StatCard(
+                            title: l10n.ts('Expresión'),
+                            value: profile!.coreNumbers.expression.displayValue,
+                            description:
+                                profile!.coreNumbers.expression.archetype,
+                            accent: _numerologyAccent,
+                          ),
+                          const SizedBox(width: 12),
+                          _StatCard(
+                            title: l10n.ts('Año personal'),
+                            value: profile!.cycles.personalYear.displayValue,
+                            description: profile!.cycles.personalYear.archetype,
+                            accent: _numerologyAccentAlt,
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -1059,29 +1063,32 @@ class _NumerologySectionBody extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: [
-                _StatCard(
-                  title: l10n.ts('Año personal'),
-                  value: profile!.cycles.personalYear.displayValue,
-                  description: profile!.cycles.personalYear.archetype,
-                  accent: _numerologyInk,
-                ),
-                _StatCard(
-                  title: l10n.ts('Mes personal'),
-                  value: profile!.cycles.personalMonth.displayValue,
-                  description: profile!.cycles.personalMonth.archetype,
-                  accent: _numerologyAccent,
-                ),
-                _StatCard(
-                  title: l10n.ts('Día personal'),
-                  value: profile!.cycles.personalDay.displayValue,
-                  description: profile!.cycles.personalDay.archetype,
-                  accent: _numerologyAccentAlt,
-                ),
-              ],
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _StatCard(
+                    title: l10n.ts('Año personal'),
+                    value: profile!.cycles.personalYear.displayValue,
+                    description: profile!.cycles.personalYear.archetype,
+                    accent: _numerologyInk,
+                  ),
+                  const SizedBox(width: 12),
+                  _StatCard(
+                    title: l10n.ts('Mes personal'),
+                    value: profile!.cycles.personalMonth.displayValue,
+                    description: profile!.cycles.personalMonth.archetype,
+                    accent: _numerologyAccent,
+                  ),
+                  const SizedBox(width: 12),
+                  _StatCard(
+                    title: l10n.ts('Día personal'),
+                    value: profile!.cycles.personalDay.displayValue,
+                    description: profile!.cycles.personalDay.archetype,
+                    accent: _numerologyAccentAlt,
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 16),
             _SectionCard(
@@ -2080,9 +2087,9 @@ class _StatCard extends StatelessWidget {
     final l10n = context.l10n;
 
     return Container(
-      width: 160,
-      height: 140,
-      padding: const EdgeInsets.all(16),
+      width: 136,
+      height: 124,
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(22),
         color: _numerologySurface,
@@ -2094,7 +2101,7 @@ class _StatCard extends StatelessWidget {
           Text(
             title,
             style: const TextStyle(
-              fontSize: 13,
+              fontSize: 12,
               fontWeight: FontWeight.w700,
               color: AppPalette.mutedLavender,
               decoration: TextDecoration.none,
@@ -2109,7 +2116,7 @@ class _StatCard extends StatelessWidget {
             child: Text(
               value,
               style: TextStyle(
-                fontSize: 20,
+                fontSize: 18,
                 fontWeight: FontWeight.w800,
                 color: accent,
                 decoration: TextDecoration.none,

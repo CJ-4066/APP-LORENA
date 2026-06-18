@@ -717,16 +717,9 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   Future<List<CommunityChatMessage>> sendCommunityChatMessage(
     String body,
   ) async {
-    final currentSession = _session;
-    if (currentSession == null) {
-      throw Exception(
-        'Tu sesión ya no está activa. Vuelve a ingresar con tu teléfono.',
-      );
-    }
-
     try {
       final items = await _apiClient.sendCommunityChatMessage(
-        accessToken: currentSession.accessToken,
+        accessToken: _session?.accessToken,
         body: body,
       );
       await trackBadgeAction(

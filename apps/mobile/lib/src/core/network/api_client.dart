@@ -376,7 +376,7 @@ class ApiClient {
   }
 
   Future<List<CommunityChatMessage>> sendCommunityChatMessage({
-    required String accessToken,
+    String? accessToken,
     required String body,
   }) async {
     final response = await _send(

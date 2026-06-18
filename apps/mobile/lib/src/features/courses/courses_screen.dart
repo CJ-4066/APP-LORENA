@@ -443,55 +443,9 @@ class _CourseShelfSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final featuredCount = courses.where((course) => course.featured).length;
-    final premiumCount = courses.where((course) => course.premium).length;
-    final lessonCount = courses.fold<int>(
-      0,
-      (sum, course) => sum + course.lessonCount,
-    );
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          l10n.ts('Cursos publicados'),
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: AppPalette.butterflyInk,
-                fontWeight: FontWeight.w900,
-              ),
-        ),
-        const SizedBox(height: 6),
-        Text(
-          l10n.ts(
-            'Portadas, lectura guiada y acceso directo a cada PDF desde una sola vista.',
-          ),
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: AppPalette.mutedLavender,
-                height: 1.45,
-                fontWeight: FontWeight.w600,
-              ),
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            _CourseStatusPill(
-              label: l10n.ts('{count} cursos', {'count': '${courses.length}'}),
-            ),
-            _CourseStatusPill(
-              label: l10n.ts('{count} lecciones', {'count': '$lessonCount'}),
-            ),
-            _CourseStatusPill(
-              label: l10n.ts('{count} destacados', {'count': '$featuredCount'}),
-            ),
-            _CourseStatusPill(
-              label: l10n.ts('{count} premium', {'count': '$premiumCount'}),
-            ),
-          ],
-        ),
-        const SizedBox(height: 14),
         SizedBox(
           height: 262,
           child: ListView.separated(
@@ -865,35 +819,9 @@ class _CoursesPanelState extends State<_CoursesPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final l10n = context.l10n;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        MysticBannerCard(
-          eyebrow: l10n.ts('Biblioteca premium'),
-          title: l10n.ts('Cursos en PDF'),
-          subtitle: l10n.ts(
-            'Explora tu biblioteca por categorías y abre cada libro como una experiencia de lectura cuidada dentro de la app.',
-          ),
-          glyphKind: MysticGlyphKind.course,
-          gradient: const [
-            AppPalette.midnight,
-            AppPalette.indigo,
-            AppPalette.royalViolet,
-          ],
-          tags: [
-            l10n.ts('Servidor sincronizado'),
-            l10n.ts('Lectura en PDF'),
-            l10n.ts('Portadas reales'),
-          ],
-          primaryLabel: l10n.ts('Actualizar catálogo'),
-          onPrimaryTap: () => _reloadLibrary(),
-        ),
-        const SizedBox(height: 18),
-        if (_coursesSnapshot.isNotEmpty) ...[
-          _CourseShelfSection(courses: _coursesSnapshot),
-          const SizedBox(height: 18),
-        ],
         _DriveLibrarySection(
           categoriesFuture: _categoriesFuture,
           documentsFuture: _documentsFuture,
@@ -909,6 +837,10 @@ class _CoursesPanelState extends State<_CoursesPanel> {
           thumbnailService: _thumbnailService,
           onOpenDocument: (document) => _openDocument(context, document),
         ),
+        if (_coursesSnapshot.isNotEmpty) ...[
+          const SizedBox(height: 18),
+          _CourseShelfSection(courses: _coursesSnapshot),
+        ],
       ],
     );
   }
@@ -978,25 +910,6 @@ class _DriveLibrarySection extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                color: AppPalette.moonIvory,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: AppPalette.border),
-              ),
-              child: Text(
-                l10n.ts(
-                  'Selecciona una categoría para abrir su galería de libros y documentos.',
-                ),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppPalette.butterflyInk,
-                      height: 1.45,
-                    ),
-              ),
-            ),
-            const SizedBox(height: 14),
             TextField(
               controller: searchController,
               onChanged: onSearchChanged,
@@ -1050,13 +963,6 @@ class _DriveLibrarySection extends StatelessWidget {
                     ),
               ),
               const SizedBox(height: 4),
-              Text(
-                l10n.ts('Galería visual de la categoría'),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppPalette.mutedLavender,
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
               const SizedBox(height: 14),
             ],
             FutureBuilder<List<SharedDriveDocument>>(

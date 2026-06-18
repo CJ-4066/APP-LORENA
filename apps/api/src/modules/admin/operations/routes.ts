@@ -1,6 +1,10 @@
 import type { FastifyInstance } from "fastify";
 
 import { createMediaAsset } from "../../../data/media-store.js";
+import {
+  createCommunityChatMessage,
+  getCommunityChatMessages,
+} from "../../../data/chat-store.js";
 import { getSpecialists } from "../../../data/mock-store.js";
 import { getAdminDashboardSummary } from "../../../data/admin-store.js";
 import {
@@ -1626,6 +1630,46 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
       return {
         error:
           error instanceof Error ? error.message : "No se pudo archivar el PDF.",
+      };
+    }
+  });
+
+  app.get<{ Querystring: { limit?: string } }>("/chat/community", async (request, reply) => {
+    const admin = await requireAdminSession(request, reply);
+    if (!admin) {
+      return { error: getAdminError(reply.statusCode, false) };
+    }
+
+    const limit = Math.max(1, Math.min(Number(request.query.limit ?? 50), 100));
+    const items = await getCommunityChatMessages();
+    return {
+      items: items.slice(-limit),
+    };
+  });
+
+  app.post<{ Body: { body?: string } }>("/chat/community/messages", async (request, reply) => {
+    const admin = await requireAdminSession(request, reply);
+    if (!admin) {
+      return { error: getAdminError(reply.statusCode, false) };
+    }
+
+    try {
+      reply.code(201);
+      return {
+        items: await createCommunityChatMessage(
+          request.body ?? {},
+          undefined,
+          {
+            authorName: admin.name || admin.email || "Equipo Lo Renaciente",
+            authorRole: "guide",
+          },
+        ),
+      };
+    } catch (error) {
+      reply.code(400);
+      return {
+        error:
+          error instanceof Error ? error.message : "No se pudo responder al chat.",
       };
     }
   });

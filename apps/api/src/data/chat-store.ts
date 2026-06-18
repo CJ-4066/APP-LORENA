@@ -37,10 +37,12 @@ export interface ChatMessage {
 export interface CommunityChatMessage {
   id: string;
   authorName: string;
-  authorRole: "member" | "guide" | "system";
+  authorRole: ChatAuthorRole;
   body: string;
   createdAt: string;
 }
+
+export type ChatAuthorRole = "member" | "guide" | "system";
 
 export interface ChatThreadDetail {
   thread: ChatThreadSummary;
@@ -59,6 +61,11 @@ export interface CreateChatMessageInput {
 
 export interface CreateCommunityChatMessageInput {
   body?: string;
+}
+
+export interface CreateCommunityChatReplyInput extends CreateCommunityChatMessageInput {
+  authorName?: string;
+  authorRole?: ChatAuthorRole;
 }
 
 interface ThreadRow extends QueryResultRow {
@@ -646,15 +653,23 @@ export async function getCommunityChatMessages(): Promise<CommunityChatMessage[]
 export async function createCommunityChatMessage(
   input: CreateCommunityChatMessageInput,
   userId?: string,
+  options?: {
+    authorName?: string;
+    authorRole?: ChatAuthorRole;
+  },
 ): Promise<CommunityChatMessage[]> {
   const resolvedUserId = userId ?? demoUserId;
   const body = ensureCommunityMessage(input);
   const profile = await getProfile(resolvedUserId);
+  const authorRole = options?.authorRole ?? "member";
+  const authorName =
+    options?.authorName?.trim() ||
+    (authorRole === "guide" ? "Equipo Lo Renaciente" : resolveCommunityAuthorName(profile));
 
   mockCommunityMessages.push({
     id: randomUUID(),
-    authorName: resolveCommunityAuthorName(profile),
-    authorRole: "member",
+    authorName,
+    authorRole,
     body,
     createdAt: new Date().toISOString(),
   });

@@ -182,6 +182,14 @@ type AdminShopOrder = {
   };
 };
 
+type AdminCommunityMessage = {
+  id: string;
+  authorName: string;
+  authorRole: "member" | "guide" | "system";
+  body: string;
+  createdAt: string;
+};
+
 type AdminCourse = {
   id: string;
   title: string;
@@ -1059,7 +1067,7 @@ const adminSectionLabels: Record<AdminSection, string> = {
   courses: "Cursos",
   library: "Biblioteca",
   users: "Usuarios",
-  community: "Comunidad",
+  community: "Chat",
   developer: "Admin desarrollador",
 };
 
@@ -2280,6 +2288,7 @@ function App() {
   const [userFilters, setUserFilters] = useState({
     search: "",
     role: "",
+    accountType: "",
   });
   const [userForm, setUserForm] = useState({
     firstName: "",
@@ -2294,6 +2303,10 @@ function App() {
     profileCompleted: false,
   });
   const [chat, setChat] = useState<AdminChat | null>(null);
+  const [communityMessages, setCommunityMessages] = useState<AdminCommunityMessage[]>([]);
+  const [communityReply, setCommunityReply] = useState("");
+  const [communityReplyError, setCommunityReplyError] = useState<string | null>(null);
+  const [sendingCommunityReply, setSendingCommunityReply] = useState(false);
   const [incidents, setIncidents] = useState<AdminIncident[]>([]);
   const [badges, setBadges] = useState<Badge[]>([]);
   const [diagnostics, setDiagnostics] = useState<BadgeDiagnosticsResult | null>(null);
@@ -2592,6 +2605,10 @@ function App() {
     });
     setUsers([]);
     setChat(null);
+    setCommunityMessages([]);
+    setCommunityReply("");
+    setCommunityReplyError(null);
+    setSendingCommunityReply(false);
     setIncidents([]);
     setDiagnostics(null);
     setAuditEntries([]);
@@ -2792,6 +2809,7 @@ function App() {
           libraryPdfsResponse,
           usersResponse,
           chatResponse,
+          communityResponse,
           incidentsResponse,
           diagnosticsResponse,
           auditResponse,
@@ -2823,6 +2841,9 @@ function App() {
           fetch(`${apiBaseUrl}/api/admin/chat?limit=20`, {
             credentials: "include",
           }),
+          fetch(`${apiBaseUrl}/api/admin/chat/community?limit=40`, {
+            credentials: "include",
+          }),
           fetch(`${apiBaseUrl}/api/admin/incidents`, {
             credentials: "include",
           }),
@@ -2847,6 +2868,7 @@ function App() {
           libraryPdfsResponse.status === 401 ||
           usersResponse.status === 401 ||
           chatResponse.status === 401 ||
+          communityResponse.status === 401 ||
           incidentsResponse.status === 401 ||
           diagnosticsResponse.status === 401 ||
           auditResponse.status === 401
@@ -2867,6 +2889,7 @@ function App() {
           !libraryPdfsResponse.ok ||
           !usersResponse.ok ||
           !chatResponse.ok ||
+          !communityResponse.ok ||
           !incidentsResponse.ok ||
           !diagnosticsResponse.ok ||
           !auditResponse.ok
@@ -2884,6 +2907,7 @@ function App() {
           libraryPdfsJson,
           usersJson,
           chatJson,
+          communityJson,
           incidentsJson,
           diagnosticsJson,
           auditJson,
@@ -2897,6 +2921,7 @@ function App() {
           libraryPdfsResponse.json() as Promise<{ items: AdminLibraryPdf[] }>,
           usersResponse.json() as Promise<{ items: AdminUser[] }>,
           chatResponse.json() as Promise<{ item: AdminChat }>,
+          communityResponse.json() as Promise<{ items: AdminCommunityMessage[] }>,
           incidentsResponse.json() as Promise<{ items: AdminIncident[] }>,
           diagnosticsResponse.json() as Promise<BadgeDiagnosticsResult>,
           auditResponse.json() as Promise<BadgeAuditLogResponse>,
@@ -2912,6 +2937,7 @@ function App() {
           setLibraryPdfs(libraryPdfsJson.items ?? []);
           setUsers(usersJson.items);
           setChat(chatJson.item);
+          setCommunityMessages(communityJson.items ?? []);
           setIncidents(incidentsJson.items ?? []);
           setDiagnostics(diagnosticsJson);
           setAuditEntries(auditJson.items ?? []);
@@ -3138,6 +3164,52 @@ function App() {
       setAdminUser(null);
       setAuthStatus("unauthenticated");
       clearProtectedState();
+    }
+  }
+
+  async function handleSendCommunityReply(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const body = communityReply.trim();
+    if (!body) {
+      setCommunityReplyError("Escribe un mensaje para responder.");
+      return;
+    }
+
+    setSendingCommunityReply(true);
+    setCommunityReplyError(null);
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/api/admin/chat/community/messages`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ body }),
+      });
+
+      const json = (await response.json()) as {
+        items?: AdminCommunityMessage[];
+        error?: string;
+      };
+
+      if (response.status === 401 || response.status === 403) {
+        handleSessionInvalid("Tu sesión de admin expiró.");
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(json.error ?? "No se pudo responder al chat.");
+      }
+
+      setCommunityMessages(json.items ?? []);
+      setCommunityReply("");
+    } catch (sendError) {
+      setCommunityReplyError(
+        sendError instanceof Error ? sendError.message : "No se pudo responder al chat.",
+      );
+    } finally {
+      setSendingCommunityReply(false);
     }
   }
 
@@ -5098,14 +5170,23 @@ function App() {
       const matchesRole =
         userFilters.role.length === 0 ||
         (userFilters.role === "client"
-          ? user.roles.length === 0
+          ? user.accountType === "client" && user.roles.length === 0
           : user.roles.includes(userFilters.role as "admin" | "specialist"));
-      return matchesSearch && matchesRole;
+      const matchesAccountType =
+        userFilters.accountType.length === 0 ||
+        (userFilters.accountType === "normal"
+          ? user.accountType === "client" &&
+            !user.roles.includes("specialist") &&
+            !user.roles.includes("admin")
+          : userFilters.accountType === "specialist"
+            ? user.accountType === "specialist" || user.roles.includes("specialist")
+            : user.roles.includes("admin"));
+      return matchesSearch && matchesRole && matchesAccountType;
     })
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
   const userTotals = {
     total: users.length,
-    clients: users.filter((user) => user.roles.length === 0).length,
+    clients: users.filter((user) => user.accountType === "client" && user.roles.length === 0).length,
     specialists: users.filter((user) => user.roles.includes("specialist")).length,
     admins: users.filter((user) => user.roles.includes("admin")).length,
   };
@@ -6855,7 +6936,7 @@ function App() {
                     Nuevo usuario
                   </button>
                   <button type="button" className="secondary-button" onClick={() => setActiveSection("community")}>
-                    Comunidad
+                    Chat
                   </button>
                 </div>
               </div>
@@ -6891,6 +6972,23 @@ function App() {
                     <option value="admin">Admin</option>
                   </select>
                 </label>
+                <label>
+                  <span>Tipo de cuenta</span>
+                  <select
+                    value={userFilters.accountType}
+                    onChange={(event) =>
+                      setUserFilters((current) => ({
+                        ...current,
+                        accountType: event.target.value,
+                      }))
+                    }
+                  >
+                    <option value="">Todos</option>
+                    <option value="normal">Normal</option>
+                    <option value="specialist">Especialista</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </label>
                 <div className="toolbar-actions">
                   <button
                     type="button"
@@ -6899,9 +6997,10 @@ function App() {
                       setUserFilters({
                         search: "",
                         role: "",
+                        accountType: "",
                       })
                     }
-                    disabled={!userFilters.search && !userFilters.role}
+                    disabled={!userFilters.search && !userFilters.role && !userFilters.accountType}
                   >
                     Limpiar filtros
                   </button>
@@ -6914,7 +7013,7 @@ function App() {
                   <strong>{userTotals.total}</strong>
                 </div>
                 <div className="status-card">
-                  <span>Clientes</span>
+                  <span>Normales</span>
                   <strong>{userTotals.clients}</strong>
                 </div>
                 <div className="status-card">
@@ -6996,8 +7095,11 @@ function App() {
             <section className="admin-panel admin-panel-wide">
               <div className="panel-head badge-panel-head">
                 <div>
-                  <p className="eyebrow">Comunidad</p>
+                  <p className="eyebrow">Chat</p>
                   <h2>Chat y conversaciones</h2>
+                  <p className="hero-copy">
+                    Lee los mensajes de la app móvil y responde desde este panel.
+                  </p>
                 </div>
                 <button
                   type="button"
@@ -7013,23 +7115,78 @@ function App() {
                 <span>Total hilos: {chat?.totalThreads ?? 0}</span>
                 <span>Abiertos: {chat?.openThreads ?? 0}</span>
                 <span>Mensajes: {chat?.totalMessages ?? 0}</span>
+                <span>Mensajes visibles: {communityMessages.length}</span>
               </div>
-              <div className="table-list">
-                {chat?.recentThreads.slice(0, 5).map((thread) => (
-                  <article key={thread.id} className="table-row">
+              <div className="admin-chat-layout">
+                <section className="admin-chat-panel">
+                  <div className="panel-head">
                     <div>
-                      <strong>{thread.userName}</strong>
-                      <p>{thread.specialistName}</p>
+                      <p className="eyebrow">Conversación pública</p>
+                      <h3>Responder al chat de la app</h3>
                     </div>
+                  </div>
+                  <form className="course-editor-form" onSubmit={handleSendCommunityReply}>
+                    <label className="form-wide">
+                      <span>Respuesta</span>
+                      <textarea
+                        value={communityReply}
+                        onChange={(event) => setCommunityReply(event.target.value)}
+                        placeholder="Escribe la respuesta que verán en la app"
+                        rows={4}
+                      />
+                    </label>
+                    {communityReplyError ? <p className="form-error form-wide">{communityReplyError}</p> : null}
+                    <div className="editor-actions">
+                      <button type="submit" className="primary-button" disabled={sendingCommunityReply}>
+                        {sendingCommunityReply ? "Enviando..." : "Publicar respuesta"}
+                      </button>
+                    </div>
+                  </form>
+                  <div className="chat-message-feed">
+                    {communityMessages.length > 0 ? (
+                      communityMessages.slice().reverse().map((message) => (
+                        <article key={message.id} className="chat-message-card">
+                          <div className="chat-message-head">
+                            <strong>{message.authorName}</strong>
+                            <span>{message.authorRole === "guide" ? "Admin" : message.authorRole === "system" ? "Sistema" : "Usuario"}</span>
+                          </div>
+                          <p>{message.body}</p>
+                          <small>{formatDate(message.createdAt)}</small>
+                        </article>
+                      ))
+                    ) : (
+                      <div className="empty-state">
+                        <h3>No hay mensajes cargados.</h3>
+                        <p>Cuando alguien escriba desde la app o respondas desde aquí, aparecerán en esta lista.</p>
+                      </div>
+                    )}
+                  </div>
+                </section>
+                <section className="admin-chat-panel">
+                  <div className="panel-head">
                     <div>
-                      <strong>{thread.status}</strong>
-                      <p>{thread.lastMessageAt ? formatDate(thread.lastMessageAt) : "sin mensajes"}</p>
+                      <p className="eyebrow">Hilos recientes</p>
+                      <h3>Estado de conversaciones</h3>
                     </div>
-                    <div className="align-right">
-                      <p>{thread.lastMessagePreview || "sin contenido"}</p>
-                    </div>
-                  </article>
-                )) ?? null}
+                  </div>
+                  <div className="table-list">
+                    {chat?.recentThreads.slice(0, 5).map((thread) => (
+                      <article key={thread.id} className="table-row">
+                        <div>
+                          <strong>{thread.userName}</strong>
+                          <p>{thread.specialistName}</p>
+                        </div>
+                        <div>
+                          <strong>{thread.status}</strong>
+                          <p>{thread.lastMessageAt ? formatDate(thread.lastMessageAt) : "sin mensajes"}</p>
+                        </div>
+                        <div className="align-right">
+                          <p>{thread.lastMessagePreview || "sin contenido"}</p>
+                        </div>
+                      </article>
+                    )) ?? null}
+                  </div>
+                </section>
               </div>
             </section>
           ) : null}

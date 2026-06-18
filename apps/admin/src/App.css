@@ -2221,6 +2221,58 @@
   padding: 14px 0 18px;
 }
 
+.admin-chat-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.9fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.admin-chat-panel {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border-radius: 22px;
+  border: 1px solid var(--border);
+  background: var(--surface-strong);
+}
+
+.chat-message-feed {
+  display: grid;
+  gap: 12px;
+  max-height: 560px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.chat-message-card {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-soft);
+}
+
+.chat-message-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+}
+
+.chat-message-head span,
+.chat-message-card small {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.chat-message-card p {
+  margin: 0;
+  color: var(--text-strong);
+  line-height: 1.55;
+}
+
 .admin-error {
   margin-bottom: 22px;
 }
@@ -3301,6 +3353,7 @@
   .badge-preview-meta,
   .audit-filters,
   .summary-status-grid,
+  .admin-chat-layout,
   .library-metrics,
   .library-workspace-grid,
   .course-stat-grid,
@@ -3494,6 +3547,7 @@
   .user-toolbar,
   .user-stats-grid,
   .user-grid,
+  .admin-chat-layout,
   .course-grid,
   .course-drawer-summary,
   .course-inline-fields,
