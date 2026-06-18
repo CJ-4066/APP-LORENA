@@ -874,18 +874,11 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       }
 
       if (cachedSession == null) {
-        final publicBootstrap = await _loadPublicBootstrapFallback();
-        if (publicBootstrap != null) {
-          _bootstrap = publicBootstrap;
-          _currentIndex = 0;
-          _stage = AppStage.home;
-          _homeErrorMessage = null;
-          _scheduleContentVersionRefresh();
-          notifyListeners();
-        } else {
-          _stage = AppStage.phoneEntry;
-          notifyListeners();
-        }
+        _bootstrap = null;
+        _currentIndex = 0;
+        _homeErrorMessage = null;
+        _stage = AppStage.phoneEntry;
+        notifyListeners();
         return;
       }
 
@@ -939,47 +932,20 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     } catch (_) {
       await _clearPersistedState();
       _session = null;
-      final publicBootstrap = await _loadPublicBootstrapFallback();
-      if (publicBootstrap != null) {
-        _bootstrap = publicBootstrap;
-        _currentIndex = 0;
-        _stage = AppStage.home;
-        _homeErrorMessage = null;
-        _scheduleContentVersionRefresh();
-      } else {
-        _bootstrap = null;
-        _stage = AppStage.phoneEntry;
-      }
+      _bootstrap = null;
+      _currentIndex = 0;
+      _homeErrorMessage = null;
+      _stage = AppStage.phoneEntry;
       notifyListeners();
     }
   }
 
-  Future<AppBootstrap?> _loadPublicBootstrapFallback() async {
-    try {
-      final response =
-          await _apiClient.fetchBootstrap().timeout(const Duration(seconds: 3));
-      await _persistBootstrap(response.rawJson);
-      return response.data;
-    } catch (_) {
-      _seedBootstrap ??= await _seedBootstrapLoader.load();
-      final seedBootstrap = _seedBootstrap;
-      if (seedBootstrap == null) {
-        return null;
-      }
-
-      return _buildGuestBootstrap(seedBootstrap);
-    }
-  }
-
   Future<void> _activateGuestMode() async {
-    final publicBootstrap = await _loadPublicBootstrapFallback();
-    _bootstrap = publicBootstrap;
+    _bootstrap = null;
     _currentIndex = 0;
     _homeErrorMessage = null;
-    _stage = publicBootstrap == null ? AppStage.phoneEntry : AppStage.home;
-    if (publicBootstrap != null) {
-      _scheduleContentVersionRefresh();
-    }
+    _stage = AppStage.phoneEntry;
+    notifyListeners();
   }
 
   AppBootstrap? _resolveStartupBootstrap({
@@ -1410,92 +1376,6 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
         premiumSubscribers: 0,
         monthlyBookings: 0,
         activeSpecialists: 0,
-        openIncidents: 0,
-      ),
-      badges: const BadgeProfileSummary.empty(),
-    );
-  }
-
-  AppBootstrap _buildGuestBootstrap(AppBootstrap source) {
-    final freePlan = _findPlanById(source.plans, 'free');
-    final guestPlanName =
-        freePlan?.name.trim().isNotEmpty == true ? freePlan!.name : 'Free';
-    final guestEntitlements = freePlan?.features ?? const <String>[];
-
-    return AppBootstrap(
-      app: source.app,
-      user: UserProfile(
-        id: '',
-        firstName: '',
-        lastName: '',
-        nickname: 'invitado',
-        email: '',
-        avatarUrl: '',
-        location: '',
-        timezone: source.app.timezone,
-        zodiacSign: '',
-        planId: freePlan?.id ?? 'free',
-        accountType: 'client',
-        roles: const [],
-        natalChart: NatalChart(
-          subjectName: '',
-          birthDate: '',
-          birthTime: '',
-          birthTimeUnknown: true,
-          city: '',
-          state: '',
-          country: '',
-          timeZoneId: source.app.timezone,
-          utcOffset: '',
-          latitude: null,
-          longitude: null,
-        ),
-        preferences: UserPreferences(
-          focusAreas: source.user.preferences.focusAreas,
-          preferredSessionModes: source.user.preferences.preferredSessionModes,
-          receivesPush: false,
-        ),
-      ),
-      home: HomeData(
-        welcomeTitle: 'Hola',
-        welcomeSubtitle:
-            'Explora Lo Renaciente mientras recuperamos la conexión con la API.',
-        cardOfTheDay: source.home.cardOfTheDay,
-        astrologicalEnergy: source.home.astrologicalEnergy,
-        quickActions: source.home.quickActions,
-        upcomingBooking: null,
-        featuredMessage:
-            'Modo local activo. Cuando la API vuelva a estar disponible, la app sincronizará tus datos.',
-      ),
-      plans: source.plans,
-      subscription: SubscriptionData(
-        planId: freePlan?.id ?? 'free',
-        planName: guestPlanName,
-        status: 'offline',
-        renewsAt: null,
-        platform: '',
-        billingProvider: 'Sin conexión',
-        entitlements: guestEntitlements,
-      ),
-      payments: source.payments,
-      services: source.services,
-      specialists: source.specialists,
-      courses: source.courses,
-      shop: ShopData(
-        title: source.shop.title,
-        subtitle: source.shop.subtitle,
-        featuredNote: source.shop.featuredNote,
-        supportNote: source.shop.supportNote,
-        currency: source.shop.currency,
-        products: source.shop.products,
-        orders: const [],
-      ),
-      bookings: const [],
-      admin: AdminSummary(
-        activeUsers: 0,
-        premiumSubscribers: 0,
-        monthlyBookings: 0,
-        activeSpecialists: source.specialists.length,
         openIncidents: 0,
       ),
       badges: const BadgeProfileSummary.empty(),
