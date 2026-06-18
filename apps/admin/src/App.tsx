@@ -7198,20 +7198,6 @@ function App() {
 
           {activeSection === "community" ? (
             <section className="admin-panel admin-panel-wide">
-              <div className="panel-head badge-panel-head">
-                <div>
-                  <h2>Chat</h2>
-                </div>
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={() => {
-                    requestDeveloperAccess("incidents");
-                  }}
-                >
-                  Admin desarrollador
-                </button>
-              </div>
               <div className="chat-summary">
                 <span>Total hilos: {chat?.totalThreads ?? 0}</span>
                 <span>Abiertos: {chat?.openThreads ?? 0}</span>
@@ -7323,10 +7309,7 @@ function App() {
                         </article>
                       ))
                     ) : (
-                      <div className="empty-state">
-                        <h3>No hay mensajes cargados.</h3>
-                        <p>Cuando alguien escriba desde la app o respondas desde aquí, aparecerán en esta lista.</p>
-                      </div>
+                      null
                     )}
                   </div>
                 </section>
