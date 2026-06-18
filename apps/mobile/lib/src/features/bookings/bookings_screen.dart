@@ -155,6 +155,105 @@ class _BookingsScreenState extends State<BookingsScreen> {
     );
   }
 
+  void _openSpecialistsDirectory() {
+    final specialists = widget.data.specialists.toList()
+      ..sort((left, right) {
+        if (left.featured == right.featured) {
+          return left.name.compareTo(right.name);
+        }
+        return left.featured ? -1 : 1;
+      });
+
+    showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      showDragHandle: true,
+      isScrollControlled: true,
+      backgroundColor: AppPalette.petalSoft,
+      builder: (_) {
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.86,
+          minChildSize: 0.55,
+          maxChildSize: 0.96,
+          builder: (context, scrollController) {
+            return Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    AppPalette.petalSoft,
+                    Colors.white,
+                  ],
+                ),
+              ),
+              child: ListView(
+                controller: scrollController,
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+                children: [
+                  Text(
+                    context.l10n.ts('Especialistas'),
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w900,
+                          color: AppPalette.butterflyInk,
+                        ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    context.l10n.ts(
+                      'Toca un perfil para ver su bio, especialidades y servicios vinculados.',
+                    ),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppPalette.mutedLavender,
+                          height: 1.4,
+                        ),
+                  ),
+                  const SizedBox(height: 18),
+                  if (specialists.isEmpty)
+                    MysticMiniBanner(
+                      title: context.l10n.ts('No hay especialistas cargados'),
+                      subtitle: context.l10n.ts(
+                        'Cuando la API devuelva especialistas, aparecerán aquí para abrir su perfil.',
+                      ),
+                      glyphKind: MysticGlyphKind.specialist,
+                      accent: AppPalette.orchid,
+                    )
+                  else
+                    ...specialists.map(
+                      (specialist) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: MysticMiniBanner(
+                          title: specialist.name,
+                          subtitle:
+                              '${specialist.headline}\n${joinList(specialist.specialties.take(3).toList())}',
+                          glyphKind: MysticGlyphKind.specialist,
+                          accent: specialist.featured
+                              ? AppPalette.royalViolet
+                              : AppPalette.orchid,
+                          trailing: Text(
+                            specialist.rating.toStringAsFixed(1),
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w900,
+                                  color: AppPalette.butterflyInk,
+                                ),
+                          ),
+                          onTap: () => _openSpecialistProfile(specialist),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _openSpecialistProfile(Specialist specialist) {
     showModalBottomSheet<void>(
       context: context,
@@ -785,31 +884,46 @@ class _BookingsScreenState extends State<BookingsScreen> {
                 const SizedBox(height: 12),
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: MysticMenuTile(
-                        glyphKind: MysticGlyphKind.chat,
-                        label: l10n.ts('Chat general'),
-                        caption: l10n.ts(
-                          'Espacio abierto para que toda la gente comente.',
-                        ),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 172,
+                        child: MysticMenuTile(
+                          glyphKind: MysticGlyphKind.chat,
+                          label: l10n.ts('Chat general'),
+                          caption: l10n.ts(
+                            'Espacio abierto para que toda la gente comente.',
+                          ),
                         accent: const Color(0xFF9A5A33),
                         onTap: _openCommunityChat,
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: MysticMenuTile(
-                        glyphKind: MysticGlyphKind.agenda,
-                        label: l10n.ts('Historial'),
-                        caption: l10n.ts(
-                          'Revisa las citas del perfil.',
+                      const SizedBox(width: 12),
+                      SizedBox(
+                        width: 172,
+                        child: MysticMenuTile(
+                          glyphKind: MysticGlyphKind.agenda,
+                          label: l10n.ts('Historial'),
+                          caption: l10n.ts(
+                            'Revisa las citas del perfil.',
+                          ),
+                          accent: AppPalette.royalViolet,
+                          onTap: _openBookingHistory,
                         ),
-                        accent: AppPalette.royalViolet,
-                        onTap: _openBookingHistory,
                       ),
-                    ),
+                      const SizedBox(width: 12),
+                      SizedBox(
+                        width: 172,
+                        child: MysticMenuTile(
+                          glyphKind: MysticGlyphKind.specialist,
+                          label: l10n.ts('Especialistas'),
+                          caption: l10n.ts(
+                            'Abre los perfiles disponibles.',
+                          ),
+                          accent: AppPalette.indigo,
+                          onTap: _openSpecialistsDirectory,
+                        ),
+                      ),
                     ],
                   ),
                 ),
