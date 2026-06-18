@@ -17,6 +17,7 @@
     "api:daemon:stop": "./scripts/stop-api-daemon.sh",
     "api:daemon:status": "./scripts/status-api-daemon.sh",
     "mobile:ios:device": "./scripts/run-ios-device.sh",
+    "mobile:ios:public": "./scripts/build-ios-public.sh",
     "mobile:android:wifi": "./scripts/run-android-wifi.sh",
     "mobile:android:public": "./scripts/build-android-public.sh",
     "tailnet:install": "./scripts/install-tailscale-userspace-launchagent.sh",
