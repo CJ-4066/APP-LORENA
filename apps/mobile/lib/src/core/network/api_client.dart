@@ -180,63 +180,28 @@ class ApiClient {
     required String fileName,
     required String contentType,
   }) async {
-    final createResponse = await _send(
-      method: 'POST',
-      path: '/api/storage/uploads',
+    return _uploadStorageAsset(
       accessToken: accessToken,
-      body: {
-        'filename': fileName,
-        'contentType': contentType,
-        'byteSize': bytes.length,
-        'category': 'avatar',
-      },
+      bytes: bytes,
+      fileName: fileName,
+      contentType: contentType,
+      category: 'avatar',
     );
+  }
 
-    final item = createResponse['item'] as Map<String, dynamic>? ?? const {};
-    final uploadUrl = item['uploadUrl'] as String? ?? '';
-    final asset = item['asset'] as Map<String, dynamic>? ?? const {};
-    if (uploadUrl.isEmpty) {
-      throw Exception('La API no devolvió una URL de upload válida.');
-    }
-
-    late final http.Response uploadResponse;
-    try {
-      uploadResponse = await _httpClient
-          .put(
-            Uri.parse(uploadUrl),
-            headers: {
-              'content-type': contentType,
-            },
-            body: bytes,
-          )
-          .timeout(const Duration(seconds: 30));
-    } on TimeoutException {
-      throw Exception(AppConfig.connectionHelpMessage(baseUrl));
-    } on http.ClientException {
-      throw Exception(AppConfig.connectionHelpMessage(baseUrl));
-    }
-
-    Map<String, dynamic> payload = const {};
-    if (uploadResponse.body.isNotEmpty) {
-      final decoded = jsonDecode(uploadResponse.body);
-      if (decoded is Map<String, dynamic>) {
-        payload = decoded;
-      }
-    }
-
-    if (uploadResponse.statusCode < 200 || uploadResponse.statusCode >= 300) {
-      throw Exception(
-        payload['error'] as String? ?? 'No se pudo subir el avatar a storage.',
-      );
-    }
-
-    final uploadedItem = payload['item'] as Map<String, dynamic>? ?? asset;
-    final publicUrl = uploadedItem['publicUrl'] as String? ?? '';
-    if (publicUrl.isEmpty) {
-      throw Exception('La API no devolvió la URL final del avatar.');
-    }
-
-    return publicUrl;
+  Future<String> uploadCommunityChatImage({
+    required String accessToken,
+    required Uint8List bytes,
+    required String fileName,
+    required String contentType,
+  }) async {
+    return _uploadStorageAsset(
+      accessToken: accessToken,
+      bytes: bytes,
+      fileName: fileName,
+      contentType: contentType,
+      category: 'general',
+    );
   }
 
   Future<Booking> createBooking({
@@ -371,13 +336,20 @@ class ApiClient {
     final items = response['items'] as List<dynamic>? ?? const <dynamic>[];
     return items
         .whereType<Map<String, dynamic>>()
-        .map(CommunityChatMessage.fromJson)
+        .map((item) {
+          final imageUrl = item['imageUrl'];
+          if (imageUrl is String) {
+            item['imageUrl'] = _resolveAssetUrl(imageUrl);
+          }
+          return CommunityChatMessage.fromJson(item);
+        })
         .toList();
   }
 
   Future<List<CommunityChatMessage>> sendCommunityChatMessage({
     String? accessToken,
     required String body,
+    String? imageUrl,
   }) async {
     final response = await _send(
       method: 'POST',
@@ -385,13 +357,20 @@ class ApiClient {
       accessToken: accessToken,
       body: {
         'body': body,
+        if (imageUrl != null && imageUrl.trim().isNotEmpty) 'imageUrl': imageUrl,
       },
     );
 
     final items = response['items'] as List<dynamic>? ?? const <dynamic>[];
     return items
         .whereType<Map<String, dynamic>>()
-        .map(CommunityChatMessage.fromJson)
+        .map((item) {
+          final imageUrl = item['imageUrl'];
+          if (imageUrl is String) {
+            item['imageUrl'] = _resolveAssetUrl(imageUrl);
+          }
+          return CommunityChatMessage.fromJson(item);
+        })
         .toList();
   }
 
@@ -613,6 +592,72 @@ class ApiClient {
     }
 
     return Uri.parse(baseUrl).resolve(trimmed).toString();
+  }
+
+  Future<String> _uploadStorageAsset({
+    required String accessToken,
+    required Uint8List bytes,
+    required String fileName,
+    required String contentType,
+    required String category,
+  }) async {
+    final createResponse = await _send(
+      method: 'POST',
+      path: '/api/storage/uploads',
+      accessToken: accessToken,
+      body: {
+        'filename': fileName,
+        'contentType': contentType,
+        'byteSize': bytes.length,
+        'category': category,
+      },
+    );
+
+    final item = createResponse['item'] as Map<String, dynamic>? ?? const {};
+    final uploadUrl = item['uploadUrl'] as String? ?? '';
+    final asset = item['asset'] as Map<String, dynamic>? ?? const {};
+    if (uploadUrl.isEmpty) {
+      throw Exception('La API no devolvió una URL de upload válida.');
+    }
+
+    late final http.Response uploadResponse;
+    try {
+      uploadResponse = await _httpClient
+          .put(
+            Uri.parse(uploadUrl),
+            headers: {
+              'content-type': contentType,
+            },
+            body: bytes,
+          )
+          .timeout(const Duration(seconds: 30));
+    } on TimeoutException {
+      throw Exception(AppConfig.connectionHelpMessage(baseUrl));
+    } on http.ClientException {
+      throw Exception(AppConfig.connectionHelpMessage(baseUrl));
+    }
+
+    Map<String, dynamic> payload = const {};
+    if (uploadResponse.body.isNotEmpty) {
+      final decoded = jsonDecode(uploadResponse.body);
+      if (decoded is Map<String, dynamic>) {
+        payload = decoded;
+      }
+    }
+
+    if (uploadResponse.statusCode < 200 || uploadResponse.statusCode >= 300) {
+      throw Exception(
+        payload['error'] as String? ?? 'No se pudo subir el archivo a storage.',
+      );
+    }
+
+    final uploadedItem = payload['item'] as Map<String, dynamic>? ?? asset;
+    final publicUrl = uploadedItem['publicUrl'] as String? ?? '';
+    if (publicUrl.isEmpty) {
+      throw Exception('La API no devolvió la URL final del archivo.');
+    }
+
+    return publicUrl;
   }
 
   void _normalizeUserPayload(Map<String, dynamic> userJson) {

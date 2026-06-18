@@ -1647,7 +1647,9 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
     };
   });
 
-  app.post<{ Body: { body?: string } }>("/chat/community/messages", async (request, reply) => {
+  app.post<{ Body: { body?: string; imageUrl?: string } }>(
+    "/chat/community/messages",
+    async (request, reply) => {
     const admin = await requireAdminSession(request, reply);
     if (!admin) {
       return { error: getAdminError(reply.statusCode, false) };

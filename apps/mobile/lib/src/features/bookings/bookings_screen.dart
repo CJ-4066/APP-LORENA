@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../core/i18n/app_i18n.dart';
 import '../../core/theme/app_palette.dart';
@@ -40,7 +41,10 @@ class BookingsScreen extends StatefulWidget {
   }) onUpdateBooking;
   final Future<String?> Function(String bookingId) onCancelBooking;
   final Future<List<CommunityChatMessage>> Function() onLoadCommunityChat;
-  final Future<List<CommunityChatMessage>> Function(String body)
+  final Future<List<CommunityChatMessage>> Function(
+    String body, {
+    XFile? imageFile,
+  })
       onSendCommunityChatMessage;
   final bool canManageBookings;
   final bool isAdminView;

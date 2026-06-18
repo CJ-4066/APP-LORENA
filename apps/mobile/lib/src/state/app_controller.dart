@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../core/cache/app_settings_cache.dart';
 import '../core/cache/bootstrap_cache.dart';
@@ -715,17 +716,35 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<List<CommunityChatMessage>> sendCommunityChatMessage(
-    String body,
-  ) async {
+    String body, {
+    XFile? imageFile,
+  }) async {
     try {
+      if (imageFile != null && (_session?.accessToken ?? '').isEmpty) {
+        throw Exception('Inicia sesión para enviar imágenes.');
+      }
+
+      String? imageUrl;
+      if (imageFile != null) {
+        final bytes = await imageFile.readAsBytes();
+        imageUrl = await _apiClient.uploadCommunityChatImage(
+          accessToken: _session?.accessToken ?? '',
+          bytes: bytes,
+          fileName: imageFile.name,
+          contentType: _mimeTypeFor(imageFile.name),
+        );
+      }
+
       final items = await _apiClient.sendCommunityChatMessage(
         accessToken: _session?.accessToken,
         body: body,
+        imageUrl: imageUrl,
       );
       await trackBadgeAction(
         'community_message_sent',
         metadata: {
           'bodyLength': body.trim().length,
+          if (imageUrl != null) 'imageAttached': true,
         },
       );
       return items;
@@ -755,6 +774,20 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     } catch (_) {
       // Badge tracking should never block the main user action.
     }
+  }
+
+  String _mimeTypeFor(String fileName) {
+    final normalized = fileName.toLowerCase();
+    if (normalized.endsWith('.png')) {
+      return 'image/png';
+    }
+    if (normalized.endsWith('.webp')) {
+      return 'image/webp';
+    }
+    if (normalized.endsWith('.svg')) {
+      return 'image/svg+xml';
+    }
+    return 'image/jpeg';
   }
 
   Future<void> trackTarotDrawBadge() {

@@ -2237,6 +2237,74 @@
   background: var(--surface-strong);
 }
 
+.chat-compose {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 22px;
+  border: 1px solid var(--border-soft);
+  background:
+    radial-gradient(circle at top right, rgba(255, 255, 255, 0.34), transparent 30%),
+    linear-gradient(180deg, var(--surface-strong), var(--surface-soft));
+}
+
+.chat-compose-textarea {
+  width: 100%;
+  min-height: 122px;
+  resize: vertical;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--text-strong);
+  font: inherit;
+  line-height: 1.5;
+}
+
+.chat-compose-textarea:focus {
+  outline: none;
+  border-color: var(--secondary);
+  box-shadow: 0 0 0 4px rgba(103, 89, 170, 0.12);
+}
+
+.chat-compose-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+.chat-compose-attachment {
+  display: grid;
+  gap: 10px;
+}
+
+.chat-compose-attachment img,
+.chat-message-image-link img {
+  width: 100%;
+  display: block;
+  border-radius: 18px;
+  object-fit: cover;
+}
+
+.chat-compose-attachment img {
+  aspect-ratio: 16 / 9;
+}
+
+.chat-compose-attachment-placeholder {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: var(--surface-soft);
+  border: 1px dashed var(--border);
+}
+
+.chat-compose-attachment-placeholder strong {
+  color: var(--text-strong);
+}
+
 .chat-message-feed {
   display: grid;
   gap: 12px;
@@ -2252,6 +2320,27 @@
   border-radius: 18px;
   border: 1px solid var(--border-soft);
   background: var(--surface-soft);
+}
+
+.chat-message-card-guide {
+  margin-right: auto;
+  background: linear-gradient(180deg, rgba(253, 246, 239, 0.96), rgba(255, 255, 255, 0.92));
+}
+
+.chat-message-card-member {
+  margin-left: auto;
+  background: linear-gradient(180deg, rgba(238, 232, 255, 0.96), rgba(255, 255, 255, 0.92));
+}
+
+.chat-message-image-link {
+  display: block;
+  overflow: hidden;
+  border-radius: 18px;
+  border: 1px solid var(--border-soft);
+}
+
+.chat-message-image-link img {
+  aspect-ratio: 4 / 3;
 }
 
 .chat-message-head {
@@ -2271,6 +2360,21 @@
   margin: 0;
   color: var(--text-strong);
   line-height: 1.55;
+}
+
+.chat-thread-list {
+  display: grid;
+  gap: 12px;
+}
+
+.chat-thread-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.9fr) minmax(0, 1fr);
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-soft);
 }
 
 .admin-error {
@@ -3476,6 +3580,20 @@
 
   .badge-detail-wide {
     grid-column: span 1;
+  }
+
+  .chat-thread-card {
+    grid-template-columns: 1fr;
+  }
+
+  .chat-compose-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .chat-compose-actions .secondary-button,
+  .chat-compose-actions .primary-button {
+    width: 100%;
   }
 
   .badge-pill-row {

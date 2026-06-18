@@ -39,6 +39,7 @@ export interface CommunityChatMessage {
   authorName: string;
   authorRole: ChatAuthorRole;
   body: string;
+  imageUrl: string | null;
   createdAt: string;
 }
 
@@ -61,6 +62,7 @@ export interface CreateChatMessageInput {
 
 export interface CreateCommunityChatMessageInput {
   body?: string;
+  imageUrl?: string;
 }
 
 export interface CreateCommunityChatReplyInput extends CreateCommunityChatMessageInput {
@@ -87,6 +89,15 @@ interface MessageRow extends QueryResultRow {
   author_type: ChatAuthorType;
   author_id: string;
   body: string;
+  created_at: Date | string;
+}
+
+interface CommunityMessageRow extends QueryResultRow {
+  id: string;
+  author_name: string;
+  author_role: ChatAuthorRole;
+  body: string;
+  image_url: string | null;
   created_at: Date | string;
 }
 
@@ -137,6 +148,7 @@ const mockCommunityMessages: CommunityChatMessage[] = [
     authorName: "Amaya Rivas",
     authorRole: "guide",
     body: "Bienvenidos al chat general. Hoy la energía está buena para compartir cómo sienten el tránsito más fuerte del día.",
+    imageUrl: null,
     createdAt: "2026-04-06T13:00:00.000Z",
   },
   {
@@ -144,6 +156,7 @@ const mockCommunityMessages: CommunityChatMessage[] = [
     authorName: "Lucía Beltrán",
     authorRole: "guide",
     body: "Si quieren, dejen una sola pregunta o sensación por mensaje para que la conversación siga clara.",
+    imageUrl: null,
     createdAt: "2026-04-06T13:06:00.000Z",
   },
   {
@@ -151,6 +164,7 @@ const mockCommunityMessages: CommunityChatMessage[] = [
     authorName: "María V.",
     authorRole: "member",
     body: "Yo hoy siento mucho movimiento mental, como si Mercurio estuviera apurando todo.",
+    imageUrl: null,
     createdAt: "2026-04-06T13:11:00.000Z",
   },
 ];
@@ -317,14 +331,48 @@ function ensureThreadMessage(input: CreateChatMessageInput): string {
 
 function ensureCommunityMessage(input: CreateCommunityChatMessageInput): string {
   const body = input.body?.trim() ?? "";
-  if (body.length < 1) {
+  const imageUrl = input.imageUrl?.trim() ?? "";
+  if (body.length < 1 && imageUrl.length < 1) {
     throw new Error("El mensaje no puede estar vacío.");
   }
   if (body.length > 1200) {
     throw new Error("El mensaje es demasiado largo.");
   }
 
+  if (imageUrl.length > 2048) {
+    throw new Error("La imagen del mensaje no es válida.");
+  }
+
   return body;
+}
+
+function resolveCommunityImageUrl(value?: string): string | null {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed) {
+    return null;
+  }
+
+  if (
+    trimmed.startsWith("http://") ||
+    trimmed.startsWith("https://") ||
+    trimmed.startsWith("/api/storage/assets/") ||
+    trimmed.startsWith("/uploads/")
+  ) {
+    return trimmed;
+  }
+
+  return null;
+}
+
+function mapCommunityMessageRow(row: CommunityMessageRow): CommunityChatMessage {
+  return {
+    id: row.id,
+    authorName: row.author_name,
+    authorRole: row.author_role,
+    body: row.body,
+    imageUrl: row.image_url,
+    createdAt: toIsoString(row.created_at) ?? new Date().toISOString(),
+  };
 }
 
 function resolveCommunityAuthorName(profile: Awaited<ReturnType<typeof getProfile>>): string {
@@ -645,9 +693,21 @@ export async function createChatMessage(
 }
 
 export async function getCommunityChatMessages(): Promise<CommunityChatMessage[]> {
-  return [...mockCommunityMessages].sort(
-    (left, right) => left.createdAt.localeCompare(right.createdAt),
+  if (!isDatabaseConfigured()) {
+    return [...mockCommunityMessages].sort(
+      (left, right) => left.createdAt.localeCompare(right.createdAt),
+    );
+  }
+
+  const result = await query<CommunityMessageRow>(
+    `
+      select id, author_name, author_role, body, image_url, created_at
+      from community_chat_messages
+      order by created_at asc
+    `,
   );
+
+  return result.rows.map(mapCommunityMessageRow);
 }
 
 export async function createCommunityChatMessage(
@@ -660,19 +720,38 @@ export async function createCommunityChatMessage(
 ): Promise<CommunityChatMessage[]> {
   const resolvedUserId = userId ?? demoUserId;
   const body = ensureCommunityMessage(input);
+  const imageUrl = resolveCommunityImageUrl(input.imageUrl);
   const profile = await getProfile(resolvedUserId);
   const authorRole = options?.authorRole ?? "member";
   const authorName =
     options?.authorName?.trim() ||
     (authorRole === "guide" ? "Equipo Lo Renaciente" : resolveCommunityAuthorName(profile));
 
-  mockCommunityMessages.push({
-    id: randomUUID(),
-    authorName,
-    authorRole,
-    body,
-    createdAt: new Date().toISOString(),
-  });
+  if (!isDatabaseConfigured()) {
+    mockCommunityMessages.push({
+      id: randomUUID(),
+      authorName,
+      authorRole,
+      body,
+      imageUrl,
+      createdAt: new Date().toISOString(),
+    });
+
+    return getCommunityChatMessages();
+  }
+
+  await query(
+    `
+      insert into community_chat_messages (
+        id,
+        author_name,
+        author_role,
+        body,
+        image_url
+      ) values ($1, $2, $3, $4, $5)
+    `,
+    [randomUUID(), authorName, authorRole, body, imageUrl],
+  );
 
   return getCommunityChatMessages();
 }

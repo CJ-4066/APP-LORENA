@@ -187,6 +187,7 @@ type AdminCommunityMessage = {
   authorName: string;
   authorRole: "member" | "guide" | "system";
   body: string;
+  imageUrl?: string | null;
   createdAt: string;
 };
 
@@ -2305,8 +2306,14 @@ function App() {
   const [chat, setChat] = useState<AdminChat | null>(null);
   const [communityMessages, setCommunityMessages] = useState<AdminCommunityMessage[]>([]);
   const [communityReply, setCommunityReply] = useState("");
+  const [communityReplyImageUrl, setCommunityReplyImageUrl] = useState("");
+  const [communityReplyImageName, setCommunityReplyImageName] = useState("");
+  const [communityReplyImageUploading, setCommunityReplyImageUploading] = useState(false);
+  const [communityReplyImageProgress, setCommunityReplyImageProgress] = useState(0);
+  const [communityReplyImageError, setCommunityReplyImageError] = useState<string | null>(null);
   const [communityReplyError, setCommunityReplyError] = useState<string | null>(null);
   const [sendingCommunityReply, setSendingCommunityReply] = useState(false);
+  const communityReplyImageInputRef = useRef<HTMLInputElement | null>(null);
   const [incidents, setIncidents] = useState<AdminIncident[]>([]);
   const [badges, setBadges] = useState<Badge[]>([]);
   const [diagnostics, setDiagnostics] = useState<BadgeDiagnosticsResult | null>(null);
@@ -2607,6 +2614,11 @@ function App() {
     setChat(null);
     setCommunityMessages([]);
     setCommunityReply("");
+    setCommunityReplyImageUrl("");
+    setCommunityReplyImageName("");
+    setCommunityReplyImageUploading(false);
+    setCommunityReplyImageProgress(0);
+    setCommunityReplyImageError(null);
     setCommunityReplyError(null);
     setSendingCommunityReply(false);
     setIncidents([]);
@@ -3170,8 +3182,14 @@ function App() {
   async function handleSendCommunityReply(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const body = communityReply.trim();
-    if (!body) {
-      setCommunityReplyError("Escribe un mensaje para responder.");
+    const imageUrl = communityReplyImageUrl.trim();
+    if (!body && !imageUrl) {
+      setCommunityReplyError("Escribe un mensaje o adjunta una imagen.");
+      return;
+    }
+
+    if (communityReplyImageUploading) {
+      setCommunityReplyError("Espera a que termine de subirse la imagen.");
       return;
     }
 
@@ -3185,7 +3203,10 @@ function App() {
         headers: {
           "content-type": "application/json",
         },
-        body: JSON.stringify({ body }),
+        body: JSON.stringify({
+          body,
+          imageUrl: imageUrl.length > 0 ? imageUrl : undefined,
+        }),
       });
 
       const json = (await response.json()) as {
@@ -3204,12 +3225,96 @@ function App() {
 
       setCommunityMessages(json.items ?? []);
       setCommunityReply("");
+      setCommunityReplyImageUrl("");
+      setCommunityReplyImageName("");
+      setCommunityReplyImageProgress(0);
+      setCommunityReplyImageError(null);
+      if (communityReplyImageInputRef.current) {
+        communityReplyImageInputRef.current.value = "";
+      }
     } catch (sendError) {
       setCommunityReplyError(
         sendError instanceof Error ? sendError.message : "No se pudo responder al chat.",
       );
     } finally {
       setSendingCommunityReply(false);
+    }
+  }
+
+  async function uploadCommunityReplyImage(file: File): Promise<string> {
+    setCommunityReplyImageUploading(true);
+    setCommunityReplyImageProgress(0);
+    setCommunityReplyImageError(null);
+
+    try {
+      const publicUrl = await new Promise<string>((resolve, reject) => {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("category", "general");
+
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", `${apiBaseUrl}/api/admin/uploads`);
+        xhr.withCredentials = true;
+
+        xhr.upload.onprogress = (event) => {
+          if (!event.lengthComputable) {
+            return;
+          }
+          setCommunityReplyImageProgress(Math.round((event.loaded / event.total) * 100));
+        };
+
+        xhr.onerror = () => reject(new Error("No se pudo subir la imagen."));
+        xhr.onload = () => {
+          try {
+            const payload = JSON.parse(xhr.responseText) as {
+              item?: { publicUrl?: string };
+              error?: string;
+            };
+
+            if (xhr.status < 200 || xhr.status >= 300 || !payload.item?.publicUrl) {
+              reject(new Error(payload.error ?? "No se pudo subir la imagen."));
+              return;
+            }
+
+            resolve(payload.item.publicUrl);
+          } catch {
+            reject(new Error("No se pudo leer la respuesta de la imagen."));
+          }
+        };
+
+        xhr.send(formData);
+      });
+
+      return publicUrl;
+    } finally {
+      setCommunityReplyImageUploading(false);
+    }
+  }
+
+  async function handleCommunityReplyImageChange(file: File | null) {
+    if (!file) {
+      setCommunityReplyImageUrl("");
+      setCommunityReplyImageName("");
+      setCommunityReplyImageProgress(0);
+      setCommunityReplyImageError(null);
+      return;
+    }
+
+    setCommunityReplyImageName(file.name);
+    setCommunityReplyImageUrl("");
+    try {
+      const publicUrl = await uploadCommunityReplyImage(file);
+      setCommunityReplyImageUrl(publicUrl);
+    } catch (uploadError) {
+      setCommunityReplyImageError(
+        uploadError instanceof Error ? uploadError.message : "No se pudo subir la imagen.",
+      );
+      setCommunityReplyImageName("");
+      setCommunityReplyImageUrl("");
+      setCommunityReplyImageProgress(0);
+      if (communityReplyImageInputRef.current) {
+        communityReplyImageInputRef.current.value = "";
+      }
     }
   }
 
@@ -7123,34 +7228,108 @@ function App() {
                     <div>
                       <p className="eyebrow">Conversación pública</p>
                       <h3>Responder al chat de la app</h3>
+                      <p className="hero-copy">Un flujo más visual, con adjuntos y lectura rápida.</p>
                     </div>
                   </div>
-                  <form className="course-editor-form" onSubmit={handleSendCommunityReply}>
-                    <label className="form-wide">
-                      <span>Respuesta</span>
-                      <textarea
-                        value={communityReply}
-                        onChange={(event) => setCommunityReply(event.target.value)}
-                        placeholder="Escribe la respuesta que verán en la app"
-                        rows={4}
-                      />
-                    </label>
+                  <form className="chat-compose" onSubmit={handleSendCommunityReply}>
+                    <textarea
+                      className="chat-compose-textarea"
+                      value={communityReply}
+                      onChange={(event) => setCommunityReply(event.target.value)}
+                      placeholder="Escribe como si respondieras por Instagram..."
+                      rows={4}
+                    />
+                    <input
+                      ref={communityReplyImageInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml"
+                      className="admin-uploader-input"
+                      onChange={(event) =>
+                        void handleCommunityReplyImageChange(event.target.files?.[0] ?? null)
+                      }
+                    />
+                    {communityReplyImageName || communityReplyImageUrl ? (
+                      <div className="chat-compose-attachment">
+                        {communityReplyImageUrl ? (
+                          <img src={communityReplyImageUrl} alt="Adjunto del chat" />
+                        ) : (
+                          <div className="chat-compose-attachment-placeholder">
+                            <strong>{communityReplyImageName}</strong>
+                            <span>Subiendo imagen: {communityReplyImageProgress}%</span>
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          className="secondary-button"
+                          onClick={() => {
+                            setCommunityReplyImageUrl("");
+                            setCommunityReplyImageName("");
+                            setCommunityReplyImageProgress(0);
+                            setCommunityReplyImageError(null);
+                            if (communityReplyImageInputRef.current) {
+                              communityReplyImageInputRef.current.value = "";
+                            }
+                          }}
+                        >
+                          Quitar
+                        </button>
+                      </div>
+                    ) : null}
+                    {communityReplyImageUploading ? (
+                      <div className="library-upload-progress form-wide" aria-live="polite">
+                        <div className="library-upload-progress-bar" aria-hidden="true">
+                          <span
+                            className="library-upload-progress-fill"
+                            style={{ width: `${communityReplyImageProgress}%` }}
+                          />
+                        </div>
+                      </div>
+                    ) : null}
+                    {communityReplyImageError ? (
+                      <p className="form-error form-wide">{communityReplyImageError}</p>
+                    ) : null}
                     {communityReplyError ? <p className="form-error form-wide">{communityReplyError}</p> : null}
-                    <div className="editor-actions">
-                      <button type="submit" className="primary-button" disabled={sendingCommunityReply}>
-                        {sendingCommunityReply ? "Enviando..." : "Publicar respuesta"}
+                    <div className="chat-compose-actions">
+                      <button
+                        type="button"
+                        className="secondary-button button-with-icon"
+                        onClick={() => communityReplyImageInputRef.current?.click()}
+                        disabled={communityReplyImageUploading}
+                      >
+                        <span className="button-icon" aria-hidden="true">
+                          <ActionIcon name="upload" />
+                        </span>
+                        Imagen
+                      </button>
+                      <button
+                        type="submit"
+                        className="primary-button"
+                        disabled={sendingCommunityReply || communityReplyImageUploading}
+                      >
+                        {sendingCommunityReply ? "Enviando..." : "Publicar"}
                       </button>
                     </div>
                   </form>
                   <div className="chat-message-feed">
                     {communityMessages.length > 0 ? (
                       communityMessages.slice().reverse().map((message) => (
-                        <article key={message.id} className="chat-message-card">
+                        <article key={message.id} className={`chat-message-card${message.authorRole === "guide" ? " chat-message-card-guide" : " chat-message-card-member"}`}>
                           <div className="chat-message-head">
                             <strong>{message.authorName}</strong>
-                            <span>{message.authorRole === "guide" ? "Admin" : message.authorRole === "system" ? "Sistema" : "Usuario"}</span>
+                            <span>
+                              {message.authorRole === "guide"
+                                ? "Admin"
+                                : message.authorRole === "system"
+                                  ? "Sistema"
+                                  : "Usuario"}
+                            </span>
                           </div>
-                          <p>{message.body}</p>
+                          {message.imageUrl ? (
+                            <a href={message.imageUrl} target="_blank" rel="noreferrer" className="chat-message-image-link">
+                              <img src={message.imageUrl} alt={message.body || "Adjunto del mensaje"} />
+                            </a>
+                          ) : null}
+                          {message.body ? <p>{message.body}</p> : null}
                           <small>{formatDate(message.createdAt)}</small>
                         </article>
                       ))
@@ -7169,9 +7348,9 @@ function App() {
                       <h3>Estado de conversaciones</h3>
                     </div>
                   </div>
-                  <div className="table-list">
+                  <div className="chat-thread-list">
                     {chat?.recentThreads.slice(0, 5).map((thread) => (
-                      <article key={thread.id} className="table-row">
+                      <article key={thread.id} className="chat-thread-card">
                         <div>
                           <strong>{thread.userName}</strong>
                           <p>{thread.specialistName}</p>
