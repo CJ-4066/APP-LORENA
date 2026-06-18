@@ -67,6 +67,206 @@ class _BookingsScreenState extends State<BookingsScreen> {
     );
   }
 
+  void _openSpecialistProfile(Specialist specialist) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      backgroundColor: AppPalette.petalSoft,
+      builder: (_) {
+        final specialistServices = widget.data.services
+            .where((service) => service.specialistIds.contains(specialist.id))
+            .toList();
+        final sessionModes = specialist.sessionModes.isEmpty
+            ? const ['online']
+            : specialist.sessionModes;
+
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.86,
+          minChildSize: 0.55,
+          maxChildSize: 0.96,
+          builder: (context, scrollController) {
+            return Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    AppPalette.petalSoft,
+                    Colors.white,
+                  ],
+                ),
+              ),
+              child: ListView(
+                controller: scrollController,
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        width: 66,
+                        height: 66,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [
+                              AppPalette.indigo,
+                              AppPalette.royalViolet,
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(22),
+                        ),
+                        child: Center(
+                          child: Text(
+                            specialist.name.trim().isEmpty
+                                ? 'S'
+                                : specialist.name.trim().substring(0, 1).toUpperCase(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 24,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              specialist.name,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .headlineSmall
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w900,
+                                    color: AppPalette.butterflyInk,
+                                  ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              specialist.headline,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium
+                                  ?.copyWith(
+                                    color: AppPalette.mutedLavender,
+                                    height: 1.35,
+                                  ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _ProfileChip(
+                        icon: Icons.star_rounded,
+                        label: '${specialist.rating.toStringAsFixed(1)} · ${specialist.reviewCount} reseñas',
+                      ),
+                      _ProfileChip(
+                        icon: Icons.work_outline_rounded,
+                        label: '${specialist.yearsExperience} años de experiencia',
+                      ),
+                      _ProfileChip(
+                        icon: Icons.schedule_rounded,
+                        label: specialist.nextAvailableAt.trim().isEmpty
+                            ? 'Próxima agenda por definir'
+                            : 'Disponible ${formatSchedule(specialist.nextAvailableAt)}',
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 18),
+                  Text(
+                    'Perfil completo',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w900,
+                          color: AppPalette.butterflyInk,
+                        ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    specialist.bio.trim().isEmpty
+                        ? 'Sin biografía disponible.'
+                        : specialist.bio,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          height: 1.5,
+                          color: AppPalette.butterflyInk,
+                        ),
+                  ),
+                  const SizedBox(height: 18),
+                  _ProfileSection(
+                    title: 'Especialidades',
+                    children: specialist.specialties
+                        .map((item) => _ProfileChip(label: item))
+                        .toList(),
+                  ),
+                  const SizedBox(height: 18),
+                  _ProfileSection(
+                    title: 'Modalidades',
+                    children: sessionModes
+                        .map(
+                          (mode) => _ProfileChip(
+                            label: _modeLabel(context, mode),
+                          ),
+                        )
+                        .toList(),
+                  ),
+                  const SizedBox(height: 18),
+                  _ProfileSection(
+                    title: 'Idiomas',
+                    children: specialist.languages
+                        .map((item) => _ProfileChip(label: item))
+                        .toList(),
+                  ),
+                  const SizedBox(height: 18),
+                  Text(
+                    'Servicios vinculados',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w900,
+                          color: AppPalette.butterflyInk,
+                        ),
+                  ),
+                  const SizedBox(height: 12),
+                  if (specialistServices.isEmpty)
+                    Text(
+                      'No hay servicios asociados aún.',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: AppPalette.mutedLavender,
+                          ),
+                    )
+                  else
+                    ...specialistServices.map(
+                      (service) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: _LinkedServiceCard(service: service),
+                      ),
+                    ),
+                  const SizedBox(height: 10),
+                  FilledButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      widget.onCreateBooking();
+                    },
+                    icon: const Icon(Icons.calendar_month_outlined),
+                    label: Text(context.l10n.ts('Agendar nueva consulta')),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   bool _canManageBooking(Booking booking) {
     return booking.status != 'cancelled' && booking.status != 'completed';
   }
@@ -469,164 +669,406 @@ class _BookingsScreenState extends State<BookingsScreen> {
       );
     }
 
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            AppPalette.shellGradientTop,
-            AppPalette.shellGradientMid,
-            AppPalette.shellGradientBottom,
-          ],
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              AppPalette.shellGradientTop,
+              AppPalette.shellGradientMid,
+              AppPalette.shellGradientBottom,
+            ],
+          ),
         ),
-      ),
-      child: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: widget.onRefresh,
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-            children: [
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton.icon(
-                  onPressed: () => widget.onCreateBooking(),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppPalette.royalViolet,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 18,
-                      vertical: 16,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                  ),
-                  icon: const Icon(Icons.add_circle_outline),
-                  label: Text(l10n.ts('Agendar nueva consulta')),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                l10n.ts('Atajos de citas'),
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-              ),
-              const SizedBox(height: 12),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    MysticMenuTile(
-                      glyphKind: MysticGlyphKind.chat,
-                      label: l10n.ts('Chat general'),
-                      caption: l10n.ts(
-                        'Espacio abierto para que toda la gente comente.',
-                      ),
-                      accent: const Color(0xFF9A5A33),
-                      onTap: _openCommunityChat,
-                    ),
-                  ],
-                ),
-              ),
-              if (tarotSpecialists.isNotEmpty) ...[
-                const SizedBox(height: 20),
+        child: SafeArea(
+          child: RefreshIndicator(
+            onRefresh: widget.onRefresh,
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 120),
+              children: [
                 Text(
-                  l10n.ts('Especialistas sugeridos'),
+                  l10n.ts('Atajos de citas'),
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w800,
                       ),
                 ),
                 const SizedBox(height: 12),
-                ...tarotSpecialists.take(3).map(
-                      (specialist) => Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: MysticMiniBanner(
-                          title: specialist.name,
-                          subtitle:
-                              '${specialist.headline}\n${joinList(specialist.specialties.take(2).toList())}',
-                          glyphKind: MysticGlyphKind.specialist,
-                          accent: const Color(0xFF6E5033),
-                          onTap: () => widget.onCreateBooking(),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      MysticMenuTile(
+                        glyphKind: MysticGlyphKind.chat,
+                        label: l10n.ts('Chat general'),
+                        caption: l10n.ts(
+                          'Espacio abierto para que toda la gente comente.',
                         ),
+                        accent: const Color(0xFF9A5A33),
+                        onTap: _openCommunityChat,
                       ),
-                    ),
-              ],
-              const SizedBox(height: 20),
-              if (widget.data.bookings.isEmpty)
-                MysticMiniBanner(
-                  title: l10n.ts('Aún no tienes citas agendadas'),
-                  subtitle: l10n.ts(
-                    'Crea tu primera consulta y elige el día y la hora que mejor te funcione.',
+                    ],
                   ),
-                  glyphKind: MysticGlyphKind.agenda,
-                  accent: AppPalette.orchid,
-                  onTap: () => widget.onCreateBooking(),
-                )
-              else
-                ...widget.data.bookings.map(
-                  (booking) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Column(
-                      children: [
-                        MysticMiniBanner(
-                          title:
-                              '${booking.specialistName} · ${booking.serviceName}',
-                          subtitle:
-                              '${formatSchedule(booking.scheduledAt)} · ${formatMoney(booking.price)}\n${_modeLabel(context, booking.mode)}',
-                          glyphKind: booking.mode == 'video'
-                              ? MysticGlyphKind.video
-                              : booking.mode == 'audio'
-                                  ? MysticGlyphKind.audio
-                                  : MysticGlyphKind.chat,
-                          accent: _statusAccent(booking.status),
-                          onTap: () => _showBookingDetail(booking),
-                          trailing: _BookingStatusPill(booking: booking),
+                ),
+                if (tarotSpecialists.isNotEmpty) ...[
+                  const SizedBox(height: 20),
+                  Text(
+                    l10n.ts('Especialistas sugeridos'),
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
                         ),
-                        if (_canManageBooking(booking)) ...[
-                          const SizedBox(height: 10),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: OutlinedButton.icon(
-                                  onPressed: _busyBookingId == booking.id
-                                      ? null
-                                      : () => _handleRescheduleBooking(booking),
-                                  icon: _busyBookingId == booking.id
-                                      ? const SizedBox(
-                                          width: 16,
-                                          height: 16,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                          ),
-                                        )
-                                      : const Icon(
-                                          Icons.calendar_month_outlined,
-                                        ),
-                                  label: Text(l10n.ts('Reprogramar')),
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: FilledButton.tonalIcon(
-                                  onPressed: _busyBookingId == booking.id
-                                      ? null
-                                      : () => _handleCancelBooking(booking),
-                                  icon: const Icon(Icons.close_rounded),
-                                  label: Text(l10n.ts('Cancelar')),
-                                ),
-                              ),
-                            ],
+                  ),
+                  const SizedBox(height: 12),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        for (final specialist in tarotSpecialists.take(6)) ...[
+                          _SpecialistButtonCard(
+                            specialist: specialist,
+                            onTap: () => _openSpecialistProfile(specialist),
                           ),
+                          const SizedBox(width: 12),
                         ],
                       ],
                     ),
                   ),
+                ],
+                const SizedBox(height: 20),
+                if (widget.data.bookings.isEmpty)
+                  MysticMiniBanner(
+                    title: l10n.ts('Aún no tienes citas agendadas'),
+                    subtitle: l10n.ts(
+                      'Crea tu primera consulta y elige el día y la hora que mejor te funcione.',
+                    ),
+                    glyphKind: MysticGlyphKind.agenda,
+                    accent: AppPalette.orchid,
+                    onTap: () => widget.onCreateBooking(),
+                  )
+                else
+                  ...widget.data.bookings.map(
+                    (booking) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Column(
+                        children: [
+                          MysticMiniBanner(
+                            title:
+                                '${booking.specialistName} · ${booking.serviceName}',
+                            subtitle:
+                                '${formatSchedule(booking.scheduledAt)} · ${formatMoney(booking.price)}\n${_modeLabel(context, booking.mode)}',
+                            glyphKind: booking.mode == 'video'
+                                ? MysticGlyphKind.video
+                                : booking.mode == 'audio'
+                                    ? MysticGlyphKind.audio
+                                    : MysticGlyphKind.chat,
+                            accent: _statusAccent(booking.status),
+                            onTap: () => _showBookingDetail(booking),
+                            trailing: _BookingStatusPill(booking: booking),
+                          ),
+                          if (_canManageBooking(booking)) ...[
+                            const SizedBox(height: 10),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton.icon(
+                                    onPressed: _busyBookingId == booking.id
+                                        ? null
+                                        : () =>
+                                            _handleRescheduleBooking(booking),
+                                    icon: _busyBookingId == booking.id
+                                        ? const SizedBox(
+                                            width: 16,
+                                            height: 16,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : const Icon(
+                                            Icons.calendar_month_outlined,
+                                          ),
+                                    label: Text(l10n.ts('Reprogramar')),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: FilledButton.tonalIcon(
+                                    onPressed: _busyBookingId == booking.id
+                                        ? null
+                                        : () => _handleCancelBooking(booking),
+                                    icon: const Icon(Icons.close_rounded),
+                                    label: Text(l10n.ts('Cancelar')),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(
+              top: BorderSide(color: AppPalette.borderSoft),
+            ),
+          ),
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+          child: SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: () => widget.onCreateBooking(),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppPalette.royalViolet,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 18,
+                  vertical: 16,
                 ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+              ),
+              icon: const Icon(Icons.add_circle_outline),
+              label: Text(l10n.ts('Agendar nueva consulta')),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SpecialistButtonCard extends StatelessWidget {
+  const _SpecialistButtonCard({
+    required this.specialist,
+    required this.onTap,
+  });
+
+  final Specialist specialist;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(22),
+        child: Ink(
+          width: 220,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: AppPalette.borderSoft),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 16,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [
+                      AppPalette.indigo,
+                      AppPalette.royalViolet,
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Center(
+                  child: Text(
+                    specialist.name.trim().isEmpty
+                        ? 'S'
+                        : specialist.name.trim().substring(0, 1).toUpperCase(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 20,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      specialist.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w900,
+                            color: AppPalette.butterflyInk,
+                          ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      specialist.headline,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppPalette.mutedLavender,
+                            height: 1.3,
+                          ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Ver perfil',
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                            color: AppPalette.royalViolet,
+                            fontWeight: FontWeight.w800,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              const Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 16,
+                color: AppPalette.royalViolet,
+              ),
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _ProfileSection extends StatelessWidget {
+  const _ProfileSection({
+    required this.title,
+    required this.children,
+  });
+
+  final String title;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w900,
+                color: AppPalette.butterflyInk,
+              ),
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: children,
+        ),
+      ],
+    );
+  }
+}
+
+class _ProfileChip extends StatelessWidget {
+  const _ProfileChip({
+    this.icon,
+    required this.label,
+  });
+
+  final IconData? icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppPalette.mistLilac,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: AppPalette.borderSoft),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 16, color: AppPalette.royalViolet),
+            const SizedBox(width: 6),
+          ],
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: AppPalette.butterflyInk,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LinkedServiceCard extends StatelessWidget {
+  const _LinkedServiceCard({
+    required this.service,
+  });
+
+  final ServiceOffer service;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppPalette.borderSoft),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            service.name,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w900,
+                  color: AppPalette.butterflyInk,
+                ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${service.category} · ${formatMoney(service.price)}',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppPalette.mutedLavender,
+                ),
+          ),
+          if (service.description.trim().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              service.description,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppPalette.butterflyInk,
+                    height: 1.45,
+                  ),
+            ),
+          ],
+        ],
       ),
     );
   }
