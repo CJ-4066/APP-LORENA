@@ -7200,11 +7200,7 @@ function App() {
             <section className="admin-panel admin-panel-wide">
               <div className="panel-head badge-panel-head">
                 <div>
-                  <p className="eyebrow">Chat</p>
-                  <h2>Chat y conversaciones</h2>
-                  <p className="hero-copy">
-                    Lee los mensajes de la app móvil y responde desde este panel.
-                  </p>
+                  <h2>Chat</h2>
                 </div>
                 <button
                   type="button"
@@ -7224,19 +7220,12 @@ function App() {
               </div>
               <div className="admin-chat-layout">
                 <section className="admin-chat-panel">
-                  <div className="panel-head">
-                    <div>
-                      <p className="eyebrow">Conversación pública</p>
-                      <h3>Responder al chat de la app</h3>
-                      <p className="hero-copy">Un flujo más visual, con adjuntos y lectura rápida.</p>
-                    </div>
-                  </div>
                   <form className="chat-compose" onSubmit={handleSendCommunityReply}>
                     <textarea
                       className="chat-compose-textarea"
                       value={communityReply}
                       onChange={(event) => setCommunityReply(event.target.value)}
-                      placeholder="Escribe como si respondieras por Instagram..."
+                      placeholder="Mensaje"
                       rows={4}
                     />
                     <input
@@ -7342,12 +7331,6 @@ function App() {
                   </div>
                 </section>
                 <section className="admin-chat-panel">
-                  <div className="panel-head">
-                    <div>
-                      <p className="eyebrow">Hilos recientes</p>
-                      <h3>Estado de conversaciones</h3>
-                    </div>
-                  </div>
                   <div className="chat-thread-list">
                     {chat?.recentThreads.slice(0, 5).map((thread) => (
                       <article key={thread.id} className="chat-thread-card">
