@@ -67,6 +67,94 @@ class _BookingsScreenState extends State<BookingsScreen> {
     );
   }
 
+  void _openBookingHistory() {
+    final history = widget.data.bookings.toList()
+      ..sort((left, right) => right.scheduledAt.compareTo(left.scheduledAt));
+
+    showModalBottomSheet<void>(
+      context: context,
+      useSafeArea: true,
+      showDragHandle: true,
+      isScrollControlled: true,
+      backgroundColor: AppPalette.petalSoft,
+      builder: (_) {
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.82,
+          minChildSize: 0.55,
+          maxChildSize: 0.96,
+          builder: (context, scrollController) {
+            return Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    AppPalette.petalSoft,
+                    Colors.white,
+                  ],
+                ),
+              ),
+              child: ListView(
+                controller: scrollController,
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 28),
+                children: [
+                  Text(
+                    context.l10n.ts('Historial de citas'),
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w900,
+                          color: AppPalette.butterflyInk,
+                        ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    context.l10n.ts(
+                      'Revisa aquí las citas pasadas, canceladas y las que siguen activas.',
+                    ),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: AppPalette.mutedLavender,
+                          height: 1.4,
+                        ),
+                  ),
+                  const SizedBox(height: 18),
+                  if (history.isEmpty)
+                    MysticMiniBanner(
+                      title: context.l10n.ts('No hay citas registradas'),
+                      subtitle: context.l10n.ts(
+                        'Cuando hagas o recibas una cita, aparecerá aquí el historial del perfil.',
+                      ),
+                      glyphKind: MysticGlyphKind.agenda,
+                      accent: AppPalette.orchid,
+                    )
+                  else
+                    ...history.map(
+                      (booking) => Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: MysticMiniBanner(
+                          title:
+                              '${booking.specialistName} · ${booking.serviceName}',
+                          subtitle:
+                              '${formatSchedule(booking.scheduledAt)} · ${formatMoney(booking.price)}\n${_modeLabel(context, booking.mode)} · ${_statusLabel(context, booking.status)}',
+                          glyphKind: booking.mode == 'video'
+                              ? MysticGlyphKind.video
+                              : booking.mode == 'audio'
+                                  ? MysticGlyphKind.audio
+                                  : MysticGlyphKind.chat,
+                          accent: _statusAccent(booking.status),
+                          onTap: () => _showBookingDetail(booking),
+                          trailing: _BookingStatusPill(booking: booking),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   void _openSpecialistProfile(Specialist specialist) {
     showModalBottomSheet<void>(
       context: context,
@@ -697,9 +785,10 @@ class _BookingsScreenState extends State<BookingsScreen> {
                 const SizedBox(height: 12),
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      MysticMenuTile(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: MysticMenuTile(
                         glyphKind: MysticGlyphKind.chat,
                         label: l10n.ts('Chat general'),
                         caption: l10n.ts(
@@ -708,6 +797,19 @@ class _BookingsScreenState extends State<BookingsScreen> {
                         accent: const Color(0xFF9A5A33),
                         onTap: _openCommunityChat,
                       ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: MysticMenuTile(
+                        glyphKind: MysticGlyphKind.agenda,
+                        label: l10n.ts('Historial'),
+                        caption: l10n.ts(
+                          'Revisa las citas del perfil.',
+                        ),
+                        accent: AppPalette.royalViolet,
+                        onTap: _openBookingHistory,
+                      ),
+                    ),
                     ],
                   ),
                 ),
