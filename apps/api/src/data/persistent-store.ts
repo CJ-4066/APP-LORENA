@@ -355,6 +355,7 @@ export interface LibraryPdfRecord {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  skipAnalysis?: boolean;
 }
 
 export interface CourseResourceRecord {

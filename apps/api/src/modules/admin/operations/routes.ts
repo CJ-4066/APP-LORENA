@@ -217,6 +217,7 @@ async function readLibraryPdfInput(
       pageCount: parseNumberField(body.pageCount, existing?.pageCount ?? 0),
       status: normalizeLibraryPdfFormStatus(body.status ?? existing?.status ?? "draft", existing?.status === "published" ? "published" : "draft"),
       isActive: parseBooleanField(body.isActive, existing?.isActive ?? true),
+      skipAnalysis: parseBooleanField(body.skipAnalysis, false),
     };
   }
 
@@ -283,6 +284,7 @@ async function readLibraryPdfInput(
       existing?.status === "published" ? "published" : "draft",
     ),
     isActive: parseBooleanField(fields.isActive, existing?.isActive ?? true),
+    skipAnalysis: parseBooleanField(fields.skipAnalysis, false),
   };
 }
 
@@ -299,6 +301,9 @@ async function createOrUpdateLibraryPdf(
   }
 
   const item = await upsertLibraryPdf(input, auditMeta);
+  if (input.skipAnalysis) {
+    return item;
+  }
   return finalizeLibraryPdfPageCount(item, auditMeta);
 }
 

@@ -12,9 +12,15 @@ fi
 
 cd "$MOBILE_DIR"
 
-echo "Construyendo iOS publico contra la API de produccion..."
+if [[ -z "${API_BASE_URL:-}" ]]; then
+  echo "Falta API_BASE_URL."
+  echo "Ejemplo: API_BASE_URL=https://lorenaciente.com npm run mobile:ios:public"
+  exit 1
+fi
+
+echo "Construyendo iOS publico contra: $API_BASE_URL"
 echo "Nota: para distribuir a contactos necesitas firma valida, TestFlight o un IPA ad hoc."
-flutter build ipa --release --dart-define=FORCE_PRODUCTION_API=true
+flutter build ipa --release --dart-define="API_BASE_URL=$API_BASE_URL"
 
 echo "IPA generado en:"
 echo "$MOBILE_DIR/build/ios/ipa"

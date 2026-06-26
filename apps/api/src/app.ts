@@ -66,6 +66,16 @@ export async function buildServer() {
     },
   );
 
+  app.get("/", async () => {
+    return {
+      service: "lo-renaciente-api",
+      status: "ok",
+      web: "https://lorenaciente.com",
+      api: "https://api.lorenaciente.com",
+      health: "/health",
+    };
+  });
+
   app.get("/health", async () => {
     const [database, redis, storage] = await Promise.all([
       pingDatabase(),

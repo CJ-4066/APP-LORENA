@@ -108,14 +108,23 @@ require_command flutter
 if [[ -n "${API_BASE_URL:-}" ]]; then
   BASE_URL="$API_BASE_URL"
 else
-  LAN_IP="$(detect_lan_ip || true)"
-  if [[ -z "$LAN_IP" ]]; then
-    echo "No pude detectar la IP LAN de esta Mac. Exporta API_BASE_URL manualmente."
-    echo "Ejemplo: API_BASE_URL=http://192.168.1.245:4000 npm run mobile:android:wifi"
-    exit 1
+  if [[ -f "$ROOT_DIR/.tailnet-api-url" ]]; then
+    TAILNET_URL="$(<"$ROOT_DIR/.tailnet-api-url")"
+    if [[ -n "$TAILNET_URL" ]]; then
+      BASE_URL="$TAILNET_URL"
+    fi
   fi
 
-  BASE_URL="http://$LAN_IP:4000"
+  if [[ -z "${BASE_URL:-}" ]]; then
+    LAN_IP="$(detect_lan_ip || true)"
+    if [[ -z "$LAN_IP" ]]; then
+      echo "No pude detectar la IP LAN de esta Mac. Exporta API_BASE_URL manualmente."
+      echo "Ejemplo: API_BASE_URL=http://192.168.1.245:4000 npm run mobile:android:wifi"
+      exit 1
+    fi
+
+    BASE_URL="http://$LAN_IP:4000"
+  fi
 fi
 
 if ! lsof -nP -iTCP:4000 -sTCP:LISTEN >/dev/null 2>&1; then

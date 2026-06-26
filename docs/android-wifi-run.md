@@ -13,7 +13,8 @@ npm run mobile:android:wifi
 2. Desbloquea el telefono y acepta la autorizacion de Depuracion USB si aparece.
 3. Ejecuta `npm run mobile:android:wifi`.
 4. El script activa `adb tcpip 5555`, detecta la IP Wi-Fi del telefono y lanza Flutter contra `IP:5555`.
-5. Si la conexion Wi-Fi queda activa, en siguientes ejecuciones puede reutilizarla sin cable.
+5. Si existe `.tailnet-api-url`, esa URL se usa como API antes de caer a la IP LAN.
+6. Si la conexion Wi-Fi queda activa, en siguientes ejecuciones puede reutilizarla sin cable.
 
 ## Variables utiles
 

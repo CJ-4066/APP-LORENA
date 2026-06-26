@@ -132,6 +132,15 @@ npm run dev:api
 npm run mobile:ios:device
 ```
 
+Ese script toma la URL de `API_BASE_URL` si la exportas; si no, usa `.tailnet-api-url` cuando exista y, como ultimo recurso, la IP LAN de tu Mac.
+
+Para builds publicos:
+
+```bash
+API_BASE_URL=https://lorenaciente.com npm run mobile:android:public
+API_BASE_URL=https://lorenaciente.com npm run mobile:ios:public
+```
+
 No uses `flutter run` a secas en iPhone fisico si luego quieres abrir la app como app normal. Ese flujo puede instalar una build `debug` que depende de Flutter tooling para lanzarse.
 
 Mas detalle operativo:
@@ -172,11 +181,24 @@ npm run build:landing
 
 La web que debe salir en `lorenaciente` es la de `webprincipal`.
 En el VPS, el document root debe apuntar al `webprincipal/dist`, no al `apps/web/dist`.
+El backend publico debe vivir en el mismo dominio y responder bajo `/api`, proxyado al proceso Fastify.
 Si quieres sincronizar el build a un servidor remoto desde esta maquina:
 
 ```bash
-DEPLOY_USER=usuario DEPLOY_HOST=tu-vps DEPLOY_PATH=/var/www/lorenaciente ./scripts/deploy-webprincipal.sh
+DEPLOY_USER=usuario DEPLOY_HOST=tu-vps DEPLOY_PATH=/var/www/lorenaciente/webprincipal/dist ./scripts/deploy-webprincipal.sh
 ```
+
+Ese script tambien construye y publica el panel admin en `/var/www/lorenaciente/admin` por defecto. Si tu VPS usa otra ruta, define `ADMIN_DEPLOY_PATH`.
+
+Para la API de produccion usa este despliegue separado:
+
+```bash
+DEPLOY_USER=root DEPLOY_HOST=tu-vps ./scripts/deploy-api-production.sh
+```
+
+Ese flujo publica `dist`, `migrations` y, por defecto, sincroniza `uploads` sin borrarlos en destino para no perder archivos persistentes. Si solo quieres código y migraciones, usa `SYNC_UPLOADS=0`.
+
+Antes de publicar, verifica que el dominio no este suspendido y que `lorenaciente.com` y `www.lorenaciente.com` apunten al mismo VPS. La configuracion nginx base esta en `docs/vps-nginx-lorenaciente.conf`.
 
 ## Estructura
 

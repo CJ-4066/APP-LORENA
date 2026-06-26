@@ -526,6 +526,7 @@ const apiBaseUrl =
         ? `${window.location.protocol === "https:" ? "https:" : "http:"}//127.0.0.1:4000`
         : window.location.origin.replace(/\/+$/u, ""));
 const brandLogoUrl = `${import.meta.env.BASE_URL}branding/lo-renaciente-isotipo.png`;
+const adminBasePath = import.meta.env.BASE_URL.replace(/\/+$/u, "") || "";
 const adminBuildStamp = "reset-2026-06-11";
 
 type CourseWorkspaceTab = "data" | "modules" | "lessons" | "resources" | "library" | "publication" | "history";
@@ -867,7 +868,13 @@ function AuthParticles() {
 
 function getCourseWorkspaceRouteFromLocation() {
   const pathname = window.location.pathname.replace(/\/+$/, "") || "/";
-  const courseMatch = pathname.match(/^\/courses\/([^/]+)$/);
+  const relativePath =
+    adminBasePath.length > 0 && pathname.startsWith(`${adminBasePath}/`)
+      ? pathname.slice(adminBasePath.length)
+      : pathname === adminBasePath
+        ? "/"
+        : pathname;
+  const courseMatch = relativePath.match(/^\/courses\/([^/]+)$/);
   const tabParam = new URLSearchParams(window.location.search).get("tab");
 
   if (!courseMatch) {
@@ -887,7 +894,49 @@ function getCourseWorkspaceRouteFromLocation() {
 
 function buildCourseWorkspaceUrl(courseId: string | null, tab: CourseWorkspaceTab) {
   const path = courseId ? `/courses/${encodeURIComponent(courseId)}` : "/courses/new";
-  return `${path}?tab=${encodeURIComponent(tab)}`;
+  return `${adminBasePath}${path}?tab=${encodeURIComponent(tab)}`;
+}
+
+function createEmptyCourseForm() {
+  return {
+    title: "",
+    subtitle: "",
+    category: "",
+    level: "Inicial",
+    premium: false,
+    featured: false,
+    removable: true,
+    estimatedHours: "",
+    progressPercent: "",
+    hook: "",
+    description: "",
+    outcomes: "",
+    status: "draft",
+    coverImageUrl: "",
+  };
+}
+
+function buildCourseForm(course: AdminCourse | null) {
+  if (!course) {
+    return createEmptyCourseForm();
+  }
+
+  return {
+    title: course.title ?? "",
+    subtitle: course.subtitle ?? "",
+    category: course.category ?? "",
+    level: course.level ?? "Inicial",
+    premium: course.premium ?? false,
+    featured: course.featured ?? false,
+    removable: course.removable ?? true,
+    estimatedHours: course.estimatedHours?.toString() ?? "",
+    progressPercent: course.progressPercent?.toString() ?? "",
+    hook: course.hook ?? "",
+    description: course.description ?? "",
+    outcomes: course.outcomes?.join("\n") ?? "",
+    status: course.status ?? "draft",
+    coverImageUrl: course.coverImageUrl ?? "",
+  };
 }
 
 function getConnectionErrorMessage(
@@ -2205,25 +2254,11 @@ function App() {
   const [courseDrawerTab, setCourseDrawerTab] = useState<CourseWorkspaceTab>(
     initialCourseWorkspaceRoute.tab,
   );
+  const previousCourseWorkspaceIdRef = useRef<string | null | undefined>(undefined);
   const [courseMessage, setCourseMessage] = useState<string | null>(null);
   const [courseError, setCourseError] = useState<string | null>(null);
   const [savingCourseId, setSavingCourseId] = useState<string | "new" | null>(null);
-  const [courseForm, setCourseForm] = useState({
-    title: "",
-    subtitle: "",
-    category: "",
-    level: "Inicial",
-    premium: false,
-    featured: false,
-    removable: true,
-    estimatedHours: "",
-    progressPercent: "",
-    hook: "",
-    description: "",
-    outcomes: "",
-    status: "draft",
-    coverImageUrl: "",
-  });
+  const [courseForm, setCourseForm] = useState(() => createEmptyCourseForm());
   const [courseModuleForm, setCourseModuleForm] = useState({
     title: "",
     summary: "",
@@ -2433,9 +2468,26 @@ function App() {
   );
 
   const openCourseWorkspaceTab = useCallback((courseId: string | null, tab: CourseWorkspaceTab) => {
-    const url = buildCourseWorkspaceUrl(courseId, tab);
-    window.open(url, "_blank", "noopener,noreferrer");
-  }, []);
+    const nextCourse = courseId
+      ? courses.find((course) => course.id === courseId) ?? null
+      : null;
+
+    setActiveSection("courses");
+    setIsCourseDrawerOpen(true);
+    setCourseDrawerTab(tab);
+    setSelectedCourseId(courseId);
+    setSelectedCourseModuleId(null);
+    setSelectedCourseLessonId(null);
+    setSelectedCourseResourceId(null);
+    if (tab !== "library") {
+      setSelectedLibraryPdfId(null);
+    }
+    setCourseMessage(null);
+    setCourseError(null);
+    setCourseForm(buildCourseForm(nextCourse));
+    window.history.pushState({}, "", buildCourseWorkspaceUrl(courseId, tab));
+    previousCourseWorkspaceIdRef.current = courseId;
+  }, [courses]);
 
   const handleNavigateSection = useCallback(
     (section: AdminSection) => {
@@ -2450,7 +2502,7 @@ function App() {
       }
 
       if (isCourseDrawerOpen) {
-        window.history.pushState({}, "", "/");
+        window.history.pushState({}, "", `${adminBasePath}/`);
         setIsCourseDrawerOpen(false);
         setSelectedCourseId(null);
         setSelectedCourseModuleId(null);
@@ -2477,6 +2529,12 @@ function App() {
       if (route.open) {
         setActiveSection("courses");
       }
+      if (route.open) {
+        setSelectedCourseModuleId(null);
+        setSelectedCourseLessonId(null);
+        setSelectedCourseResourceId(null);
+        setSelectedLibraryPdfId(null);
+      }
     };
 
     syncRouteState();
@@ -2486,6 +2544,34 @@ function App() {
       window.removeEventListener("popstate", syncRouteState);
     };
   }, []);
+
+  useEffect(() => {
+    if (!isCourseDrawerOpen) {
+      previousCourseWorkspaceIdRef.current = undefined;
+      return;
+    }
+
+    if (previousCourseWorkspaceIdRef.current === selectedCourseId) {
+      return;
+    }
+
+    previousCourseWorkspaceIdRef.current = selectedCourseId;
+
+    const selectedCourse =
+      selectedCourseId == null
+        ? null
+        : courses.find((course) => course.id === selectedCourseId) ?? null;
+
+    setCourseForm(buildCourseForm(selectedCourse));
+    setSelectedCourseModuleId(null);
+    setSelectedCourseLessonId(null);
+    setSelectedCourseResourceId(null);
+    if (courseDrawerTab !== "library") {
+      setSelectedLibraryPdfId(null);
+    }
+    setCourseMessage(null);
+    setCourseError(null);
+  }, [courseDrawerTab, courses, isCourseDrawerOpen, selectedCourseId]);
 
   const clearProtectedState = useCallback(() => {
     setSpecialists([]);
@@ -3376,7 +3462,7 @@ function App() {
   }
 
   function handleCloseCourseDrawer() {
-    window.history.pushState({}, "", "/courses");
+    window.history.pushState({}, "", `${adminBasePath}/courses`);
     setIsCourseDrawerOpen(false);
     setSelectedCourseId(null);
     setSelectedCourseModuleId(null);
@@ -9196,6 +9282,13 @@ function App() {
                       ? "Archivado"
                       : "Borrador"}
                 </span>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => openCourseWorkspaceTab(null, "data")}
+                >
+                  Nuevo curso
+                </button>
                 <button type="button" className="secondary-button" onClick={handleCloseCourseDrawer}>
                   Cerrar
                 </button>

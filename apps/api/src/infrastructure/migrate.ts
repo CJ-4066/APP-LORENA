@@ -1,4 +1,4 @@
-import { readdir, readFile } from "node:fs/promises";
+import { readdir, readFile, access } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -9,6 +9,25 @@ const migrationsDirectory = resolve(
   dirname(fileURLToPath(import.meta.url)),
   "../../migrations",
 );
+
+async function resolveMigrationsDirectory(): Promise<string> {
+  const candidates = [
+    migrationsDirectory,
+    resolve(process.cwd(), "migrations"),
+    resolve(process.cwd(), "apps/api/migrations"),
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      await access(candidate);
+      return candidate;
+    } catch {
+      // Continue searching.
+    }
+  }
+
+  return migrationsDirectory;
+}
 
 export async function runMigrations(): Promise<string[]> {
   if (!isDatabaseConfigured()) {
@@ -27,7 +46,8 @@ export async function runMigrations(): Promise<string[]> {
       )
     `);
 
-    const migrationFiles = (await readdir(migrationsDirectory))
+    const resolvedMigrationsDirectory = await resolveMigrationsDirectory();
+    const migrationFiles = (await readdir(resolvedMigrationsDirectory))
       .filter((file) => file.endsWith(".sql"))
       .sort((left, right) => left.localeCompare(right));
 
@@ -40,7 +60,7 @@ export async function runMigrations(): Promise<string[]> {
         continue;
       }
 
-      const sql = await readFile(resolve(migrationsDirectory, file), "utf8");
+      const sql = await readFile(resolve(resolvedMigrationsDirectory, file), "utf8");
 
       await client.query("BEGIN");
       try {

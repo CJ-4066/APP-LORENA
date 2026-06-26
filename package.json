@@ -16,6 +16,7 @@
     "api:daemon:start": "./scripts/start-api-daemon.sh",
     "api:daemon:stop": "./scripts/stop-api-daemon.sh",
     "api:daemon:status": "./scripts/status-api-daemon.sh",
+    "api:deploy:production": "./scripts/deploy-api-production.sh",
     "mobile:ios:device": "./scripts/run-ios-device.sh",
     "mobile:ios:public": "./scripts/build-ios-public.sh",
     "mobile:android:wifi": "./scripts/run-android-wifi.sh",

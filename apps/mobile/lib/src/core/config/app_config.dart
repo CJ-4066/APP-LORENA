@@ -17,13 +17,13 @@ class AppConfig {
   static final sharedLibraryFolderId = _extractDriveFolderId(sharedLibraryUrl);
 
   static String get apiBaseUrl {
-    if (forceProductionApi) {
-      return productionApiBaseUrl;
-    }
-
     const override = String.fromEnvironment('API_BASE_URL');
     if (override.isNotEmpty) {
       return override;
+    }
+
+    if (forceProductionApi) {
+      return productionApiBaseUrl;
     }
 
     if (kReleaseMode) {

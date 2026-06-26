@@ -6,8 +6,12 @@ A new Flutter project.
 
 This project is a starting point for a Flutter application.
 
-En builds de produccion, la app usa por defecto `https://lorenaciente.com` como API.
-Para desarrollo local puedes sobrescribirlo con `--dart-define=API_BASE_URL=...`.
+La app usa la URL inyectada con `--dart-define=API_BASE_URL=...`.
+Para desarrollo local puedes apuntar a la API de tu Mac o a la URL Tailscale publicada.
+
+Si ejecutas los scripts `npm run mobile:ios:device` o `npm run mobile:android:wifi`, la URL se toma automáticamente de `API_BASE_URL`, luego de `.tailnet-api-url` si existe, y por ultimo de la IP LAN detectada de la Mac.
+
+Para builds publicos usa siempre `API_BASE_URL=https://lorenaciente.com` antes de ejecutar `npm run mobile:android:public` o `npm run mobile:ios:public`.
 
 A few resources to get you started if this is your first Flutter project:
 

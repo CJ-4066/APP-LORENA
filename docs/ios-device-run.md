@@ -12,6 +12,7 @@ npm run mobile:ios:device
 - En iPhone fisico no sirve `127.0.0.1`; el telefono necesita la IP LAN de la Mac.
 - Un build `debug` de Flutter en iPhone puede abrir solo mientras esta colgado de Flutter tooling. Si lo instalas y luego lo abres como app normal, puede cerrarse o no lanzar.
 - Por eso el script fuerza `release` en dispositivo fisico y pasa `API_BASE_URL` automaticamente.
+- Si existe `.tailnet-api-url`, el script la usa antes de caer a la IP LAN.
 
 ## Problemas que ya quedaron cubiertos en codigo
 
