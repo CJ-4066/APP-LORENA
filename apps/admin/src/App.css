@@ -213,7 +213,7 @@
 }
 
 .badge-form-grid-compact {
-  margin-top: 12px;
+  margin-top: 10px;
 }
 
 .badge-editor-section {
@@ -1242,7 +1242,8 @@
 .course-subview-grid {
   display: grid;
   grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
-  gap: 16px;
+  gap: 12px;
+  align-items: start;
 }
 
 .library-shell {
@@ -1749,14 +1750,12 @@
 
 .course-subview-card {
   display: grid;
-  gap: 14px;
-  padding: 18px;
-  border-radius: 22px;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 18px;
   border: 1px solid var(--panel-border);
-  background:
-    radial-gradient(circle at top right, rgba(255, 255, 255, 0.55), transparent 26%),
-    linear-gradient(180deg, var(--surface-strong), var(--surface-soft));
-  box-shadow: var(--card-shadow);
+  background: var(--surface-strong);
+  box-shadow: 0 8px 18px rgba(35, 29, 61, 0.05);
 }
 
 .course-subview-list-card {
@@ -1765,17 +1764,18 @@
 
 .course-item-list {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .course-item-row {
   display: flex;
   justify-content: space-between;
-  gap: 14px;
-  padding: 14px;
-  border-radius: 18px;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 14px;
   border: 1px solid var(--border-soft);
   background: var(--surface-strong);
+  align-items: center;
 }
 
 .course-item-row strong {
@@ -1793,37 +1793,57 @@
   display: grid;
   justify-items: end;
   align-content: start;
-  gap: 8px;
-  min-width: 160px;
+  gap: 6px;
+  min-width: 140px;
   text-align: right;
+}
+
+.course-item-meta .secondary-button {
+  min-height: 34px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  box-shadow: none;
 }
 
 .course-publication-grid {
   display: grid;
-  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr);
-  gap: 16px;
+  grid-template-columns: minmax(0, 0.88fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
 }
 
 .course-publication-actions {
   display: grid;
-  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .course-publication-actions button {
   width: 100%;
   justify-content: center;
+  min-width: 0;
 }
 
 .course-publication-actions .primary-button,
 .course-publication-actions .secondary-button,
 .course-publication-actions .danger-button {
-  min-height: 48px;
+  min-height: 40px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  box-shadow: none;
+  font-size: 0.9rem;
 }
 
 .course-publication-actions .danger-button {
   background: var(--danger-soft);
   border-color: var(--danger);
   color: var(--danger);
+  grid-column: 1 / -1;
+}
+
+.course-publication-grid .metric-card {
+  padding: 16px;
+  border-radius: 18px;
 }
 
 @media (max-width: 920px) {
