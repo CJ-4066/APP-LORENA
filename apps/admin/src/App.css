@@ -1246,6 +1246,10 @@
   align-items: start;
 }
 
+.course-subview-grid-modules {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .library-shell {
   display: grid;
   gap: 18px;

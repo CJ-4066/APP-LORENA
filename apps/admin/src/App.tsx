@@ -9568,7 +9568,7 @@ function App() {
                 ) : null}
 
                 {courseDrawerTab === "modules" ? (
-                  <div className="course-subview-grid">
+                  <div className="course-subview-grid course-subview-grid-modules">
                     <article className="course-subview-card">
                       <div className="panel-head">
                         <div>
