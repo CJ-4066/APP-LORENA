@@ -5,6 +5,10 @@ import {
   recordBadgeAction,
   type UserBadgeProfile,
 } from "./badge-store.js";
+import {
+  buildEnergyProfile,
+  type EnergyProfile,
+} from "./energy-profile.js";
 import { buildDailyHomeContent } from "./home-daily.js";
 import {
   buildShopSku,
@@ -82,6 +86,7 @@ export interface UserProfile {
   roles?: string[];
   natalChart: NatalChart;
   preferences: UserPreferences;
+  energyProfile?: EnergyProfile;
 }
 
 export interface AdminManagedUserRecord {
@@ -2008,15 +2013,28 @@ const shopOrdersByUserId = new Map<string, ShopOrder[]>([
 
 function getUserById(userId?: string): UserProfile {
   if (userId && usersById.has(userId)) {
-    return usersById.get(userId)!;
+    return withComputedEnergyProfile(usersById.get(userId)!);
   }
 
-  return currentUser;
+  return withComputedEnergyProfile(currentUser);
 }
 
 function setCurrentUser(user: UserProfile) {
-  currentUser = user;
-  usersById.set(user.id, user);
+  currentUser = withComputedEnergyProfile(user);
+  usersById.set(currentUser.id, currentUser);
+}
+
+function withComputedEnergyProfile(user: UserProfile): UserProfile {
+  return {
+    ...user,
+    energyProfile: buildEnergyProfile({
+      firstName: user.firstName,
+      lastName: user.lastName,
+      zodiacSign: user.zodiacSign,
+      birthDate: user.natalChart.birthDate,
+      focusAreas: user.preferences.focusAreas,
+    }),
+  };
 }
 
 function normalizeAdminRoles(roles?: Array<"admin" | "specialist">): Array<"admin" | "specialist"> {

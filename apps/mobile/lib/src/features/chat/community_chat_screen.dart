@@ -1,9 +1,12 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../core/config/app_config.dart';
 import '../../core/i18n/app_i18n.dart';
+import '../../core/network/content_events_client.dart';
 import '../../core/theme/app_palette.dart';
 import '../../core/utils/formatters.dart';
 import '../../models/chat_models.dart';
@@ -25,9 +28,12 @@ class CommunityChatScreen extends StatefulWidget {
   State<CommunityChatScreen> createState() => _CommunityChatScreenState();
 }
 
-class _CommunityChatScreenState extends State<CommunityChatScreen> {
+class _CommunityChatScreenState extends State<CommunityChatScreen>
+    with WidgetsBindingObserver {
   final TextEditingController _messageController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
+  late final ContentEventsClient _contentEventsClient;
+  Timer? _refreshTimer;
 
   List<CommunityChatMessage> _messages = const [];
   XFile? _selectedImage;
@@ -35,18 +41,66 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> {
   bool _isLoading = true;
   bool _isSending = false;
   bool _isPickingImage = false;
+  bool _isRefreshing = false;
   String? _error;
+
+  bool get _canSend =>
+      !_isSending &&
+      (_messageController.text.trim().isNotEmpty || _selectedImage != null);
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _contentEventsClient = ContentEventsClient(
+      baseUrl: AppConfig.apiBaseUrl,
+    );
+    _messageController.addListener(_handleComposerChanged);
     _load();
+    _contentEventsClient.start(
+      onChanged: (event) {
+        if (!mounted) {
+          return;
+        }
+
+        if (event.entity == 'communityChat' || event.entity == 'all') {
+          _load(silent: true);
+        }
+      },
+    );
+    _refreshTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (!mounted) {
+        return;
+      }
+
+      _load(silent: true);
+    });
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _refreshTimer?.cancel();
+    _refreshTimer = null;
+    _contentEventsClient.dispose();
+    _messageController.removeListener(_handleComposerChanged);
     _messageController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      _load(silent: true);
+    }
+  }
+
+  void _handleComposerChanged() {
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {});
   }
 
   @override
@@ -154,6 +208,8 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> {
                         controller: _messageController,
                         minLines: 1,
                         maxLines: 4,
+                        keyboardType: TextInputType.multiline,
+                        textInputAction: TextInputAction.newline,
                         textCapitalization: TextCapitalization.sentences,
                         decoration: InputDecoration(
                           hintText: l10n.ts('Escribe un mensaje o añade una imagen'),
@@ -162,7 +218,7 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> {
                     ),
                     const SizedBox(width: 10),
                     FilledButton(
-                      onPressed: _isSending ? null : _send,
+                      onPressed: _canSend ? _send : null,
                       child: _isSending
                           ? const SizedBox(
                               width: 18,
@@ -265,7 +321,7 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  context.l10n.ts('La imagen se enviará con el próximo mensaje.'),
+                  context.l10n.ts('Puedes enviarla sola o acompañarla con un mensaje.'),
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
                         color: AppPalette.mutedLavender,
                       ),
@@ -282,9 +338,17 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> {
     );
   }
 
-  Future<void> _load() async {
+  Future<void> _load({bool silent = false}) async {
+    if (silent && (_isRefreshing || _isSending)) {
+      return;
+    }
+
     setState(() {
-      _isLoading = true;
+      if (silent) {
+        _isRefreshing = true;
+      } else {
+        _isLoading = true;
+      }
       _error = null;
     });
 
@@ -296,6 +360,7 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> {
       setState(() {
         _messages = messages;
         _isLoading = false;
+        _isRefreshing = false;
       });
     } catch (error) {
       if (!mounted) {
@@ -304,6 +369,7 @@ class _CommunityChatScreenState extends State<CommunityChatScreen> {
       setState(() {
         _error = error.toString().replaceFirst('Exception: ', '');
         _isLoading = false;
+        _isRefreshing = false;
       });
     }
   }

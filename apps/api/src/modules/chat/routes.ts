@@ -12,6 +12,7 @@ import {
   getChatThreads,
 } from "../../data/chat-store.js";
 import { getUserIdForAccessToken } from "../../data/persistent-store.js";
+import { emitContentChanged } from "../content/content-events.js";
 import { readAccessToken } from "../shared/auth.js";
 
 export async function registerChatRoutes(app: FastifyInstance) {
@@ -30,8 +31,14 @@ export async function registerChatRoutes(app: FastifyInstance) {
           (await getUserIdForAccessToken(accessToken ?? undefined)) ?? undefined;
 
         reply.code(201);
+        const items = await createCommunityChatMessage(request.body ?? {}, userId);
+        emitContentChanged({
+          entity: "communityChat",
+          action: "created",
+          actor: userId,
+        });
         return {
-          items: await createCommunityChatMessage(request.body ?? {}, userId),
+          items,
         };
       } catch (error) {
         reply.code(400);

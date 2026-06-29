@@ -251,6 +251,10 @@ function resolveAssetUrl(value: string | undefined): string {
     return trimmed;
   }
 
+  if (trimmed.startsWith("/uploads/")) {
+    return new URL(`/api${trimmed}`, `${apiBaseUrl}/`).toString();
+  }
+
   return new URL(trimmed, `${apiBaseUrl}/`).toString();
 }
 

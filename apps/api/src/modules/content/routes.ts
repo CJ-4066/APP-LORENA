@@ -15,14 +15,10 @@ import {
   subscribeContentChanges,
   type PublicContentChangeEvent,
 } from "./content-events.js";
-import {
-  readUploadFile,
-  resolveUploadStoragePath,
-  uploadFileExists,
-  writeUploadFile,
-} from "../../infrastructure/uploads.js";
+import { readUploadFile } from "../../infrastructure/uploads.js";
 import {
   getLibraryPdfMetadata,
+  loadLibraryPdfBytes,
   getLibraryPdfPageTextLayout,
   renderLibraryPdfPageImage,
   searchLibraryPdfPages,
@@ -686,78 +682,4 @@ function getPdfJsContentType(path: string): string {
     return "application/json";
   }
   return "application/octet-stream";
-}
-
-async function loadLibraryPdfBytes(
-  pdfId: string,
-  refresh = false,
-): Promise<Uint8Array> {
-  const cachePath = `library-cache/pdfs/${pdfId}.pdf`;
-  if (!refresh && (await uploadFileExists(cachePath))) {
-    return readUploadFile(cachePath);
-  }
-
-  const cachedPromise = refresh ? null : libraryPdfRequestCache.get(pdfId);
-  if (cachedPromise) {
-    return cachedPromise;
-  }
-
-  const requestPromise = fetchAndCacheLibraryPdf(pdfId, cachePath).finally(() => {
-    libraryPdfRequestCache.delete(pdfId);
-  });
-  libraryPdfRequestCache.set(pdfId, requestPromise);
-  return requestPromise;
-}
-
-async function fetchAndCacheLibraryPdf(
-  pdfId: string,
-  cachePath: string,
-): Promise<Uint8Array> {
-  const candidates = [
-    `https://drive.google.com/uc?export=download&id=${encodeURIComponent(pdfId)}`,
-    `https://drive.google.com/uc?id=${encodeURIComponent(pdfId)}&export=download`,
-  ];
-
-  for (const candidate of candidates) {
-    try {
-      const response = await fetch(candidate, {
-        redirect: "follow",
-        headers: {
-          "user-agent":
-            "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile",
-        },
-      });
-
-      if (!response.ok) {
-        continue;
-      }
-
-      const bytes = new Uint8Array(await response.arrayBuffer());
-      if (!looksLikePdf(bytes)) {
-        continue;
-      }
-
-      const tempPath = `${cachePath}.${Date.now()}.tmp`;
-      await writeUploadFile(tempPath, bytes);
-      await rename(
-        resolveUploadStoragePath(tempPath),
-        resolveUploadStoragePath(cachePath),
-      );
-      return bytes;
-    } catch {
-      continue;
-    }
-  }
-
-  throw new Error("No se pudo abrir el PDF de la biblioteca.");
-}
-
-function looksLikePdf(bytes: Uint8Array): boolean {
-  return (
-    bytes.length >= 4 &&
-    bytes[0] === 0x25 &&
-    bytes[1] === 0x50 &&
-    bytes[2] === 0x44 &&
-    bytes[3] === 0x46
-  );
 }

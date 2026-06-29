@@ -27,7 +27,7 @@ class BookingsScreen extends StatefulWidget {
 
   final AppBootstrap data;
   final Future<void> Function() onRefresh;
-  final Future<void> Function() onCreateBooking;
+  final Future<void> Function([String? initialServiceId]) onCreateBooking;
   final Future<List<SpecialistAvailabilitySlot>> Function({
     required String specialistId,
     required DateTime from,
@@ -439,8 +439,11 @@ class _BookingsScreenState extends State<BookingsScreen> {
                   const SizedBox(height: 10),
                   FilledButton.icon(
                     onPressed: () {
+                      final preferredServiceId = specialistServices.isNotEmpty
+                          ? specialistServices.first.id
+                          : null;
                       Navigator.of(context).pop();
-                      widget.onCreateBooking();
+                      widget.onCreateBooking(preferredServiceId);
                     },
                     icon: const Icon(Icons.calendar_month_outlined),
                     label: Text(context.l10n.ts('Agendar nueva consulta')),

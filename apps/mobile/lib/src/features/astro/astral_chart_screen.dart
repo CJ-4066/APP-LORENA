@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:syncfusion_flutter_pdf/pdf.dart' as sfpdf;
 
 import '../../core/data/birth_place_catalog.dart';
 import '../../core/i18n/app_i18n.dart';
@@ -13,10 +13,6 @@ import '../../models/app_models.dart';
 import '../../models/astro_models.dart';
 import '../../models/profile_models.dart';
 import 'astro_chart_wheel.dart';
-import 'chart_image_store_stub.dart'
-    if (dart.library.io) 'chart_image_store_io.dart'
-    if (dart.library.js_interop) 'chart_image_store_web.dart'
-    as chart_image_store;
 import '../profile/birth_place_selector.dart';
 
 part 'astral_chart_sections.dart';
@@ -359,16 +355,190 @@ class _AstralChartScreenState extends State<AstralChartScreen> {
     );
   }
 
-  Future<String> _persistChartImage(_ChartExportPayload payload) async {
-    final directory = await getTemporaryDirectory();
-    final xFile = XFile.fromData(
-      payload.bytes,
-      mimeType: 'image/png',
-      name: payload.fileName,
+  Future<_ChartExportPayload> _buildChartPdfPayload() async {
+    final result = _result;
+    if (result == null) {
+      throw Exception('Primero genera una carta natal.');
+    }
+
+    final coverImage = await _buildClassicChartImagePayload();
+    final document = sfpdf.PdfDocument();
+    document.pageSettings.margins.all = 0;
+    document.pageSettings.size = sfpdf.PdfPageSize.a4;
+
+    final titleFont = sfpdf.PdfStandardFont(
+      sfpdf.PdfFontFamily.helvetica,
+      20,
+      style: sfpdf.PdfFontStyle.bold,
     );
-    final path = '${directory.path}/${payload.fileName}';
-    await xFile.saveTo(path);
-    return path;
+    final sectionFont = sfpdf.PdfStandardFont(
+      sfpdf.PdfFontFamily.helvetica,
+      13,
+      style: sfpdf.PdfFontStyle.bold,
+    );
+    final bodyFont = sfpdf.PdfStandardFont(
+      sfpdf.PdfFontFamily.helvetica,
+      10,
+    );
+    final footerFont = sfpdf.PdfStandardFont(
+      sfpdf.PdfFontFamily.helvetica,
+      9,
+      style: sfpdf.PdfFontStyle.bold,
+    );
+
+    var page = document.pages.add();
+    const margin = 32.0;
+    var y = margin;
+
+    sfpdf.PdfLayoutResult drawTextBlock(
+      String text, {
+      sfpdf.PdfFont? font,
+      double spacingAfter = 12,
+    }) {
+      final result = sfpdf.PdfTextElement(
+        text: text,
+        font: font ?? bodyFont,
+      ).draw(
+        page: page,
+        bounds: Rect.fromLTWH(
+          margin,
+          y,
+          page.getClientSize().width - (margin * 2),
+          page.getClientSize().height - y - margin,
+        ),
+        format: sfpdf.PdfLayoutFormat(
+          layoutType: sfpdf.PdfLayoutType.paginate,
+        ),
+      )!;
+      page = result.page;
+      y = result.bounds.bottom + spacingAfter;
+      return result;
+    }
+
+    void ensureSpace(double height) {
+      if (y + height <= page.getClientSize().height - margin) {
+        return;
+      }
+      page = document.pages.add();
+      y = margin;
+    }
+
+    String bulletList(List<String> items) {
+      return items.map((item) => '• $item').join('\n');
+    }
+
+    final subjectName = result.natalChart.meta.subjectName.trim().isNotEmpty
+        ? result.natalChart.meta.subjectName.trim()
+        : '${widget.user.firstName} ${widget.user.lastName}'.trim();
+    final resolvedSubjectName =
+        subjectName.isEmpty ? 'Carta astral personal' : subjectName;
+
+    drawTextBlock(
+      'Carta astral Lo Renaciente',
+      font: titleFont,
+      spacingAfter: 6,
+    );
+    drawTextBlock(
+      '$resolvedSubjectName\n'
+      '${result.natalChart.meta.birthDate} · ${result.natalChart.meta.birthTime.isEmpty ? 'Hora no informada' : result.natalChart.meta.birthTime}\n'
+      '${result.natalChart.meta.locationLabel}\n'
+      'UTC ${result.natalChart.meta.utcOffset} · ${result.natalChart.meta.timeZoneId}',
+      font: bodyFont,
+    );
+
+    ensureSpace(250);
+    page.graphics.drawImage(
+      sfpdf.PdfBitmap(coverImage.bytes),
+      Rect.fromLTWH(
+        margin,
+        y,
+        page.getClientSize().width - (margin * 2),
+        220,
+      ),
+    );
+    y += 236;
+
+    drawTextBlock('Resumen base', font: sectionFont, spacingAfter: 6);
+    drawTextBlock(
+      'Sol en ${result.natalChart.summary.solarSign}\n'
+      'Luna en ${result.natalChart.summary.lunarSign}\n'
+      'Ascendente en ${result.natalChart.summary.ascendantSign}\n'
+      'Regente de carta: ${result.natalChart.summary.chartRuler}\n'
+      'Elemento dominante: ${result.natalChart.summary.dominantElement}\n'
+      'Cualidad dominante: ${result.natalChart.summary.dominantQuality}',
+    );
+
+    drawTextBlock('Interpretación principal', font: sectionFont, spacingAfter: 6);
+    drawTextBlock(
+      bulletList(result.natalChart.interpretation.take(8).toList()),
+    );
+
+    drawTextBlock('Planetas principales', font: sectionFont, spacingAfter: 6);
+    drawTextBlock(
+      bulletList(
+        result.natalChart.planets.take(10).map((planet) {
+          final retrograde = planet.retrograde ? ' · R' : '';
+          return '${planet.label}: ${planet.sign} ${planet.degreeFormatted} · Casa ${planet.house}$retrograde';
+        }).toList(),
+      ),
+    );
+
+    drawTextBlock('Aspectos destacados', font: sectionFont, spacingAfter: 6);
+    drawTextBlock(
+      bulletList(
+        result.natalChart.aspects.take(8).map((aspect) {
+          return '${aspect.left} ${aspect.type} ${aspect.right} · orb ${aspect.orb.toStringAsFixed(1)}°';
+        }).toList(),
+      ),
+    );
+
+    drawTextBlock('Tránsitos del momento', font: sectionFont, spacingAfter: 6);
+    drawTextBlock(
+      'Fecha de cálculo: ${result.transits.targetDateUtc}\n'
+      '${bulletList(result.transits.highlights.take(6).toList())}',
+    );
+
+    drawTextBlock('Retornos', font: sectionFont, spacingAfter: 6);
+    drawTextBlock(
+      'Retorno solar: ${result.returns.solarReturn.startsAt} · grado ${result.returns.solarReturn.degree}\n'
+      'Retorno lunar: ${result.returns.lunarReturn.startsAt} · grado ${result.returns.lunarReturn.degree}',
+    );
+
+    final eventLines = <String>[
+      ...result.events.moonPhases.take(4).map(
+            (event) => '${event.label} · ${event.startsAt} · ${event.visibility}',
+          ),
+      ...result.events.eclipses.take(4).map(
+            (event) => '${event.label} · ${event.startsAt} · ${event.visibility}',
+          ),
+    ];
+    if (eventLines.isNotEmpty) {
+      drawTextBlock('Eventos próximos', font: sectionFont, spacingAfter: 6);
+      drawTextBlock(bulletList(eventLines));
+    }
+
+    ensureSpace(28);
+    page.graphics.drawString(
+      'Documento generado desde Lo Renaciente',
+      footerFont,
+      brush: sfpdf.PdfSolidBrush(sfpdf.PdfColor(94, 83, 143)),
+      bounds: Rect.fromLTWH(
+        margin,
+        page.getClientSize().height - margin,
+        page.getClientSize().width - (margin * 2),
+        18,
+      ),
+    );
+
+    final bytes = Uint8List.fromList(await document.save());
+    document.dispose();
+
+    return _ChartExportPayload(
+      bytes: bytes,
+      fileName:
+          'carta-astral-${DateTime.now().millisecondsSinceEpoch}.pdf',
+      mimeType: 'application/pdf',
+    );
   }
 
   Future<void> _downloadChartImage() async {
@@ -384,7 +554,7 @@ class _AstralChartScreenState extends State<AstralChartScreen> {
     final l10n = context.l10n;
 
     try {
-      final payload = await _buildClassicChartImagePayload();
+      final payload = await _buildChartPdfPayload();
 
       if (kIsWeb) {
         await SharePlus.instance.share(
@@ -392,7 +562,7 @@ class _AstralChartScreenState extends State<AstralChartScreen> {
             files: [
               XFile.fromData(
                 payload.bytes,
-                mimeType: 'image/png',
+                mimeType: payload.mimeType,
                 name: payload.fileName,
               ),
             ],
@@ -418,29 +588,45 @@ class _AstralChartScreenState extends State<AstralChartScreen> {
         return;
       }
 
-      final filePath = await _persistChartImage(payload);
-      final saved = await chart_image_store.saveChartImage(filePath);
-
-      if (!mounted) {
+      if (defaultTargetPlatform == TargetPlatform.iOS) {
+        await _shareFilePayload(
+          payload,
+          text: context.l10n.ts(
+            'Tu carta astral de Lo Renaciente en PDF. Puedes guardarla en Archivos o compartirla.',
+          ),
+          subject: context.l10n.ts('Carta astral Lo Renaciente'),
+        );
+        if (!mounted) {
+          return;
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              context.l10n.ts(
+                'Se abrió Compartir para que guardes la carta astral en PDF desde tu iPhone.',
+              ),
+            ),
+          ),
+        );
         return;
       }
 
-      if (saved != true) {
-        throw Exception(
-          'No fue posible guardar la imagen en Fotos desde este dispositivo. Usa Compartir para guardarla en Archivos o Fotos.',
-        );
+      await _shareFilePayload(
+        payload,
+        text: context.l10n.ts(
+          'Tu carta astral de Lo Renaciente en PDF. Puedes guardarla en Archivos o compartirla.',
+        ),
+        subject: context.l10n.ts('Carta astral Lo Renaciente'),
+      );
+      if (!mounted) {
+        return;
       }
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            context.l10n.ts('La rueda natal se guardó en Fotos.'),
-          ),
-          action: SnackBarAction(
-            label: context.l10n.ts('Compartir'),
-            onPressed: () {
-              _shareChartImage(payload);
-            },
+            context.l10n.ts(
+              'Se abrió Compartir para guardar o enviar tu carta astral en PDF.',
+            ),
           ),
         ),
       );
@@ -449,12 +635,28 @@ class _AstralChartScreenState extends State<AstralChartScreen> {
         return;
       }
 
+      try {
+        final payload = await _buildChartPdfPayload();
+        if (mounted) {
+          await _shareFilePayload(
+            payload,
+            text: context.l10n.ts(
+              'Tu carta astral de Lo Renaciente en PDF. Puedes guardarla en Archivos o compartirla.',
+            ),
+            subject: context.l10n.ts('Carta astral Lo Renaciente'),
+          );
+        }
+      } catch (_) {}
+
+      if (!mounted) {
+        return;
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             context.l10n.ts(
-              'No se pudo generar la imagen de la carta: {error}',
-              {'error': error.toString().replaceFirst('Exception: ', '')},
+              'No se pudo guardar la carta directamente. Se abrió Compartir como respaldo.',
             ),
           ),
         ),
@@ -507,23 +709,35 @@ class _AstralChartScreenState extends State<AstralChartScreen> {
   }
 
   Future<void> _shareChartImage(_ChartExportPayload payload) async {
+    await _shareFilePayload(
+      payload,
+      text: context.l10n.ts(
+        'Mi carta astral de Lo Renaciente. Puedes guardarla tambien en Archivos o compartirla.',
+      ),
+      subject: context.l10n.ts('Carta astral Lo Renaciente'),
+    );
+  }
+
+  Future<void> _shareFilePayload(
+    _ChartExportPayload payload, {
+    required String text,
+    required String subject,
+  }) async {
     final box = context.findRenderObject();
     final renderBox = box is RenderBox ? box : null;
 
     await SharePlus.instance.share(
       ShareParams(
-        text: context.l10n.ts(
-          'Mi carta astral de Lo Renaciente. Puedes guardarla tambien en Archivos o compartirla.',
-        ),
+        text: text,
         files: [
           XFile.fromData(
             payload.bytes,
-            mimeType: 'image/png',
+            mimeType: payload.mimeType,
             name: payload.fileName,
           ),
         ],
         fileNameOverrides: [payload.fileName],
-        subject: context.l10n.ts('Carta astral Lo Renaciente'),
+        subject: subject,
         sharePositionOrigin: renderBox == null
             ? null
             : renderBox.localToGlobal(Offset.zero) & renderBox.size,
@@ -1451,8 +1665,10 @@ class _ChartExportPayload {
   const _ChartExportPayload({
     required this.bytes,
     required this.fileName,
+    this.mimeType = 'image/png',
   });
 
   final Uint8List bytes;
   final String fileName;
+  final String mimeType;
 }

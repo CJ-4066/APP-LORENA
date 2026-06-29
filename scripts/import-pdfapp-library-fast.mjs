@@ -151,11 +151,11 @@ for (const group of categories) {
   }
 }
 
-await ensureRemotePath("/var/www/lo-renaciente/api/uploads/library-cache/pdfs");
+await ensureRemotePath("/var/www/lo-renaciente/api/uploads/library/pdfs");
 await ensureRemotePath("/var/www/lo-renaciente/api/uploads/library-cache/rendered");
 await ensureRemotePath("/var/www/lo-renaciente/api/uploads/library-cache/text");
 
-console.log("Limpiando cache previa en el servidor...");
+console.log("Limpiando cache derivada en el servidor...");
 await spawnWithInput(
   "sshpass",
   [
@@ -168,14 +168,14 @@ await spawnWithInput(
     "-o",
     "StrictHostKeyChecking=accept-new",
     `${SSH_USER}@${SSH_HOST}`,
-    "rm -rf /var/www/lo-renaciente/api/uploads/library-cache && mkdir -p /var/www/lo-renaciente/api/uploads/library-cache/pdfs /var/www/lo-renaciente/api/uploads/library-cache/rendered /var/www/lo-renaciente/api/uploads/library-cache/text",
+    "rm -rf /var/www/lo-renaciente/api/uploads/library-cache/rendered /var/www/lo-renaciente/api/uploads/library-cache/text && mkdir -p /var/www/lo-renaciente/api/uploads/library/pdfs /var/www/lo-renaciente/api/uploads/library-cache/rendered /var/www/lo-renaciente/api/uploads/library-cache/text",
   ],
   "",
   { env: { ...process.env, SSHPASS: SSH_PASSWORD }, maxBuffer: 1024 * 1024 * 10 },
 );
 
 console.log("Copiando PDFs al servidor...");
-await copyToRemote(stagingDir, "/var/www/lo-renaciente/api/uploads/library-cache/pdfs");
+await copyToRemote(stagingDir, "/var/www/lo-renaciente/api/uploads/library/pdfs");
 
 console.log("Escribiendo biblioteca en PostgreSQL...");
 const now = new Date().toISOString();
@@ -201,7 +201,7 @@ ${items.map((item) => `(
   '${quoteSql(item.id)}',
   '${quoteSql(item.title)}',
   '',
-  '/uploads/library-cache/pdfs/${quoteSql(item.id)}.pdf',
+  '/uploads/library/pdfs/${quoteSql(item.id)}.pdf',
   null,
   null,
   null,

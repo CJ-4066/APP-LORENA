@@ -200,7 +200,7 @@ class ApiClient {
       bytes: bytes,
       fileName: fileName,
       contentType: contentType,
-      category: 'general',
+      category: 'chat_attachment',
     );
   }
 
@@ -589,6 +589,10 @@ class ApiClient {
         trimmed.startsWith('http://') ||
         trimmed.startsWith('https://')) {
       return trimmed;
+    }
+
+    if (trimmed.startsWith('/uploads/')) {
+      return Uri.parse(baseUrl).resolve('/api$trimmed').toString();
     }
 
     return Uri.parse(baseUrl).resolve(trimmed).toString();

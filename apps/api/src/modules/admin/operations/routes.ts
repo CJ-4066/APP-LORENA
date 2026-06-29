@@ -3,6 +3,8 @@ import type { FastifyInstance } from "fastify";
 import { createMediaAsset } from "../../../data/media-store.js";
 import {
   createCommunityChatMessage,
+  deleteCommunityChatMessage,
+  deleteCommunityChatMessageImage,
   getCommunityChatMessages,
 } from "../../../data/chat-store.js";
 import { getSpecialists } from "../../../data/mock-store.js";
@@ -1662,15 +1664,21 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
 
     try {
       reply.code(201);
+      const items = await createCommunityChatMessage(
+        request.body ?? {},
+        undefined,
+        {
+          authorName: admin.name || admin.email || "Equipo Lo Renaciente",
+          authorRole: "guide",
+        },
+      );
+      emitContentChanged({
+        entity: "communityChat",
+        action: "created",
+        actor: admin.email,
+      });
       return {
-        items: await createCommunityChatMessage(
-          request.body ?? {},
-          undefined,
-          {
-            authorName: admin.name || admin.email || "Equipo Lo Renaciente",
-            authorRole: "guide",
-          },
-        ),
+        items,
       };
     } catch (error) {
       reply.code(400);
@@ -1680,6 +1688,64 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
       };
     }
   });
+
+  app.delete<{ Params: { messageId: string } }>(
+    "/chat/community/messages/:messageId",
+    async (request, reply) => {
+      const admin = await requireAdminSession(request, reply);
+      if (!admin) {
+        return { error: getAdminError(reply.statusCode, false) };
+      }
+
+      try {
+        const items = await deleteCommunityChatMessage(request.params.messageId);
+        emitContentChanged({
+          entity: "communityChat",
+          action: "deleted",
+          entityId: request.params.messageId,
+          actor: admin.email,
+        });
+        return {
+          items,
+        };
+      } catch (error) {
+        reply.code(400);
+        return {
+          error:
+            error instanceof Error ? error.message : "No se pudo eliminar el mensaje.",
+        };
+      }
+    },
+  );
+
+  app.delete<{ Params: { messageId: string } }>(
+    "/chat/community/messages/:messageId/image",
+    async (request, reply) => {
+      const admin = await requireAdminSession(request, reply);
+      if (!admin) {
+        return { error: getAdminError(reply.statusCode, false) };
+      }
+
+      try {
+        const items = await deleteCommunityChatMessageImage(request.params.messageId);
+        emitContentChanged({
+          entity: "communityChat",
+          action: "updated",
+          entityId: request.params.messageId,
+          actor: admin.email,
+        });
+        return {
+          items,
+        };
+      } catch (error) {
+        reply.code(400);
+        return {
+          error:
+            error instanceof Error ? error.message : "No se pudo eliminar la imagen.",
+        };
+      }
+    },
+  );
 
   app.get<{ Params: { userId: string } }>("/users/:userId", async (request, reply) => {
     const admin = await requireAdminSession(request, reply);

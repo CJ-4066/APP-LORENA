@@ -15,6 +15,7 @@ import {
   listMediaAssets,
 } from "../../data/media-store.js";
 import {
+  getUploadPublicPrefix,
   readUploadFile,
   resolveUploadStoragePath,
   uploadFileExists,
@@ -284,7 +285,7 @@ async function openPdfDocument(pdfId: string, refresh = false) {
   return { bytes, document };
 }
 
-async function loadLibraryPdfBytes(
+export async function loadLibraryPdfBytes(
   pdfId: string,
   refresh = false,
 ): Promise<Uint8Array> {
@@ -379,14 +380,31 @@ async function loadStoredLibraryPdfBytes(
     limit: 1,
   }))[0];
   if (linkedAsset?.mimeType === "application/pdf") {
-    return getMediaAssetBytes(linkedAsset.id);
+    try {
+      return await getMediaAssetBytes(linkedAsset.id);
+    } catch {
+      // Fall through to alternate sources when the linked asset metadata exists
+      // but the physical file has already been removed.
+    }
   }
 
   try {
     const parsed = new URL(normalized, "http://localhost");
     const asset = await getMediaAssetByPublicPath(parsed.pathname);
     if (asset?.mimeType === "application/pdf") {
-      return getMediaAssetBytes(asset.id);
+      try {
+        return await getMediaAssetBytes(asset.id);
+      } catch {
+        // Fall through to direct local-path or remote fetch resolution.
+      }
+    }
+
+    const localStoragePath = toLocalUploadStoragePath(parsed.pathname);
+    if (localStoragePath && (await uploadFileExists(localStoragePath))) {
+      const bytes = await readUploadFile(localStoragePath);
+      if (looksLikePdf(bytes)) {
+        return bytes;
+      }
     }
   } catch {
     // Ignore malformed URLs and fall back to remote fetch below.
@@ -405,6 +423,24 @@ async function loadStoredLibraryPdfBytes(
   }
 
   return null;
+}
+
+function toLocalUploadStoragePath(pathname: string): string | null {
+  const normalizedPath = pathname.trim();
+  if (!normalizedPath.startsWith("/")) {
+    return null;
+  }
+
+  const publicPrefix = getUploadPublicPrefix();
+  if (normalizedPath === publicPrefix) {
+    return "";
+  }
+
+  if (!normalizedPath.startsWith(`${publicPrefix}/`)) {
+    return null;
+  }
+
+  return normalizedPath.slice(publicPrefix.length + 1);
 }
 
 async function loadPageText(

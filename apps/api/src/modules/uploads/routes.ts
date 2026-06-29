@@ -3,7 +3,10 @@ import type { FastifyInstance } from "fastify";
 import { getMediaAssetBytes, getMediaAssetByPublicPath } from "../../data/media-store.js";
 
 export async function registerPublicUploadRoutes(app: FastifyInstance) {
-  app.get<{ Params: { "*": string } }>("/uploads/*", async (request, reply) => {
+  const serveUpload = async (
+    request: { params: { "*": string } },
+    reply: { code: (statusCode: number) => unknown; header: (name: string, value: string) => unknown },
+  ) => {
     const publicPath = `/uploads/${request.params["*"] ?? ""}`.replace(/\/+/g, "/");
     const asset = await getMediaAssetByPublicPath(publicPath);
     if (!asset) {
@@ -23,6 +26,8 @@ export async function registerPublicUploadRoutes(app: FastifyInstance) {
           error instanceof Error ? error.message : "No se pudo recuperar el archivo.",
       };
     }
-  });
-}
+  };
 
+  app.get<{ Params: { "*": string } }>("/uploads/*", serveUpload);
+  app.get<{ Params: { "*": string } }>("/api/uploads/*", serveUpload);
+}

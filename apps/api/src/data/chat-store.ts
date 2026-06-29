@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import type { PoolClient, QueryResultRow } from "pg";
 
+import { getUserBadgeProfile } from "./badge-store.js";
 import { isDatabaseConfigured, query, withTransaction } from "../infrastructure/database.js";
 import { getBookings, getProfile } from "./persistent-store.js";
 import { getSpecialists } from "./mock-store.js";
@@ -38,6 +39,11 @@ export interface CommunityChatMessage {
   id: string;
   authorName: string;
   authorRole: ChatAuthorRole;
+  authorUserId: string | null;
+  authorAvatarUrl: string | null;
+  authorBadgeName: string | null;
+  authorBadgeIconUrl: string | null;
+  authorBadgePathId: string | null;
   body: string;
   imageUrl: string | null;
   createdAt: string;
@@ -68,6 +74,7 @@ export interface CreateCommunityChatMessageInput {
 export interface CreateCommunityChatReplyInput extends CreateCommunityChatMessageInput {
   authorName?: string;
   authorRole?: ChatAuthorRole;
+  authorUserId?: string;
 }
 
 interface ThreadRow extends QueryResultRow {
@@ -96,6 +103,7 @@ interface CommunityMessageRow extends QueryResultRow {
   id: string;
   author_name: string;
   author_role: ChatAuthorRole;
+  author_user_id: string | null;
   body: string;
   image_url: string | null;
   created_at: Date | string;
@@ -147,6 +155,11 @@ const mockCommunityMessages: CommunityChatMessage[] = [
     id: "community-msg-1",
     authorName: "Amaya Rivas",
     authorRole: "guide",
+    authorUserId: null,
+    authorAvatarUrl: null,
+    authorBadgeName: null,
+    authorBadgeIconUrl: null,
+    authorBadgePathId: null,
     body: "Bienvenidos al chat general. Hoy la energía está buena para compartir cómo sienten el tránsito más fuerte del día.",
     imageUrl: null,
     createdAt: "2026-04-06T13:00:00.000Z",
@@ -155,6 +168,11 @@ const mockCommunityMessages: CommunityChatMessage[] = [
     id: "community-msg-2",
     authorName: "Lucía Beltrán",
     authorRole: "guide",
+    authorUserId: null,
+    authorAvatarUrl: null,
+    authorBadgeName: null,
+    authorBadgeIconUrl: null,
+    authorBadgePathId: null,
     body: "Si quieren, dejen una sola pregunta o sensación por mensaje para que la conversación siga clara.",
     imageUrl: null,
     createdAt: "2026-04-06T13:06:00.000Z",
@@ -163,6 +181,11 @@ const mockCommunityMessages: CommunityChatMessage[] = [
     id: "community-msg-3",
     authorName: "María V.",
     authorRole: "member",
+    authorUserId: demoUserId,
+    authorAvatarUrl: null,
+    authorBadgeName: null,
+    authorBadgeIconUrl: null,
+    authorBadgePathId: null,
     body: "Yo hoy siento mucho movimiento mental, como si Mercurio estuviera apurando todo.",
     imageUrl: null,
     createdAt: "2026-04-06T13:11:00.000Z",
@@ -356,12 +379,21 @@ function resolveCommunityImageUrl(value?: string): string | null {
     trimmed.startsWith("http://") ||
     trimmed.startsWith("https://") ||
     trimmed.startsWith("/api/storage/assets/") ||
+    trimmed.startsWith("/api/uploads/") ||
     trimmed.startsWith("/uploads/")
   ) {
+    if (trimmed.startsWith("/uploads/")) {
+      return `/api${trimmed}`;
+    }
+
     return trimmed;
   }
 
   return null;
+}
+
+function resolveCommunityAvatarUrl(value?: string): string | null {
+  return resolveCommunityImageUrl(value);
 }
 
 function mapCommunityMessageRow(row: CommunityMessageRow): CommunityChatMessage {
@@ -369,8 +401,13 @@ function mapCommunityMessageRow(row: CommunityMessageRow): CommunityChatMessage 
     id: row.id,
     authorName: row.author_name,
     authorRole: row.author_role,
+    authorUserId: row.author_user_id ?? null,
+    authorAvatarUrl: null,
+    authorBadgeName: null,
+    authorBadgeIconUrl: null,
+    authorBadgePathId: null,
     body: row.body,
-    imageUrl: row.image_url,
+    imageUrl: resolveCommunityImageUrl(row.image_url ?? undefined),
     createdAt: toIsoString(row.created_at) ?? new Date().toISOString(),
   };
 }
@@ -391,6 +428,81 @@ function resolveCommunityAuthorName(profile: Awaited<ReturnType<typeof getProfil
   }
 
   return "Miembro";
+}
+
+async function enrichCommunityMessages(
+  messages: CommunityChatMessage[],
+): Promise<CommunityChatMessage[]> {
+  const authorUserIds = [
+    ...new Set(
+      messages
+        .map((message) => message.authorUserId?.trim() ?? "")
+        .filter((value) => value.length > 0),
+    ),
+  ];
+
+  if (authorUserIds.length === 0) {
+    return messages;
+  }
+
+  const authorDetails = new Map<
+    string,
+    {
+      avatarUrl: string | null;
+      badgeName: string | null;
+      badgeIconUrl: string | null;
+      badgePathId: string | null;
+    }
+  >();
+
+  await Promise.all(
+    authorUserIds.map(async (userId) => {
+      try {
+        const [profile, badgeProfile] = await Promise.all([
+          getProfile(userId),
+          getUserBadgeProfile(userId),
+        ]);
+        const communityBadge =
+          badgeProfile.badges
+            .filter((badge) => badge.unlocked && badge.pathId === "community_path")
+            .sort((left, right) => right.stepIndex - left.stepIndex)[0] ?? null;
+
+        authorDetails.set(userId, {
+          avatarUrl: resolveCommunityAvatarUrl(profile.avatarUrl),
+          badgeName: communityBadge?.displayName ?? null,
+          badgeIconUrl: communityBadge?.displayIconUrl ?? null,
+          badgePathId: communityBadge?.pathId ?? null,
+        });
+      } catch {
+        authorDetails.set(userId, {
+          avatarUrl: null,
+          badgeName: null,
+          badgeIconUrl: null,
+          badgePathId: null,
+        });
+      }
+    }),
+  );
+
+  return messages.map((message) => {
+    const userId = message.authorUserId?.trim() ?? "";
+    if (!userId) {
+      return message;
+    }
+
+    const details = authorDetails.get(userId);
+    if (!details) {
+      return message;
+    }
+
+    return {
+      ...message,
+      authorAvatarUrl: details.avatarUrl,
+      authorBadgeName: details.badgeName,
+      authorBadgeIconUrl: details.badgeIconUrl,
+      authorBadgePathId: details.badgePathId,
+    };
+  });
 }
 
 export async function getChatThreads(userId?: string): Promise<ChatThreadSummary[]> {
@@ -694,20 +806,20 @@ export async function createChatMessage(
 
 export async function getCommunityChatMessages(): Promise<CommunityChatMessage[]> {
   if (!isDatabaseConfigured()) {
-    return [...mockCommunityMessages].sort(
-      (left, right) => left.createdAt.localeCompare(right.createdAt),
+    return enrichCommunityMessages(
+      [...mockCommunityMessages].sort((left, right) => left.createdAt.localeCompare(right.createdAt)),
     );
   }
 
   const result = await query<CommunityMessageRow>(
     `
-      select id, author_name, author_role, body, image_url, created_at
+      select id, author_name, author_role, author_user_id, body, image_url, created_at
       from community_chat_messages
       order by created_at asc
     `,
   );
 
-  return result.rows.map(mapCommunityMessageRow);
+  return enrichCommunityMessages(result.rows.map(mapCommunityMessageRow));
 }
 
 export async function createCommunityChatMessage(
@@ -716,6 +828,7 @@ export async function createCommunityChatMessage(
   options?: {
     authorName?: string;
     authorRole?: ChatAuthorRole;
+    authorUserId?: string;
   },
 ): Promise<CommunityChatMessage[]> {
   const resolvedUserId = userId ?? demoUserId;
@@ -723,6 +836,8 @@ export async function createCommunityChatMessage(
   const imageUrl = resolveCommunityImageUrl(input.imageUrl);
   const profile = await getProfile(resolvedUserId);
   const authorRole = options?.authorRole ?? "member";
+  const authorUserId =
+    authorRole === "member" ? resolvedUserId : options?.authorUserId?.trim() || null;
   const authorName =
     options?.authorName?.trim() ||
     (authorRole === "guide" ? "Equipo Lo Renaciente" : resolveCommunityAuthorName(profile));
@@ -732,6 +847,11 @@ export async function createCommunityChatMessage(
       id: randomUUID(),
       authorName,
       authorRole,
+      authorUserId,
+      authorAvatarUrl: null,
+      authorBadgeName: null,
+      authorBadgeIconUrl: null,
+      authorBadgePathId: null,
       body,
       imageUrl,
       createdAt: new Date().toISOString(),
@@ -746,12 +866,116 @@ export async function createCommunityChatMessage(
         id,
         author_name,
         author_role,
+        author_user_id,
         body,
         image_url
-      ) values ($1, $2, $3, $4, $5)
+      ) values ($1, $2, $3, $4, $5, $6)
     `,
-    [randomUUID(), authorName, authorRole, body, imageUrl],
+    [randomUUID(), authorName, authorRole, authorUserId, body, imageUrl],
   );
+
+  return getCommunityChatMessages();
+}
+
+export async function deleteCommunityChatMessage(messageId: string): Promise<CommunityChatMessage[]> {
+  const normalizedMessageId = messageId.trim();
+  if (!normalizedMessageId) {
+    throw new Error("El mensaje no es válido.");
+  }
+
+  if (!isDatabaseConfigured()) {
+    const nextMessages = mockCommunityMessages.filter((message) => message.id !== normalizedMessageId);
+    if (nextMessages.length === mockCommunityMessages.length) {
+      throw new Error("El mensaje no existe.");
+    }
+
+    mockCommunityMessages.splice(0, mockCommunityMessages.length, ...nextMessages);
+    return getCommunityChatMessages();
+  }
+
+  const result = await query<{ id: string }>(
+    `
+      delete from community_chat_messages
+      where id = $1
+      returning id
+    `,
+    [normalizedMessageId],
+  );
+
+  if (!result.rows[0]) {
+    throw new Error("El mensaje no existe.");
+  }
+
+  return getCommunityChatMessages();
+}
+
+export async function deleteCommunityChatMessageImage(
+  messageId: string,
+): Promise<CommunityChatMessage[]> {
+  const normalizedMessageId = messageId.trim();
+  if (!normalizedMessageId) {
+    throw new Error("El mensaje no es válido.");
+  }
+
+  if (!isDatabaseConfigured()) {
+    const index = mockCommunityMessages.findIndex((message) => message.id === normalizedMessageId);
+    if (index < 0) {
+      throw new Error("El mensaje no existe.");
+    }
+
+    const current = mockCommunityMessages[index];
+    if (!current.imageUrl) {
+      throw new Error("El mensaje no tiene imagen.");
+    }
+
+    if (!current.body.trim()) {
+      mockCommunityMessages.splice(index, 1);
+    } else {
+      mockCommunityMessages[index] = {
+        ...current,
+        imageUrl: null,
+      };
+    }
+
+    return getCommunityChatMessages();
+  }
+
+  const existing = await query<{ body: string; image_url: string | null }>(
+    `
+      select body, image_url
+      from community_chat_messages
+      where id = $1
+      limit 1
+    `,
+    [normalizedMessageId],
+  );
+
+  const current = existing.rows[0];
+  if (!current) {
+    throw new Error("El mensaje no existe.");
+  }
+  if (!current.image_url) {
+    throw new Error("El mensaje no tiene imagen.");
+  }
+
+  if (!current.body.trim()) {
+    await query(
+      `
+        delete from community_chat_messages
+        where id = $1
+      `,
+      [normalizedMessageId],
+    );
+  } else {
+    await query(
+      `
+        update community_chat_messages
+        set image_url = null
+        where id = $1
+      `,
+      [normalizedMessageId],
+    );
+  }
 
   return getCommunityChatMessages();
 }

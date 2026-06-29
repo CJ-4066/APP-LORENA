@@ -186,6 +186,11 @@ type AdminCommunityMessage = {
   id: string;
   authorName: string;
   authorRole: "member" | "guide" | "system";
+  authorUserId?: string | null;
+  authorAvatarUrl?: string | null;
+  authorBadgeName?: string | null;
+  authorBadgeIconUrl?: string | null;
+  authorBadgePathId?: string | null;
   body: string;
   imageUrl?: string | null;
   createdAt: string;
@@ -1505,6 +1510,30 @@ function formatDate(value: string): string {
   }).format(new Date(value));
 }
 
+function getNameInitials(value: string): string {
+  const parts = value
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2);
+  if (parts.length === 0) {
+    return "LR";
+  }
+
+  return parts.map((item) => item[0]?.toUpperCase() ?? "").join("");
+}
+
+function getCommunityRoleLabel(role: AdminCommunityMessage["authorRole"]): string {
+  switch (role) {
+    case "guide":
+      return "Admin";
+    case "system":
+      return "Sistema";
+    default:
+      return "Usuario";
+  }
+}
+
 function formatOptionalDate(value?: string): string {
   return value ? formatDate(value) : "Semilla";
 }
@@ -2076,7 +2105,7 @@ function hasRenderableBadgeIcon(iconUrl: string): boolean {
 }
 
 function hasRenderableMediaUrl(url: string): boolean {
-  return /^(https?:\/\/|data:image\/|blob:|\/assets\/|assets\/|\/uploads\/|uploads\/)/i.test(url);
+  return /^(https?:\/\/|data:image\/|blob:|\/assets\/|assets\/|\/uploads\/|uploads\/|\/api\/storage\/assets\/)/i.test(url);
 }
 
 function resolveMediaUrl(url: string): string {
@@ -2090,7 +2119,8 @@ function resolveMediaUrl(url: string): string {
   }
 
   if (/^(\/?uploads\/)/i.test(trimmed)) {
-    return new URL(trimmed.startsWith("/") ? trimmed : `/${trimmed}`, apiBaseUrl).toString();
+    const normalized = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+    return new URL(`/api${normalized}`, apiBaseUrl).toString();
   }
 
   if (trimmed.startsWith("/")) {
@@ -2348,6 +2378,7 @@ function App() {
   const [communityReplyImageError, setCommunityReplyImageError] = useState<string | null>(null);
   const [communityReplyError, setCommunityReplyError] = useState<string | null>(null);
   const [sendingCommunityReply, setSendingCommunityReply] = useState(false);
+  const [moderatingCommunityMessageId, setModeratingCommunityMessageId] = useState<string | null>(null);
   const communityReplyImageInputRef = useRef<HTMLInputElement | null>(null);
   const [incidents, setIncidents] = useState<AdminIncident[]>([]);
   const [badges, setBadges] = useState<Badge[]>([]);
@@ -2771,6 +2802,41 @@ function App() {
     setLibraryPdfs(json.items ?? []);
   }, [apiBaseUrl, handleSessionInvalid]);
 
+  const refreshCommunityChatSnapshot = useCallback(async () => {
+    const [chatResponse, communityResponse] = await Promise.all([
+      fetch(`${apiBaseUrl}/api/admin/chat?limit=20`, {
+        credentials: "include",
+        cache: "no-store",
+      }),
+      fetch(`${apiBaseUrl}/api/admin/chat/community?limit=40`, {
+        credentials: "include",
+        cache: "no-store",
+      }),
+    ]);
+
+    if (
+      chatResponse.status === 401 ||
+      chatResponse.status === 403 ||
+      communityResponse.status === 401 ||
+      communityResponse.status === 403
+    ) {
+      handleSessionInvalid("Tu sesión de admin expiró.");
+      return;
+    }
+
+    if (!chatResponse.ok || !communityResponse.ok) {
+      throw new Error("No se pudo recargar el chat.");
+    }
+
+    const [chatJson, communityJson] = await Promise.all([
+      chatResponse.json() as Promise<{ item: AdminChat }>,
+      communityResponse.json() as Promise<{ items: AdminCommunityMessage[] }>,
+    ]);
+
+    setChat(chatJson.item);
+    setCommunityMessages(communityJson.items ?? []);
+  }, [apiBaseUrl, handleSessionInvalid]);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -3079,6 +3145,13 @@ function App() {
         if (payload.entity === "libraryPdf" || payload.entity === "all") {
           void refreshLibraryPdfs();
         }
+
+        if (
+          activeSection === "community" &&
+          (payload.entity === "communityChat" || payload.entity === "all")
+        ) {
+          void refreshCommunityChatSnapshot();
+        }
       } catch {
         // Ignore malformed events and keep listening.
       }
@@ -3090,7 +3163,35 @@ function App() {
       eventSource.removeEventListener("content.changed", handleContentChange as EventListener);
       eventSource.close();
     };
-  }, [apiBaseUrl, authStatus, refreshLibraryPdfs]);
+  }, [activeSection, apiBaseUrl, authStatus, refreshCommunityChatSnapshot, refreshLibraryPdfs]);
+
+  useEffect(() => {
+    if (authStatus !== "authenticated" || activeSection !== "community") {
+      return;
+    }
+
+    let cancelled = false;
+    const refreshInterval = window.setInterval(() => {
+      if (!cancelled) {
+        void refreshCommunityChatSnapshot();
+      }
+    }, 4000);
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden && !cancelled) {
+        void refreshCommunityChatSnapshot();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    void refreshCommunityChatSnapshot();
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(refreshInterval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [activeSection, authStatus, refreshCommunityChatSnapshot]);
 
   useEffect(() => {
     let cancelled = false;
@@ -3401,6 +3502,52 @@ function App() {
       if (communityReplyImageInputRef.current) {
         communityReplyImageInputRef.current.value = "";
       }
+    }
+  }
+
+  async function handleModerateCommunityMessage(
+    messageId: string,
+    action: "delete-message" | "delete-image",
+  ) {
+    const endpoint =
+      action === "delete-image"
+        ? `${apiBaseUrl}/api/admin/chat/community/messages/${messageId}/image`
+        : `${apiBaseUrl}/api/admin/chat/community/messages/${messageId}`;
+    const fallbackError =
+      action === "delete-image"
+        ? "No se pudo eliminar la imagen."
+        : "No se pudo eliminar el mensaje.";
+
+    setModeratingCommunityMessageId(messageId);
+    setCommunityReplyError(null);
+
+    try {
+      const response = await fetch(endpoint, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      const json = (await response.json()) as {
+        items?: AdminCommunityMessage[];
+        error?: string;
+      };
+
+      if (response.status === 401 || response.status === 403) {
+        handleSessionInvalid("Tu sesión de admin expiró.");
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(json.error ?? fallbackError);
+      }
+
+      setCommunityMessages(json.items ?? []);
+    } catch (moderationError) {
+      setCommunityReplyError(
+        moderationError instanceof Error ? moderationError.message : fallbackError,
+      );
+    } finally {
+      setModeratingCommunityMessageId(null);
     }
   }
 
@@ -7376,18 +7523,53 @@ function App() {
                       communityMessages.slice().reverse().map((message) => (
                         <article key={message.id} className={`chat-message-card${message.authorRole === "guide" ? " chat-message-card-guide" : " chat-message-card-member"}`}>
                           <div className="chat-message-head">
-                            <strong>{message.authorName}</strong>
-                            <span>
-                              {message.authorRole === "guide"
-                                ? "Admin"
-                                : message.authorRole === "system"
-                                  ? "Sistema"
-                                  : "Usuario"}
-                            </span>
+                            <div className="chat-message-author">
+                              <div className="chat-message-avatar" aria-hidden="true">
+                                {message.authorAvatarUrl ? (
+                                  <img src={resolveMediaUrl(message.authorAvatarUrl)} alt="" />
+                                ) : (
+                                  <span>{getNameInitials(message.authorName)}</span>
+                                )}
+                              </div>
+                              <div className="chat-message-author-meta">
+                                <div className="chat-message-author-line">
+                                  <strong>{message.authorName}</strong>
+                                  {message.authorBadgeName ? (
+                                    <span className="chat-message-badge">
+                                      {message.authorBadgeIconUrl ? (
+                                        <img src={resolveMediaUrl(message.authorBadgeIconUrl)} alt="" />
+                                      ) : null}
+                                      <span>{message.authorBadgeName}</span>
+                                    </span>
+                                  ) : null}
+                                </div>
+                                <span>{getCommunityRoleLabel(message.authorRole)}</span>
+                              </div>
+                            </div>
+                            <div className="chat-message-tools">
+                              {message.imageUrl ? (
+                                <button
+                                  type="button"
+                                  className="secondary-button chat-message-tool-button"
+                                  onClick={() => void handleModerateCommunityMessage(message.id, "delete-image")}
+                                  disabled={moderatingCommunityMessageId === message.id}
+                                >
+                                  {moderatingCommunityMessageId === message.id ? "Procesando..." : "Quitar imagen"}
+                                </button>
+                              ) : null}
+                              <button
+                                type="button"
+                                className="danger-button chat-message-tool-button"
+                                onClick={() => void handleModerateCommunityMessage(message.id, "delete-message")}
+                                disabled={moderatingCommunityMessageId === message.id}
+                              >
+                                {moderatingCommunityMessageId === message.id ? "Procesando..." : "Eliminar"}
+                              </button>
+                            </div>
                           </div>
                           {message.imageUrl ? (
-                            <a href={message.imageUrl} target="_blank" rel="noreferrer" className="chat-message-image-link">
-                              <img src={message.imageUrl} alt={message.body || "Adjunto del mensaje"} />
+                            <a href={resolveMediaUrl(message.imageUrl)} target="_blank" rel="noreferrer" className="chat-message-image-link">
+                              <img src={resolveMediaUrl(message.imageUrl)} alt={message.body || "Adjunto del mensaje"} />
                             </a>
                           ) : null}
                           {message.body ? <p>{message.body}</p> : null}

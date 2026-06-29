@@ -267,6 +267,7 @@ class UserProfile {
     required this.roles,
     required this.natalChart,
     required this.preferences,
+    required this.energyProfile,
   });
 
   final String id;
@@ -283,6 +284,7 @@ class UserProfile {
   final List<String> roles;
   final NatalChart natalChart;
   final UserPreferences preferences;
+  final EnergyProfile energyProfile;
 
   const UserProfile.empty()
       : id = '',
@@ -298,7 +300,8 @@ class UserProfile {
         accountType = 'client',
         roles = const [],
         natalChart = const NatalChart.empty(),
-        preferences = const UserPreferences.empty();
+        preferences = const UserPreferences.empty(),
+        energyProfile = const EnergyProfile.empty();
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
     return UserProfile(
@@ -318,6 +321,7 @@ class UserProfile {
       preferences: UserPreferences.fromJson(
         _asMap(json['preferences']),
       ),
+      energyProfile: EnergyProfile.fromJson(_asMap(json['energyProfile'])),
     );
   }
 
@@ -337,6 +341,90 @@ class UserProfile {
       'roles': roles,
       'natalChart': natalChart.toJson(),
       'preferences': preferences.toJson(),
+      'energyProfile': energyProfile.toJson(),
+    };
+  }
+}
+
+class EnergyProfile {
+  const EnergyProfile({
+    required this.sign,
+    required this.element,
+    required this.modality,
+    required this.rulingPlanet,
+    required this.powerColorName,
+    required this.powerColorHex,
+    required this.energyNumber,
+    required this.energyStone,
+    required this.ritual,
+    required this.affirmation,
+    required this.focusArea,
+    required this.energyTheme,
+  });
+
+  final String sign;
+  final String element;
+  final String modality;
+  final String rulingPlanet;
+  final String powerColorName;
+  final String powerColorHex;
+  final int energyNumber;
+  final String energyStone;
+  final String ritual;
+  final String affirmation;
+  final String focusArea;
+  final String energyTheme;
+
+  const EnergyProfile.empty()
+      : sign = '',
+        element = '',
+        modality = '',
+        rulingPlanet = '',
+        powerColorName = '',
+        powerColorHex = '',
+        energyNumber = 0,
+        energyStone = '',
+        ritual = '',
+        affirmation = '',
+        focusArea = '',
+        energyTheme = '';
+
+  bool get isAvailable =>
+      sign.trim().isNotEmpty ||
+      powerColorName.trim().isNotEmpty ||
+      energyStone.trim().isNotEmpty;
+
+  factory EnergyProfile.fromJson(Map<String, dynamic> json) {
+    return EnergyProfile(
+      sign: json['sign'] as String? ?? '',
+      element: json['element'] as String? ?? '',
+      modality: json['modality'] as String? ?? '',
+      rulingPlanet: json['rulingPlanet'] as String? ?? '',
+      powerColorName: json['powerColorName'] as String? ?? '',
+      powerColorHex: json['powerColorHex'] as String? ?? '',
+      energyNumber: json['energyNumber'] as int? ?? 0,
+      energyStone: json['energyStone'] as String? ?? '',
+      ritual: json['ritual'] as String? ?? '',
+      affirmation: json['affirmation'] as String? ?? '',
+      focusArea: json['focusArea'] as String? ?? '',
+      energyTheme: json['energyTheme'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'sign': sign,
+      'element': element,
+      'modality': modality,
+      'rulingPlanet': rulingPlanet,
+      'powerColorName': powerColorName,
+      'powerColorHex': powerColorHex,
+      'energyNumber': energyNumber,
+      'energyStone': energyStone,
+      'ritual': ritual,
+      'affirmation': affirmation,
+      'focusArea': focusArea,
+      'energyTheme': energyTheme,
     };
   }
 }

@@ -23,6 +23,7 @@ import {
 } from "../infrastructure/redis.js";
 import { getUserRoles, userHasRole } from "./authz-store.js";
 import { buildDailyHomeContent } from "./home-daily.js";
+import { buildEnergyProfile } from "./energy-profile.js";
 import {
   buildShopSku,
   buildShopOrderDraft,
@@ -686,6 +687,13 @@ function mapUserRow(row: UserRow): UserProfile {
       ) as SessionMode[],
       receivesPush: row.receives_push,
     },
+    energyProfile: buildEnergyProfile({
+      firstName: row.first_name,
+      lastName: row.last_name,
+      zodiacSign: row.zodiac_sign,
+      birthDate: row.birth_date,
+      focusAreas: readStringArray(row.focus_areas),
+    }),
   };
 }
 
