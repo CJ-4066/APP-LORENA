@@ -91,6 +91,31 @@ function buildAdminAuditMeta(admin: {
   };
 }
 
+function buildSpecialistServicesMap(services: Awaited<ReturnType<typeof listServices>>) {
+  const itemsBySpecialistId = new Map<string, Awaited<ReturnType<typeof listServices>>>();
+  for (const service of services) {
+    for (const specialistId of service.specialistIds ?? []) {
+      const items = itemsBySpecialistId.get(specialistId) ?? [];
+      items.push(service);
+      itemsBySpecialistId.set(specialistId, items);
+    }
+  }
+  return itemsBySpecialistId;
+}
+
+function buildSpecialistBookingsMap(bookings: Awaited<ReturnType<typeof getAllBookingsAdmin>>) {
+  const itemsBySpecialistId = new Map<string, Awaited<ReturnType<typeof getAllBookingsAdmin>>>();
+  for (const booking of bookings) {
+    if (!booking.specialistId) {
+      continue;
+    }
+    const items = itemsBySpecialistId.get(booking.specialistId) ?? [];
+    items.push(booking);
+    itemsBySpecialistId.set(booking.specialistId, items);
+  }
+  return itemsBySpecialistId;
+}
+
 function parseBooleanField(value: unknown, fallback: boolean): boolean {
   if (typeof value !== "string") {
     return fallback;
@@ -318,13 +343,11 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
 
     const services = await listServices({ includeInactive: true });
     const bookings = await getAllBookingsAdmin();
+    const servicesBySpecialistId = buildSpecialistServicesMap(services);
+    const bookingsBySpecialistId = buildSpecialistBookingsMap(bookings);
     const specialists = (await listAdminSpecialists()).map((specialist) => {
-      const specialistServices = services.filter((service) =>
-        service.specialistIds.includes(specialist.id),
-      );
-      const specialistBookings = bookings.filter(
-        (booking) => booking.specialistId === specialist.id,
-      );
+      const specialistServices = servicesBySpecialistId.get(specialist.id) ?? [];
+      const specialistBookings = bookingsBySpecialistId.get(specialist.id) ?? [];
 
       return {
         ...specialist,
@@ -351,14 +374,10 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
       return { error: "El especialista no existe." };
     }
 
-    const services = await listServices({ includeInactive: true });
-    const bookings = await getAllBookingsAdmin();
-    const specialistServices = services.filter((service) =>
-      service.specialistIds.includes(specialist.id),
-    );
-    const specialistBookings = bookings.filter(
-      (booking) => booking.specialistId === specialist.id,
-    );
+    const [specialistServices, specialistBookings] = await Promise.all([
+      listServices({ includeInactive: true, specialistId: specialist.id }),
+      getAllBookingsAdmin({ specialistId: specialist.id, limit: 20 }),
+    ]);
 
     return {
       item: {
@@ -505,9 +524,9 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
       return { error: getAdminError(reply.statusCode, false) };
     }
 
-    const specialistBookings = (await getAllBookingsAdmin()).filter(
-      (booking) => booking.specialistId === request.params.specialistId,
-    );
+    const specialistBookings = await getAllBookingsAdmin({
+      specialistId: request.params.specialistId,
+    });
 
     return { items: specialistBookings };
   });
@@ -709,9 +728,7 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
         return { error: getAdminError(reply.statusCode, false) };
       }
 
-      const booking = (await getAllBookingsAdmin()).find(
-        (item) => item.id === request.params.bookingId,
-      );
+      const booking = (await getAllBookingsAdmin()).find((item) => item.id === request.params.bookingId);
       if (!booking) {
         reply.code(404);
         return { error: "La reserva no existe." };

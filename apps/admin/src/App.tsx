@@ -317,6 +317,21 @@ type DeveloperSection =
   | "diagnostics"
   | "settings";
 
+type ProtectedResourceKey =
+  | "bookings"
+  | "specialists"
+  | "orders"
+  | "products"
+  | "courses"
+  | "courseResources"
+  | "libraryPdfs"
+  | "users"
+  | "chat"
+  | "community"
+  | "incidents"
+  | "diagnostics"
+  | "audit";
+
 type SpecialistDetailTab =
   | "profile"
   | "services"
@@ -356,6 +371,29 @@ type BadgeRule = {
   value: string;
   isActive: boolean;
 };
+
+const protectedResourceKeys: ProtectedResourceKey[] = [
+  "bookings",
+  "specialists",
+  "orders",
+  "products",
+  "courses",
+  "courseResources",
+  "libraryPdfs",
+  "users",
+  "chat",
+  "community",
+  "incidents",
+  "diagnostics",
+  "audit",
+];
+
+function createProtectedResourceLoadState(): Record<ProtectedResourceKey, boolean> {
+  return protectedResourceKeys.reduce(
+    (state, key) => ({ ...state, [key]: false }),
+    {} as Record<ProtectedResourceKey, boolean>,
+  );
+}
 
 type Badge = {
   id: string;
@@ -532,7 +570,7 @@ const apiBaseUrl =
         : window.location.origin.replace(/\/+$/u, ""));
 const brandLogoUrl = `${import.meta.env.BASE_URL}branding/lo-renaciente-isotipo.png`;
 const adminBasePath = import.meta.env.BASE_URL.replace(/\/+$/u, "") || "";
-const adminBuildStamp = "reset-2026-06-11";
+const adminBuildStamp = "reset-2026-06-29-ops-2";
 
 type CourseWorkspaceTab = "data" | "modules" | "lessons" | "resources" | "library" | "publication" | "history";
 
@@ -2201,6 +2239,9 @@ function App() {
   const [loginPassword, setLoginPassword] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
   const [health, setHealth] = useState<HealthResponse | null>(null);
+  const [loadedProtectedResources, setLoadedProtectedResources] = useState<
+    Record<ProtectedResourceKey, boolean>
+  >(() => createProtectedResourceLoadState());
   const [specialists, setSpecialists] = useState<AdminSpecialist[]>([]);
   const [selectedSpecialistId, setSelectedSpecialistId] = useState<string | null>(null);
   const [selectedSpecialistDetail, setSelectedSpecialistDetail] =
@@ -2605,6 +2646,7 @@ function App() {
   }, [courseDrawerTab, courses, isCourseDrawerOpen, selectedCourseId]);
 
   const clearProtectedState = useCallback(() => {
+    setLoadedProtectedResources(createProtectedResourceLoadState());
     setSpecialists([]);
     setSelectedSpecialistId(null);
     setSelectedSpecialistDetail(null);
@@ -2837,6 +2879,135 @@ function App() {
     setCommunityMessages(communityJson.items ?? []);
   }, [apiBaseUrl, handleSessionInvalid]);
 
+  const fetchProtectedResource = useCallback(
+    (key: ProtectedResourceKey) => {
+      const options: RequestInit = { credentials: "include" };
+      switch (key) {
+        case "bookings":
+          return fetch(`${apiBaseUrl}/api/admin/bookings?limit=20`, options);
+        case "specialists":
+          return fetch(`${apiBaseUrl}/api/admin/specialists`, options);
+        case "orders":
+          return fetch(`${apiBaseUrl}/api/admin/orders`, options);
+        case "products":
+          return fetch(`${apiBaseUrl}/api/admin/shop/products`, options);
+        case "courses":
+          return fetch(`${apiBaseUrl}/api/admin/courses`, options);
+        case "courseResources":
+          return fetch(`${apiBaseUrl}/api/admin/course-resources`, options);
+        case "libraryPdfs":
+          return fetch(`${apiBaseUrl}/api/admin/library/pdfs`, options);
+        case "users":
+          return fetch(`${apiBaseUrl}/api/admin/users?limit=100`, options);
+        case "chat":
+          return fetch(`${apiBaseUrl}/api/admin/chat?limit=20`, options);
+        case "community":
+          return fetch(`${apiBaseUrl}/api/admin/chat/community?limit=40`, options);
+        case "incidents":
+          return fetch(`${apiBaseUrl}/api/admin/incidents`, options);
+        case "diagnostics":
+          return fetch(`${apiBaseUrl}/api/badges/admin/diagnostics`, options);
+        case "audit": {
+          const query = new URLSearchParams();
+          if (auditFilters.badgeId.trim().length > 0) {
+            query.set("badgeId", auditFilters.badgeId.trim());
+          }
+          if (auditFilters.pathId.trim().length > 0) {
+            query.set("pathId", auditFilters.pathId.trim());
+          }
+          if (auditFilters.action.trim().length > 0) {
+            query.set("action", auditFilters.action.trim());
+          }
+          if (auditFilters.fieldChanged.trim().length > 0) {
+            query.set("fieldChanged", auditFilters.fieldChanged.trim());
+          }
+          if (auditFilters.date.trim().length > 0) {
+            query.set("date", auditFilters.date.trim());
+          }
+          return fetch(
+            `${apiBaseUrl}/api/badges/admin/audit-log${query.toString().length > 0 ? `?${query.toString()}` : ""}`,
+            options,
+          );
+        }
+      }
+    },
+    [apiBaseUrl, auditFilters],
+  );
+
+  const applyProtectedResourcePayload = useCallback(
+    async (key: ProtectedResourceKey, response: Response) => {
+      switch (key) {
+        case "bookings": {
+          const json = (await response.json()) as { items?: AdminBooking[] };
+          setBookings(json.items ?? []);
+          break;
+        }
+        case "specialists": {
+          const json = (await response.json()) as { items?: AdminSpecialist[] };
+          setSpecialists(json.items ?? []);
+          break;
+        }
+        case "orders": {
+          const json = (await response.json()) as { items?: AdminShopOrder[] };
+          setOrders(json.items ?? []);
+          break;
+        }
+        case "products": {
+          const json = (await response.json()) as { items?: AdminShopProduct[] };
+          setProducts(json.items ?? []);
+          break;
+        }
+        case "courses": {
+          const json = (await response.json()) as { items?: AdminCourse[] };
+          setCourses(json.items ?? []);
+          break;
+        }
+        case "courseResources": {
+          const json = (await response.json()) as { items?: AdminCourseResource[] };
+          setCourseResources(json.items ?? []);
+          break;
+        }
+        case "libraryPdfs": {
+          const json = (await response.json()) as { items?: AdminLibraryPdf[] };
+          setLibraryPdfs(json.items ?? []);
+          break;
+        }
+        case "users": {
+          const json = (await response.json()) as { items?: AdminUser[] };
+          setUsers(json.items ?? []);
+          break;
+        }
+        case "chat": {
+          const json = (await response.json()) as { item: AdminChat };
+          setChat(json.item);
+          break;
+        }
+        case "community": {
+          const json = (await response.json()) as { items?: AdminCommunityMessage[] };
+          setCommunityMessages(json.items ?? []);
+          break;
+        }
+        case "incidents": {
+          const json = (await response.json()) as { items?: AdminIncident[] };
+          setIncidents(json.items ?? []);
+          break;
+        }
+        case "diagnostics": {
+          const json = (await response.json()) as BadgeDiagnosticsResult;
+          setDiagnostics(json);
+          break;
+        }
+        case "audit": {
+          const json = (await response.json()) as BadgeAuditLogResponse;
+          setAuditEntries(json.items ?? []);
+          setAuditError(null);
+          break;
+        }
+      }
+    },
+    [],
+  );
+
   useEffect(() => {
     let cancelled = false;
 
@@ -2945,167 +3116,78 @@ function App() {
         return;
       }
 
-      const query = new URLSearchParams();
-      if (auditFilters.badgeId.trim().length > 0) {
-        query.set("badgeId", auditFilters.badgeId.trim());
-      }
-      if (auditFilters.pathId.trim().length > 0) {
-        query.set("pathId", auditFilters.pathId.trim());
-      }
-      if (auditFilters.action.trim().length > 0) {
-        query.set("action", auditFilters.action.trim());
-      }
-      if (auditFilters.fieldChanged.trim().length > 0) {
-        query.set("fieldChanged", auditFilters.fieldChanged.trim());
-      }
-      if (auditFilters.date.trim().length > 0) {
-        query.set("date", auditFilters.date.trim());
+      const requiredResources = (() => {
+        switch (activeSection) {
+          case "specialists":
+            return ["specialists", "users"] as ProtectedResourceKey[];
+          case "services":
+            return ["specialists"] as ProtectedResourceKey[];
+          case "agenda":
+          case "bookings":
+            return ["specialists", "bookings", "users"] as ProtectedResourceKey[];
+          case "orders":
+            return ["orders"] as ProtectedResourceKey[];
+          case "shop":
+            return ["products"] as ProtectedResourceKey[];
+          case "courses":
+            return isCourseDrawerOpen && courseDrawerTab === "library"
+              ? (["courses", "courseResources", "libraryPdfs"] as ProtectedResourceKey[])
+              : (["courses", "courseResources"] as ProtectedResourceKey[]);
+          case "library":
+            return ["libraryPdfs", "courses"] as ProtectedResourceKey[];
+          case "users":
+            return ["users"] as ProtectedResourceKey[];
+          case "community":
+            return ["chat", "community"] as ProtectedResourceKey[];
+          case "developer":
+            switch (developerSection) {
+              case "incidents":
+                return ["incidents"] as ProtectedResourceKey[];
+              case "diagnostics":
+                return ["diagnostics"] as ProtectedResourceKey[];
+              case "audit":
+                return ["audit"] as ProtectedResourceKey[];
+              default:
+                return [] as ProtectedResourceKey[];
+            }
+        }
+      })();
+
+      const resourcesToLoad = requiredResources.filter(
+        (resourceKey) => resourceKey === "audit" || !loadedProtectedResources[resourceKey],
+      );
+
+      if (resourcesToLoad.length === 0) {
+        return;
       }
 
       try {
-        const [
-          bookingsResponse,
-          specialistsResponse,
-          ordersResponse,
-          productsResponse,
-          coursesResponse,
-          courseResourcesResponse,
-          libraryPdfsResponse,
-          usersResponse,
-          chatResponse,
-          communityResponse,
-          incidentsResponse,
-          diagnosticsResponse,
-          auditResponse,
-        ] = await Promise.all([
-          fetch(`${apiBaseUrl}/api/admin/bookings?limit=20`, {
-            credentials: "include",
-          }),
-          fetch(`${apiBaseUrl}/api/admin/specialists`, {
-            credentials: "include",
-          }),
-          fetch(`${apiBaseUrl}/api/admin/orders`, {
-            credentials: "include",
-          }),
-          fetch(`${apiBaseUrl}/api/admin/shop/products`, {
-            credentials: "include",
-          }),
-          fetch(`${apiBaseUrl}/api/admin/courses`, {
-            credentials: "include",
-          }),
-          fetch(`${apiBaseUrl}/api/admin/course-resources`, {
-            credentials: "include",
-          }),
-          fetch(`${apiBaseUrl}/api/admin/library/pdfs`, {
-            credentials: "include",
-          }),
-          fetch(`${apiBaseUrl}/api/admin/users?limit=100`, {
-            credentials: "include",
-          }),
-          fetch(`${apiBaseUrl}/api/admin/chat?limit=20`, {
-            credentials: "include",
-          }),
-          fetch(`${apiBaseUrl}/api/admin/chat/community?limit=40`, {
-            credentials: "include",
-          }),
-          fetch(`${apiBaseUrl}/api/admin/incidents`, {
-            credentials: "include",
-          }),
-          fetch(`${apiBaseUrl}/api/badges/admin/diagnostics`, {
-            credentials: "include",
-          }),
-          fetch(
-            `${apiBaseUrl}/api/badges/admin/audit-log${query.toString().length > 0 ? `?${query.toString()}` : ""}`,
-            {
-              credentials: "include",
-            },
-          ),
-        ]);
+        const responses = await Promise.all(resourcesToLoad.map((key) => fetchProtectedResource(key)));
 
-        if (
-          bookingsResponse.status === 401 ||
-          specialistsResponse.status === 401 ||
-          ordersResponse.status === 401 ||
-          productsResponse.status === 401 ||
-          coursesResponse.status === 401 ||
-          courseResourcesResponse.status === 401 ||
-          libraryPdfsResponse.status === 401 ||
-          usersResponse.status === 401 ||
-          chatResponse.status === 401 ||
-          communityResponse.status === 401 ||
-          incidentsResponse.status === 401 ||
-          diagnosticsResponse.status === 401 ||
-          auditResponse.status === 401
-        ) {
+        if (responses.some((response) => response.status === 401 || response.status === 403)) {
           if (!cancelled) {
             handleSessionInvalid("Tu sesión de admin expiró.");
           }
           return;
         }
 
-        if (
-          !bookingsResponse.ok ||
-          !specialistsResponse.ok ||
-          !ordersResponse.ok ||
-          !productsResponse.ok ||
-          !coursesResponse.ok ||
-          !courseResourcesResponse.ok ||
-          !libraryPdfsResponse.ok ||
-          !usersResponse.ok ||
-          !chatResponse.ok ||
-          !communityResponse.ok ||
-          !incidentsResponse.ok ||
-          !diagnosticsResponse.ok ||
-          !auditResponse.ok
-        ) {
+        if (responses.some((response) => !response.ok)) {
           throw new Error("La sesión admin no pudo cargar las vistas protegidas.");
         }
 
-        const [
-          bookingsJson,
-          specialistsJson,
-          ordersJson,
-          productsJson,
-          coursesJson,
-          courseResourcesJson,
-          libraryPdfsJson,
-          usersJson,
-          chatJson,
-          communityJson,
-          incidentsJson,
-          diagnosticsJson,
-          auditJson,
-        ] = await Promise.all([
-          bookingsResponse.json() as Promise<{ items: AdminBooking[] }>,
-          specialistsResponse.json() as Promise<{ items: AdminSpecialist[] }>,
-          ordersResponse.json() as Promise<{ items: AdminShopOrder[] }>,
-          productsResponse.json() as Promise<{ items: AdminShopProduct[] }>,
-          coursesResponse.json() as Promise<{ items: AdminCourse[] }>,
-          courseResourcesResponse.json() as Promise<{ items: AdminCourseResource[] }>,
-          libraryPdfsResponse.json() as Promise<{ items: AdminLibraryPdf[] }>,
-          usersResponse.json() as Promise<{ items: AdminUser[] }>,
-          chatResponse.json() as Promise<{ item: AdminChat }>,
-          communityResponse.json() as Promise<{ items: AdminCommunityMessage[] }>,
-          incidentsResponse.json() as Promise<{ items: AdminIncident[] }>,
-          diagnosticsResponse.json() as Promise<BadgeDiagnosticsResult>,
-          auditResponse.json() as Promise<BadgeAuditLogResponse>,
-        ]);
-
         if (!cancelled) {
-          setBookings(bookingsJson.items);
-          setSpecialists(specialistsJson.items ?? []);
-          setOrders(ordersJson.items ?? []);
-          setProducts(productsJson.items ?? []);
-          setCourses(coursesJson.items ?? []);
-          setCourseResources(courseResourcesJson.items ?? []);
-          setLibraryPdfs(libraryPdfsJson.items ?? []);
-          setUsers(usersJson.items);
-          setChat(chatJson.item);
-          setCommunityMessages(communityJson.items ?? []);
-          setIncidents(incidentsJson.items ?? []);
-          setDiagnostics(diagnosticsJson);
-          setAuditEntries(auditJson.items ?? []);
-          setAuditError(null);
+          await Promise.all(
+            responses.map((response, index) =>
+              applyProtectedResourcePayload(resourcesToLoad[index], response),
+            ),
+          );
+          setLoadedProtectedResources((current) => {
+            const next = { ...current };
+            for (const key of resourcesToLoad) {
+              next[key] = true;
+            }
+            return next;
+          });
           setError(null);
         }
       } catch (loadError) {
@@ -3124,7 +3206,17 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [authStatus, auditFilters, handleSessionInvalid]);
+  }, [
+    activeSection,
+    applyProtectedResourcePayload,
+    authStatus,
+    courseDrawerTab,
+    developerSection,
+    fetchProtectedResource,
+    handleSessionInvalid,
+    isCourseDrawerOpen,
+    loadedProtectedResources,
+  ]);
 
   useEffect(() => {
     if (authStatus !== "authenticated") {
@@ -4771,6 +4863,24 @@ function App() {
     await refreshSpecialistAudit(selectedSpecialistId);
   }
 
+  async function handleCreateServiceFromServicesSection() {
+    setOperatingPanelMessage(null);
+    setOperatingPanelError(null);
+
+    if (!serviceFilters.specialistId) {
+      setOperatingPanelError("Selecciona un especialista para crearle un servicio.");
+      return;
+    }
+
+    const specialist = specialists.find((item) => item.id === serviceFilters.specialistId);
+    if (!specialist) {
+      setOperatingPanelError("No se encontró el especialista seleccionado.");
+      return;
+    }
+
+    await handleOpenSpecialistDrawer(specialist, "services");
+  }
+
   async function handleCreateAvailability() {
     if (!selectedSpecialistId) {
       return;
@@ -5497,6 +5607,12 @@ function App() {
       return matchesSearch && matchesFeatured && matchesActive && matchesVisible;
     })
     .sort((left, right) => left.name.localeCompare(right.name));
+  const specialistOverview = {
+    total: filteredSpecialists.length,
+    active: filteredSpecialists.filter((specialist) => specialist.isActive).length,
+    visible: filteredSpecialists.filter((specialist) => specialist.isVisible).length,
+    featured: filteredSpecialists.filter((specialist) => specialist.featured).length,
+  };
   const filteredUsers = users
     .filter((user) => {
       const query = userFilters.search.trim().toLowerCase();
@@ -5872,6 +5988,25 @@ function App() {
                 </button>
               </div>
 
+              <div className="specialist-summary-grid">
+                <article className="metric-card specialist-summary-card">
+                  <span>Total</span>
+                  <strong>{specialistOverview.total}</strong>
+                </article>
+                <article className="metric-card specialist-summary-card">
+                  <span>Activos</span>
+                  <strong>{specialistOverview.active}</strong>
+                </article>
+                <article className="metric-card specialist-summary-card">
+                  <span>Visibles</span>
+                  <strong>{specialistOverview.visible}</strong>
+                </article>
+                <article className="metric-card specialist-summary-card">
+                  <span>Destacados</span>
+                  <strong>{specialistOverview.featured}</strong>
+                </article>
+              </div>
+
               <div className="product-toolbar specialist-toolbar">
                 <label>
                   <span>Buscar</span>
@@ -5939,14 +6074,30 @@ function App() {
               <div className="specialist-grid">
                 {filteredSpecialists.map((specialist) => (
                   <article key={specialist.id} className="specialist-card">
-                    <div className="specialist-card-head">
-                      <div>
-                        <p className="product-card-meta">{specialist.headline}</p>
-                        <h3>{specialist.name}</h3>
+                    <div className="specialist-card-top">
+                      <div className="specialist-avatar-shell">
+                        {specialist.avatarUrl ? (
+                          <img src={specialist.avatarUrl} alt={specialist.name} className="specialist-avatar" />
+                        ) : (
+                          <span className="specialist-avatar specialist-avatar-fallback" aria-hidden="true">
+                            {specialist.name
+                              .split(" ")
+                              .filter(Boolean)
+                              .slice(0, 2)
+                              .map((chunk) => chunk[0]?.toUpperCase() ?? "")
+                              .join("")}
+                          </span>
+                        )}
                       </div>
-                      <span className="topbar-pill">
-                        {specialist.featured ? "Destacado" : "Especialista"}
-                      </span>
+                      <div className="specialist-card-head">
+                        <div>
+                          <h3>{specialist.name}</h3>
+                          <p className="product-card-meta specialist-headline">{specialist.headline}</p>
+                        </div>
+                        <span className="topbar-pill">
+                          {specialist.featured ? "Destacado" : "Especialista"}
+                        </span>
+                      </div>
                     </div>
 
                     <div className="badge-pill-row product-badges">
@@ -5958,29 +6109,39 @@ function App() {
                       </span>
                     </div>
 
-                    <p className="muted-copy">{specialist.specialties.join(" · ")}</p>
-                    <p className="muted-copy">
-                      {specialist.services.slice(0, 3).map((service) => service.name).join(" · ")}
-                    </p>
+                    <div className="specialist-card-body">
+                      <p className="muted-copy specialist-specialties">
+                        {specialist.specialties.slice(0, 2).join(" · ") || "Sin especialidad"}
+                      </p>
+                      <p className="muted-copy specialist-services-preview">
+                        {specialist.services.length > 0
+                          ? specialist.services
+                              .slice(0, 2)
+                              .map((service) => service.name)
+                              .join(" · ")
+                          : "Sin servicios"}
+                        {specialist.services.length > 2 ? ` +${specialist.services.length - 2}` : ""}
+                      </p>
+                    </div>
 
-                    <div className="hero-status specialist-metrics-inline">
-                      <div className="status-card">
+                    <div className="specialist-metrics-inline">
+                      <div className="status-card specialist-status-card">
                         <span>Servicios</span>
                         <strong>{specialist.serviceCount}</strong>
                       </div>
-                      <div className="status-card">
+                      <div className="status-card specialist-status-card">
                         <span>Reservas</span>
                         <strong>{specialist.bookingCount}</strong>
                       </div>
                     </div>
 
-                    <div className="product-card-actions">
+                    <div className="product-card-actions specialist-card-actions">
                       <button
                         type="button"
-                        className="secondary-button"
+                        className="primary-button"
                         onClick={() => void handleOpenSpecialistDrawer(specialist, "profile")}
                       >
-                        Ver detalle
+                        Gestionar
                       </button>
                       <button
                         type="button"
@@ -6009,6 +6170,18 @@ function App() {
                 <div>
                   <p className="eyebrow">Servicios</p>
                   <h2>Precio y duración</h2>
+                  <p className="hero-copy">
+                    Filtra por especialista y abre el editor para crear un nuevo servicio.
+                  </p>
+                </div>
+                <div className="editor-actions">
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => void handleCreateServiceFromServicesSection()}
+                  >
+                    Nuevo servicio
+                  </button>
                 </div>
               </div>
 

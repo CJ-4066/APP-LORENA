@@ -2289,9 +2289,17 @@ export async function getBookings(userId?: string): Promise<Booking[]> {
   return result.rows.map(mapBookingRow);
 }
 
-export async function getAllBookingsAdmin(): Promise<Booking[]> {
+export async function getAllBookingsAdmin(
+  options: { specialistId?: string; limit?: number } = {},
+): Promise<Booking[]> {
+  const specialistId = options.specialistId?.trim() ?? "";
+  const limit = Number.isFinite(options.limit) ? Math.max(1, Math.floor(options.limit!)) : null;
+
   if (!isDatabaseConfigured()) {
-    return getBookingsMock();
+    const items = getBookingsMock().filter((booking) =>
+      specialistId.length > 0 ? booking.specialistId === specialistId : true,
+    );
+    return limit ? items.slice(0, limit) : items;
   }
 
   const result = await runQuery<BookingRow>(
@@ -2310,8 +2318,11 @@ export async function getAllBookingsAdmin(): Promise<Booking[]> {
         price_currency,
         notes
       from bookings
+      where ($1::text = '' or specialist_id = $1)
       order by scheduled_at asc
+      ${limit ? "limit $2" : ""}
     `,
+    limit ? [specialistId, limit] : [specialistId],
   );
 
   return result.rows.map(mapBookingRow);
