@@ -316,6 +316,7 @@ class MysticMenuTile extends StatelessWidget {
     required this.accent,
     this.onTap,
     this.selected = false,
+    this.selectedSurfaceColor,
   });
 
   final MysticGlyphKind glyphKind;
@@ -324,6 +325,7 @@ class MysticMenuTile extends StatelessWidget {
   final Color accent;
   final VoidCallback? onTap;
   final bool selected;
+  final Color? selectedSurfaceColor;
 
   @override
   Widget build(BuildContext context) {
@@ -339,7 +341,7 @@ class MysticMenuTile extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: selected
-                ? accent.withValues(alpha: 0.14)
+                ? (selectedSurfaceColor ?? accent.withValues(alpha: 0.14))
                 : AppPalette.moonIvory,
             borderRadius: BorderRadius.circular(22),
             border: Border.all(
@@ -416,12 +418,14 @@ class MysticFlowNavigator extends StatelessWidget {
     required this.selectedIndex,
     required this.onSelect,
     required this.accent,
+    this.selectedSurfaceColor,
   });
 
   final List<MysticFlowOption> items;
   final int selectedIndex;
   final ValueChanged<int> onSelect;
   final Color accent;
+  final Color? selectedSurfaceColor;
 
   @override
   Widget build(BuildContext context) {
@@ -439,6 +443,7 @@ class MysticFlowNavigator extends StatelessWidget {
               label: item.label,
               caption: item.caption,
               accent: accent,
+              selectedSurfaceColor: selectedSurfaceColor,
               selected: index == selectedIndex,
               onTap: () => onSelect(index),
             ),

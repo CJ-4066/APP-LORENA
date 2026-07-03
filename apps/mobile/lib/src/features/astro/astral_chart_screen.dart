@@ -8,10 +8,14 @@ import '../../core/data/birth_place_catalog.dart';
 import '../../core/i18n/app_i18n.dart';
 import '../../core/theme/app_palette.dart';
 import '../../core/utils/formatters.dart';
+import '../../core/utils/natal_chart_profile.dart';
 import '../../core/widgets/mystic_ui.dart';
 import '../../models/app_models.dart';
 import '../../models/astro_models.dart';
 import '../../models/profile_models.dart';
+import 'chart_image_store_stub.dart'
+    if (dart.library.io) 'chart_image_store_io.dart'
+    if (dart.library.html) 'chart_image_store_web.dart';
 import 'astro_chart_wheel.dart';
 import '../profile/birth_place_selector.dart';
 
@@ -107,30 +111,40 @@ class _AstralChartScreenState extends State<AstralChartScreen> {
   void initState() {
     super.initState();
     final natalChart = widget.user.natalChart;
-    _subjectNameController =
-        TextEditingController(text: natalChart.subjectName);
-    _birthDateController = TextEditingController(
-      text: _formatBirthDateForForm(natalChart.birthDate),
-    );
-    _birthTimeController = TextEditingController(text: natalChart.birthTime);
-    _birthTimeUnknown = natalChart.birthTimeUnknown;
-    _cityController = TextEditingController(text: natalChart.city);
-    _stateController = TextEditingController(text: natalChart.state);
-    _countryController = TextEditingController(text: natalChart.country);
-    _utcOffsetController = TextEditingController(text: natalChart.utcOffset);
-    _latitudeController = TextEditingController(
-      text: natalChart.latitude?.toString() ?? '',
-    );
-    _longitudeController = TextEditingController(
-      text: natalChart.longitude?.toString() ?? '',
-    );
-    _selectedBirthPlace = findBirthPlaceOption(
-      city: natalChart.city,
-      country: natalChart.country,
-    );
-    _timeZoneId = natalChart.timeZoneId;
-    if (_selectedBirthPlace != null) {
-      _timeZoneId = _selectedBirthPlace!.timeZoneId;
+    _subjectNameController = TextEditingController();
+    _birthDateController = TextEditingController();
+    _birthTimeController = TextEditingController();
+    _cityController = TextEditingController();
+    _stateController = TextEditingController();
+    _countryController = TextEditingController();
+    _utcOffsetController = TextEditingController();
+    _latitudeController = TextEditingController();
+    _longitudeController = TextEditingController();
+    _applyNatalChartToForm(natalChart);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && hasReusableNatalChartData(natalChart)) {
+        _loadSavedChart();
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant AstralChartScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final previousSnapshot = _natalChartSnapshot(oldWidget.user.natalChart);
+    final nextSnapshot = _natalChartSnapshot(widget.user.natalChart);
+    if (previousSnapshot == nextSnapshot) {
+      return;
+    }
+
+    _applyNatalChartToForm(widget.user.natalChart);
+    if (hasReusableNatalChartData(widget.user.natalChart)) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _loadSavedChart();
+        }
+      });
     }
   }
 
@@ -146,6 +160,121 @@ class _AstralChartScreenState extends State<AstralChartScreen> {
     _latitudeController.dispose();
     _longitudeController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadSavedChart() async {
+    if (_isLoading || _result != null) {
+      return;
+    }
+
+    final latitude = double.tryParse(_latitudeController.text.trim());
+    final longitude = double.tryParse(_longitudeController.text.trim());
+    if (latitude == null || longitude == null) {
+      return;
+    }
+
+    final city = _cityController.text.trim();
+    final state = _stateController.text.trim();
+    final country = _countryController.text.trim();
+    final subjectName = _subjectNameController.text.trim();
+    final locationLabel =
+        [city, state, country].where((item) => item.isNotEmpty).join(', ');
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final result = await widget.onGenerate(
+        AstroRequestInput(
+          subjectName: subjectName.isEmpty ? null : subjectName,
+          birthDate: _birthDateController.text.trim(),
+          birthTime: _birthTimeUnknown ? '' : _birthTimeController.text.trim(),
+          birthTimeUnknown: _birthTimeUnknown,
+          utcOffset: _utcOffsetController.text.trim(),
+          timeZoneId: _timeZoneId.isEmpty ? null : _timeZoneId,
+          selectedPlanets: _orderedSelectedPlanetKeys,
+          nodeType: _nodeType,
+          lilithType: _lilithType,
+          arabicPartsMode: _arabicPartsMode,
+          technicalPoints: _orderedTechnicalPointKeys,
+          latitude: latitude,
+          longitude: longitude,
+          locationLabel: locationLabel,
+          houseSystem: _houseSystem,
+        ),
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _applyGeneratedResult(result);
+        _selectedSection = _AstroFlowSection.wheel;
+        _isLoading = false;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isLoading = false;
+        _errorMessage = error.toString().replaceFirst('Exception: ', '');
+      });
+    }
+  }
+
+  void _applyGeneratedResult(AstroOverviewData result) {
+    _result = result;
+    _selectedPlanetKeys
+      ..clear()
+      ..addAll(result.natalChart.meta.selectedPlanets);
+    _nodeType = result.natalChart.meta.nodeType;
+    _lilithType = result.natalChart.meta.lilithType;
+    _arabicPartsMode = result.natalChart.meta.arabicPartsMode;
+    _technicalPointKeys
+      ..clear()
+      ..addAll(result.natalChart.meta.technicalPoints);
+  }
+
+  void _applyNatalChartToForm(NatalChart natalChart) {
+    _subjectNameController.text = natalChart.subjectName;
+    _birthDateController.text = _formatBirthDateForForm(natalChart.birthDate);
+    _birthTimeController.text = natalChart.birthTime;
+    _birthTimeUnknown = natalChart.birthTimeUnknown;
+    _cityController.text = natalChart.city;
+    _stateController.text = natalChart.state;
+    _countryController.text = natalChart.country;
+    _utcOffsetController.text = natalChart.utcOffset;
+    _latitudeController.text = natalChart.latitude?.toString() ?? '';
+    _longitudeController.text = natalChart.longitude?.toString() ?? '';
+    _selectedBirthPlace = findBirthPlaceOption(
+      city: natalChart.city,
+      country: natalChart.country,
+    );
+    _timeZoneId = _selectedBirthPlace?.timeZoneId ?? natalChart.timeZoneId;
+    _showManualLocationFields = _selectedBirthPlace == null &&
+        (natalChart.city.trim().isNotEmpty ||
+            natalChart.country.trim().isNotEmpty);
+  }
+
+  String _natalChartSnapshot(NatalChart natalChart) {
+    return [
+      natalChart.subjectName,
+      natalChart.birthDate,
+      natalChart.birthTime,
+      natalChart.birthTimeUnknown ? '1' : '0',
+      natalChart.city,
+      natalChart.state,
+      natalChart.country,
+      natalChart.timeZoneId,
+      natalChart.utcOffset,
+      natalChart.latitude?.toString() ?? '',
+      natalChart.longitude?.toString() ?? '',
+    ].join('|');
   }
 
   Future<void> _generateChart() async {
@@ -307,16 +436,7 @@ class _AstralChartScreenState extends State<AstralChartScreen> {
       }
 
       setState(() {
-        _result = result;
-        _selectedPlanetKeys
-          ..clear()
-          ..addAll(result.natalChart.meta.selectedPlanets);
-        _nodeType = result.natalChart.meta.nodeType;
-        _lilithType = result.natalChart.meta.lilithType;
-        _arabicPartsMode = result.natalChart.meta.arabicPartsMode;
-        _technicalPointKeys
-          ..clear()
-          ..addAll(result.natalChart.meta.technicalPoints);
+        _applyGeneratedResult(result);
         _selectedSection = _AstroFlowSection.wheel;
         _isLoading = false;
       });
@@ -468,7 +588,8 @@ class _AstralChartScreenState extends State<AstralChartScreen> {
       'Cualidad dominante: ${result.natalChart.summary.dominantQuality}',
     );
 
-    drawTextBlock('Interpretación principal', font: sectionFont, spacingAfter: 6);
+    drawTextBlock('Interpretación principal',
+        font: sectionFont, spacingAfter: 6);
     drawTextBlock(
       bulletList(result.natalChart.interpretation.take(8).toList()),
     );
@@ -506,10 +627,12 @@ class _AstralChartScreenState extends State<AstralChartScreen> {
 
     final eventLines = <String>[
       ...result.events.moonPhases.take(4).map(
-            (event) => '${event.label} · ${event.startsAt} · ${event.visibility}',
+            (event) =>
+                '${event.label} · ${event.startsAt} · ${event.visibility}',
           ),
       ...result.events.eclipses.take(4).map(
-            (event) => '${event.label} · ${event.startsAt} · ${event.visibility}',
+            (event) =>
+                '${event.label} · ${event.startsAt} · ${event.visibility}',
           ),
     ];
     if (eventLines.isNotEmpty) {
@@ -535,13 +658,12 @@ class _AstralChartScreenState extends State<AstralChartScreen> {
 
     return _ChartExportPayload(
       bytes: bytes,
-      fileName:
-          'carta-astral-${DateTime.now().millisecondsSinceEpoch}.pdf',
+      fileName: 'carta-astral-${DateTime.now().millisecondsSinceEpoch}.pdf',
       mimeType: 'application/pdf',
     );
   }
 
-  Future<void> _downloadChartImage() async {
+  Future<void> _exportChartPdf() async {
     final result = _result;
     if (result == null || _isExporting) {
       return;
@@ -579,9 +701,8 @@ class _AstralChartScreenState extends State<AstralChartScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              context.l10n.ts(
-                'La imagen se preparó para descarga desde el navegador.',
-              ),
+              context.l10n
+                  .ts('El PDF se preparó para descarga desde el navegador.'),
             ),
           ),
         );
@@ -591,10 +712,10 @@ class _AstralChartScreenState extends State<AstralChartScreen> {
       if (defaultTargetPlatform == TargetPlatform.iOS) {
         await _shareFilePayload(
           payload,
-          text: context.l10n.ts(
+          text: l10n.ts(
             'Tu carta astral de Lo Renaciente en PDF. Puedes guardarla en Archivos o compartirla.',
           ),
-          subject: context.l10n.ts('Carta astral Lo Renaciente'),
+          subject: l10n.ts('Carta astral Lo Renaciente'),
         );
         if (!mounted) {
           return;
@@ -613,10 +734,10 @@ class _AstralChartScreenState extends State<AstralChartScreen> {
 
       await _shareFilePayload(
         payload,
-        text: context.l10n.ts(
+        text: l10n.ts(
           'Tu carta astral de Lo Renaciente en PDF. Puedes guardarla en Archivos o compartirla.',
         ),
-        subject: context.l10n.ts('Carta astral Lo Renaciente'),
+        subject: l10n.ts('Carta astral Lo Renaciente'),
       );
       if (!mounted) {
         return;
@@ -657,6 +778,73 @@ class _AstralChartScreenState extends State<AstralChartScreen> {
           content: Text(
             context.l10n.ts(
               'No se pudo guardar la carta directamente. Se abrió Compartir como respaldo.',
+            ),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isExporting = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _saveChartImageToPhotos() async {
+    final result = _result;
+    if (result == null || _isExporting) {
+      return;
+    }
+
+    setState(() {
+      _isExporting = true;
+    });
+
+    try {
+      final payload = await _buildClassicChartImagePayload();
+      final saved = await saveChartImageBytes(payload.bytes, payload.fileName);
+
+      if (!mounted) {
+        return;
+      }
+
+      if (saved == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              context.l10n.ts(
+                'La imagen de tu carta astral se guardó en Fotos.',
+              ),
+            ),
+          ),
+        );
+        return;
+      }
+
+      await _shareChartImage(payload);
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.l10n.ts(
+              'No se pudo guardar automáticamente. Se abrió Compartir para que guardes la imagen.',
+            ),
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.l10n.ts(
+              'No se pudo guardar la imagen: {error}',
+              {'error': error.toString().replaceFirst('Exception: ', '')},
             ),
           ),
         ),
@@ -1380,27 +1568,38 @@ class _AstralChartScreenState extends State<AstralChartScreen> {
   Widget _buildResultActions() {
     final l10n = context.l10n;
 
-    return Row(
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
       children: [
-        Expanded(
+        SizedBox(
+          width: 220,
           child: FilledButton.icon(
-            onPressed: _isExporting ? null : _downloadChartImage,
+            onPressed: _isExporting ? null : _exportChartPdf,
             icon: _isExporting
                 ? const SizedBox(
                     width: 18,
                     height: 18,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : const Icon(Icons.download_outlined),
+                : const Icon(Icons.picture_as_pdf_outlined),
             label: Text(
               _isExporting
-                  ? l10n.ts('Generando imagen...')
-                  : l10n.ts('Descargar carta'),
+                  ? l10n.ts('Generando PDF...')
+                  : l10n.ts('Exportar PDF'),
             ),
           ),
         ),
-        const SizedBox(width: 12),
-        Expanded(
+        SizedBox(
+          width: 220,
+          child: OutlinedButton.icon(
+            onPressed: _isExporting ? null : _saveChartImageToPhotos,
+            icon: const Icon(Icons.photo_library_outlined),
+            label: Text(l10n.ts('Guardar imagen')),
+          ),
+        ),
+        SizedBox(
+          width: 220,
           child: OutlinedButton.icon(
             onPressed: _isExporting ? null : _shareCurrentChartImage,
             icon: const Icon(Icons.ios_share_rounded),

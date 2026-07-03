@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/i18n/app_i18n.dart';
 import '../../core/theme/app_palette.dart';
 import '../../core/utils/formatters.dart';
+import '../../core/utils/natal_chart_profile.dart';
 import '../../models/app_models.dart';
 import 'account_center_screens.dart';
 import 'profile_badges_screen.dart';
@@ -1240,12 +1241,5 @@ bool _hasRecommendedSpecialistProfileData(UserProfile user) {
   return user.id.trim().isNotEmpty &&
       user.firstName.trim().isNotEmpty &&
       user.lastName.trim().isNotEmpty &&
-      user.natalChart.birthDate.trim().isNotEmpty &&
-      user.natalChart.birthTime.trim().isNotEmpty &&
-      user.natalChart.city.trim().isNotEmpty &&
-      user.natalChart.country.trim().isNotEmpty &&
-      user.natalChart.timeZoneId.trim().isNotEmpty &&
-      user.natalChart.utcOffset.trim().isNotEmpty &&
-      user.natalChart.latitude != null &&
-      user.natalChart.longitude != null;
+      hasCompleteNatalProfileData(user.natalChart);
 }

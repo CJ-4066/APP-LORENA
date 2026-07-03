@@ -13,6 +13,7 @@ import '../core/data/birth_place_catalog.dart';
 import '../core/i18n/app_i18n.dart';
 import '../core/network/api_client.dart';
 import '../core/network/content_events_client.dart';
+import '../core/utils/natal_chart_profile.dart';
 import '../features/auth/phone_countries.dart';
 import '../models/app_models.dart';
 import '../models/astro_models.dart';
@@ -360,13 +361,22 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
         ),
       );
       await _persistSession(_session);
-
-      final response = await _apiClient.fetchBootstrap(
-        accessToken: currentSession.accessToken,
-      );
-      _bootstrap = response.data;
-      await _persistBootstrap(response.rawJson);
+      _applySessionUserBootstrapSnapshot(_session!);
       notifyListeners();
+
+      try {
+        final response = await _apiClient.fetchBootstrap(
+          accessToken: currentSession.accessToken,
+        );
+        _bootstrap = response.data;
+        await _persistBootstrap(response.rawJson);
+        notifyListeners();
+      } catch (error, stackTrace) {
+        debugPrint(
+          'updateProfile bootstrap refresh failed: ${_readErrorMessage(error)}',
+        );
+        debugPrintStack(stackTrace: stackTrace);
+      }
 
       return null;
     } catch (error) {
@@ -983,6 +993,16 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     return _buildPlaceholderBootstrap(session);
   }
 
+  void _applySessionUserBootstrapSnapshot(PhoneAuthSession session) {
+    final source = _bootstrap ?? _seedBootstrap;
+    if (source != null) {
+      _bootstrap = _bootstrapWithSessionUser(source, session);
+      return;
+    }
+
+    _bootstrap = _buildPlaceholderBootstrap(session);
+  }
+
   AppBootstrap _bootstrapWithSessionUser(
     AppBootstrap source,
     PhoneAuthSession session,
@@ -1427,8 +1447,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
 
     _contentEventsClient!.start(
       onChanged: (event) {
-        final shouldRefresh =
-            event.entity == 'all' ||
+        final shouldRefresh = event.entity == 'all' ||
             event.entity == 'libraryPdf' ||
             event.entity == 'course' ||
             event.entity == 'service' ||
@@ -1551,14 +1570,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   bool _isRequiredProfileDataComplete(UserProfile user) {
     return user.firstName.trim().isNotEmpty &&
         user.lastName.trim().isNotEmpty &&
-        user.natalChart.birthDate.trim().isNotEmpty &&
-        user.natalChart.birthTime.trim().isNotEmpty &&
-        user.natalChart.city.trim().isNotEmpty &&
-        user.natalChart.country.trim().isNotEmpty &&
-        user.natalChart.timeZoneId.trim().isNotEmpty &&
-        user.natalChart.utcOffset.trim().isNotEmpty &&
-        user.natalChart.latitude != null &&
-        user.natalChart.longitude != null;
+        hasCompleteNatalProfileData(user.natalChart);
   }
 
   String? _normalizeNationalNumber(String rawValue) {

@@ -13,6 +13,16 @@ Si ejecutas los scripts `npm run mobile:ios:device` o `npm run mobile:android:wi
 
 Para builds publicos usa siempre `API_BASE_URL=https://lorenaciente.com` antes de ejecutar `npm run mobile:android:public` o `npm run mobile:ios:public`.
 
+Para iPhone via TestFlight usa:
+
+```bash
+API_BASE_URL=https://lorenaciente.com npm run mobile:ios:testflight
+```
+
+Guia corta:
+
+- [docs/ios-testflight.md](/Users/mark/Desktop/APP%20DE%20LORE/docs/ios-testflight.md)
+
 A few resources to get you started if this is your first Flutter project:
 
 - [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)

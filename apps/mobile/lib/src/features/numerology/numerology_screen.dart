@@ -15,9 +15,9 @@ import '../../models/app_models.dart';
 import '../../models/numerology_models.dart';
 
 const _numerologyInk = AppPalette.butterflyInk;
-const _numerologyAccent = AppPalette.flameGold;
-const _numerologyAccentAlt = AppPalette.success;
-const _numerologyAccentSoft = AppPalette.candleGlow;
+const _numerologyAccent = AppPalette.royalViolet;
+const _numerologyAccentAlt = AppPalette.orchid;
+const _numerologyAccentSoft = AppPalette.mistLilac;
 const _numerologyBorder = AppPalette.border;
 const _numerologySurface = AppPalette.moonIvory;
 
@@ -474,6 +474,7 @@ class _NumerologyHeroPanel extends StatelessWidget {
               selectedIndex: _NumerologyMenu.values.indexOf(selectedMenu),
               onSelect: (index) => onSelectMenu(_NumerologyMenu.values[index]),
               accent: _numerologyAccent,
+              selectedSurfaceColor: AppPalette.moonIvory,
             ),
           ),
           if (profile != null) ...[
