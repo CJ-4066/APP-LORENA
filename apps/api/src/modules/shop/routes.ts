@@ -210,7 +210,7 @@ export async function registerShopRoutes(app: FastifyInstance) {
 
   app.post<{
     Params: { orderId: string };
-    Body: { body?: string };
+    Body: { body?: string; imageUrl?: string };
   }>("/orders/:orderId/chat/messages", async (request, reply) => {
     const userId = await requireAuthenticatedUser(request, reply);
     if (!userId) {
@@ -234,6 +234,7 @@ export async function registerShopRoutes(app: FastifyInstance) {
           authorType: order.userId === userId ? "user" : "specialist",
           authorId: order.userId === userId ? userId : order.specialistId,
           message: request.body?.body,
+          imageUrl: request.body?.imageUrl,
         }),
       };
     } catch (error) {

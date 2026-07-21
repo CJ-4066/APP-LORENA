@@ -6,11 +6,26 @@ process.env.DATABASE_URL = "";
 const chatStore = await import("./chat-store.js");
 
 const {
+  createChatMessage,
+  createChatThread,
   createCommunityChatMessage,
   deleteCommunityChatMessage,
   deleteCommunityChatMessageImage,
   getCommunityChatMessages,
 } = chatStore;
+
+test("private chat messages can include an image without text", async () => {
+  const thread = await createChatThread({ specialistId: "spec-amaya" });
+  const updated = await createChatMessage(thread.thread.id, {
+    imageUrl: "/uploads/chat/order-proof.png",
+  });
+  const target = updated.messages.at(-1);
+
+  assert.ok(target);
+  assert.equal(target.body, "");
+  assert.equal(target.imageUrl, "/api/uploads/chat/order-proof.png");
+  assert.equal(updated.thread.lastMessagePreview, "Imagen adjunta");
+});
 
 test("deletes a community message by id", async () => {
   const created = await createCommunityChatMessage({

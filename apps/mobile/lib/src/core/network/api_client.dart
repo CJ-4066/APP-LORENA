@@ -381,26 +381,45 @@ class ApiClient {
       accessToken: accessToken,
     );
 
-    return ChatThreadDetail.fromJson(
-      response['item'] as Map<String, dynamic>? ?? const <String, dynamic>{},
-    );
+    return ChatThreadDetail.fromJson(_normalizeChatThreadPayload(response));
   }
 
   Future<ChatThreadDetail> sendOrderChatMessage({
     required String accessToken,
     required String orderId,
     required String body,
+    String? imageUrl,
   }) async {
     final response = await _send(
       method: 'POST',
       path: '/api/shop/orders/$orderId/chat/messages',
       accessToken: accessToken,
-      body: {'body': body},
+      body: {
+        'body': body,
+        if (imageUrl != null && imageUrl.trim().isNotEmpty)
+          'imageUrl': imageUrl,
+      },
     );
 
-    return ChatThreadDetail.fromJson(
+    return ChatThreadDetail.fromJson(_normalizeChatThreadPayload(response));
+  }
+
+  Map<String, dynamic> _normalizeChatThreadPayload(
+    Map<String, dynamic> response,
+  ) {
+    final item = Map<String, dynamic>.from(
       response['item'] as Map<String, dynamic>? ?? const <String, dynamic>{},
     );
+    final messages = item['messages'] as List<dynamic>? ?? const <dynamic>[];
+    item['messages'] = messages.whereType<Map<String, dynamic>>().map((raw) {
+      final message = Map<String, dynamic>.from(raw);
+      final imageUrl = message['imageUrl'];
+      if (imageUrl is String) {
+        message['imageUrl'] = _resolveAssetUrl(imageUrl);
+      }
+      return message;
+    }).toList();
+    return item;
   }
 
   Future<List<CommunityChatMessage>> fetchCommunityChat({

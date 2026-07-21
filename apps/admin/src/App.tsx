@@ -80,6 +80,7 @@ type AdminPrivateChatMessage = {
   authorType: "user" | "specialist" | "system";
   authorId: string;
   body: string;
+  imageUrl?: string | null;
   createdAt: string;
 };
 
@@ -2594,6 +2595,15 @@ function App() {
     null,
   );
   const [orderChatReply, setOrderChatReply] = useState("");
+  const [orderChatReplyImageUrl, setOrderChatReplyImageUrl] = useState("");
+  const [orderChatReplyImageName, setOrderChatReplyImageName] = useState("");
+  const [orderChatReplyImageUploading, setOrderChatReplyImageUploading] =
+    useState(false);
+  const [orderChatReplyImageProgress, setOrderChatReplyImageProgress] =
+    useState(0);
+  const [orderChatReplyImageError, setOrderChatReplyImageError] = useState<
+    string | null
+  >(null);
   const [orderChatError, setOrderChatError] = useState<string | null>(null);
   const [orderChatLoading, setOrderChatLoading] = useState(false);
   const [sendingOrderChatReply, setSendingOrderChatReply] = useState(false);
@@ -2616,6 +2626,7 @@ function App() {
   const [sendingCommunityReply, setSendingCommunityReply] = useState(false);
   const [moderatingCommunityMessageId, setModeratingCommunityMessageId] =
     useState<string | null>(null);
+  const orderChatReplyImageInputRef = useRef<HTMLInputElement | null>(null);
   const communityReplyImageInputRef = useRef<HTMLInputElement | null>(null);
   const [incidents, setIncidents] = useState<AdminIncident[]>([]);
   const [badges, setBadges] = useState<Badge[]>([]);
@@ -5941,6 +5952,16 @@ function App() {
     );
   }
 
+  function resetOrderChatAttachment() {
+    setOrderChatReplyImageUrl("");
+    setOrderChatReplyImageName("");
+    setOrderChatReplyImageProgress(0);
+    setOrderChatReplyImageError(null);
+    if (orderChatReplyImageInputRef.current) {
+      orderChatReplyImageInputRef.current.value = "";
+    }
+  }
+
   async function handleUpdateOrderStatus(
     order: AdminShopOrder,
     nextStatus: string,
@@ -5978,6 +5999,7 @@ function App() {
       setOrderChat(json.chatThread);
       setOrderChatOrder(json.item);
       setOrderChatReply("");
+      resetOrderChatAttachment();
       setOrderChatError(null);
     }
     setOperatingPanelMessage(
@@ -6007,6 +6029,7 @@ function App() {
       }
       setOrderChat(json.item);
       setOrderChatReply("");
+      resetOrderChatAttachment();
     } catch (error) {
       setOrderChatError(
         error instanceof Error ? error.message : "No se pudo abrir el chat.",
@@ -6020,7 +6043,14 @@ function App() {
     event.preventDefault();
     const order = orderChatOrder;
     const body = orderChatReply.trim();
-    if (!order || body.length === 0) {
+    const imageUrl = orderChatReplyImageUrl.trim();
+    if (!order || (body.length === 0 && imageUrl.length === 0)) {
+      setOrderChatError("Escribe un mensaje o adjunta una imagen.");
+      return;
+    }
+
+    if (orderChatReplyImageUploading) {
+      setOrderChatError("Espera a que termine de subirse la imagen.");
       return;
     }
 
@@ -6035,7 +6065,10 @@ function App() {
           headers: {
             "content-type": "application/json",
           },
-          body: JSON.stringify({ body }),
+          body: JSON.stringify({
+            body,
+            imageUrl: imageUrl.length > 0 ? imageUrl : undefined,
+          }),
         },
       );
       const json = (await response.json()) as {
@@ -6047,6 +6080,7 @@ function App() {
       }
       setOrderChat(json.item);
       setOrderChatReply("");
+      resetOrderChatAttachment();
       setOperatingPanelMessage(`Mensaje enviado para ${order.orderCode}.`);
     } catch (error) {
       setOrderChatError(
@@ -6056,6 +6090,92 @@ function App() {
       );
     } finally {
       setSendingOrderChatReply(false);
+    }
+  }
+
+  async function uploadOrderChatImage(file: File): Promise<string> {
+    setOrderChatReplyImageUploading(true);
+    setOrderChatReplyImageProgress(0);
+    setOrderChatReplyImageError(null);
+
+    try {
+      const publicUrl = await new Promise<string>((resolve, reject) => {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("category", "general");
+        if (orderChatOrder?.id) {
+          formData.append("entityType", "shop_order");
+          formData.append("entityId", orderChatOrder.id);
+        }
+
+        const xhr = new XMLHttpRequest();
+        xhr.open("POST", `${apiBaseUrl}/api/admin/uploads`);
+        xhr.withCredentials = true;
+
+        xhr.upload.onprogress = (event) => {
+          if (!event.lengthComputable) {
+            return;
+          }
+          setOrderChatReplyImageProgress(
+            Math.round((event.loaded / event.total) * 100),
+          );
+        };
+
+        xhr.onerror = () => reject(new Error("No se pudo subir la imagen."));
+        xhr.onload = () => {
+          try {
+            const payload = JSON.parse(xhr.responseText) as {
+              item?: { publicUrl?: string };
+              error?: string;
+            };
+
+            if (
+              xhr.status < 200 ||
+              xhr.status >= 300 ||
+              !payload.item?.publicUrl
+            ) {
+              reject(new Error(payload.error ?? "No se pudo subir la imagen."));
+              return;
+            }
+
+            resolve(payload.item.publicUrl);
+          } catch {
+            reject(new Error("No se pudo leer la respuesta de la imagen."));
+          }
+        };
+
+        xhr.send(formData);
+      });
+
+      return publicUrl;
+    } finally {
+      setOrderChatReplyImageUploading(false);
+    }
+  }
+
+  async function handleOrderChatImageChange(file: File | null) {
+    if (!file) {
+      resetOrderChatAttachment();
+      return;
+    }
+
+    setOrderChatReplyImageName(file.name);
+    setOrderChatReplyImageUrl("");
+    try {
+      const publicUrl = await uploadOrderChatImage(file);
+      setOrderChatReplyImageUrl(publicUrl);
+    } catch (uploadError) {
+      setOrderChatReplyImageError(
+        uploadError instanceof Error
+          ? uploadError.message
+          : "No se pudo subir la imagen.",
+      );
+      setOrderChatReplyImageName("");
+      setOrderChatReplyImageUrl("");
+      setOrderChatReplyImageProgress(0);
+      if (orderChatReplyImageInputRef.current) {
+        orderChatReplyImageInputRef.current.value = "";
+      }
     }
   }
 
@@ -13575,6 +13695,7 @@ function App() {
             setOrderChat(null);
             setOrderChatError(null);
             setOrderChatReply("");
+            resetOrderChatAttachment();
           }}
           role="presentation"
         >
@@ -13602,6 +13723,7 @@ function App() {
                   setOrderChat(null);
                   setOrderChatError(null);
                   setOrderChatReply("");
+                  resetOrderChatAttachment();
                 }}
               >
                 Cerrar
@@ -13673,7 +13795,20 @@ function App() {
                         </div>
                       </div>
                     </div>
-                    <p>{message.body}</p>
+                    {message.imageUrl ? (
+                      <a
+                        href={resolveMediaUrl(message.imageUrl)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="chat-message-image-link"
+                      >
+                        <img
+                          src={resolveMediaUrl(message.imageUrl)}
+                          alt={message.body || "Adjunto del mensaje"}
+                        />
+                      </a>
+                    ) : null}
+                    {message.body ? <p>{message.body}</p> : null}
                   </article>
                 ))
               ) : (
@@ -13698,15 +13833,80 @@ function App() {
                 placeholder="Escribe detalles de pago, entrega o recojo"
                 rows={4}
               />
+              <input
+                ref={orderChatReplyImageInputRef}
+                className="admin-uploader-input"
+                type="file"
+                accept="image/*"
+                onChange={(event) =>
+                  void handleOrderChatImageChange(
+                    event.target.files?.[0] ?? null,
+                  )
+                }
+              />
+              {orderChatReplyImageName || orderChatReplyImageUrl ? (
+                <div className="chat-compose-attachment">
+                  {orderChatReplyImageUrl ? (
+                    <img
+                      src={resolveMediaUrl(orderChatReplyImageUrl)}
+                      alt="Adjunto del chat de orden"
+                    />
+                  ) : (
+                    <div className="chat-compose-attachment-placeholder">
+                      <strong>{orderChatReplyImageName}</strong>
+                      <span>
+                        Subiendo imagen: {orderChatReplyImageProgress}%
+                      </span>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={resetOrderChatAttachment}
+                  >
+                    Quitar
+                  </button>
+                </div>
+              ) : null}
+              {orderChatReplyImageUploading ? (
+                <div className="library-upload-progress" aria-live="polite">
+                  <div
+                    className="library-upload-progress-bar"
+                    aria-hidden="true"
+                  >
+                    <span
+                      className="library-upload-progress-fill"
+                      style={{ width: `${orderChatReplyImageProgress}%` }}
+                    />
+                  </div>
+                </div>
+              ) : null}
+              {orderChatReplyImageError ? (
+                <p className="form-error">{orderChatReplyImageError}</p>
+              ) : null}
               <div className="chat-compose-actions">
                 <span className="muted-copy">
                   El cliente verá este mensaje como aviso dentro de su pedido.
                 </span>
                 <button
+                  type="button"
+                  className="secondary-button button-with-icon"
+                  onClick={() => orderChatReplyImageInputRef.current?.click()}
+                  disabled={orderChatReplyImageUploading}
+                >
+                  <span className="button-icon" aria-hidden="true">
+                    <ActionIcon name="upload" />
+                  </span>
+                  Imagen
+                </button>
+                <button
                   type="submit"
                   className="primary-button"
                   disabled={
-                    sendingOrderChatReply || orderChatReply.trim().length === 0
+                    sendingOrderChatReply ||
+                    orderChatReplyImageUploading ||
+                    (orderChatReply.trim().length === 0 &&
+                      orderChatReplyImageUrl.trim().length === 0)
                   }
                 >
                   {sendingOrderChatReply ? "Enviando..." : "Enviar mensaje"}

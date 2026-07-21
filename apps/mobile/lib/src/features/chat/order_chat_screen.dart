@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../core/i18n/app_i18n.dart';
 import '../../core/theme/app_palette.dart';
@@ -20,8 +22,11 @@ class OrderChatScreen extends StatefulWidget {
   final ShopOrder order;
   final ChatThreadDetail? initialThread;
   final Future<ChatThreadDetail> Function(String orderId) onLoadThread;
-  final Future<ChatThreadDetail> Function(String orderId, String body)
-      onSendMessage;
+  final Future<ChatThreadDetail> Function(
+    String orderId,
+    String body, {
+    XFile? imageFile,
+  }) onSendMessage;
 
   @override
   State<OrderChatScreen> createState() => _OrderChatScreenState();
@@ -30,13 +35,19 @@ class OrderChatScreen extends StatefulWidget {
 class _OrderChatScreenState extends State<OrderChatScreen>
     with WidgetsBindingObserver {
   final TextEditingController _messageController = TextEditingController();
+  final ImagePicker _picker = ImagePicker();
   Timer? _refreshTimer;
   ChatThreadDetail? _thread;
+  XFile? _selectedImage;
+  Uint8List? _selectedImageBytes;
   bool _isLoading = true;
   bool _isSending = false;
+  bool _isPickingImage = false;
   String? _error;
 
-  bool get _canSend => !_isSending && _messageController.text.trim().isNotEmpty;
+  bool get _canSend =>
+      !_isSending &&
+      (_messageController.text.trim().isNotEmpty || _selectedImage != null);
 
   @override
   void initState() {
@@ -110,7 +121,7 @@ class _OrderChatScreenState extends State<OrderChatScreen>
 
   Future<void> _send() async {
     final body = _messageController.text.trim();
-    if (body.isEmpty || _isSending) {
+    if ((body.isEmpty && _selectedImage == null) || _isSending) {
       return;
     }
 
@@ -120,13 +131,19 @@ class _OrderChatScreenState extends State<OrderChatScreen>
     });
 
     try {
-      final thread = await widget.onSendMessage(widget.order.id, body);
+      final thread = await widget.onSendMessage(
+        widget.order.id,
+        body,
+        imageFile: _selectedImage,
+      );
       if (!mounted) {
         return;
       }
       _messageController.clear();
       setState(() {
         _thread = thread;
+        _selectedImage = null;
+        _selectedImageBytes = null;
       });
     } catch (error) {
       if (!mounted) {
@@ -142,6 +159,100 @@ class _OrderChatScreenState extends State<OrderChatScreen>
         });
       }
     }
+  }
+
+  Future<void> _pickImage() async {
+    setState(() {
+      _error = null;
+      _isPickingImage = true;
+    });
+
+    try {
+      final file = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1600,
+        imageQuality: 86,
+      );
+      if (!mounted || file == null) {
+        return;
+      }
+
+      final bytes = await file.readAsBytes();
+      setState(() {
+        _selectedImage = file;
+        _selectedImageBytes = bytes;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _error = context.l10n.ts(
+          'No se pudo seleccionar la imagen. Revisa permisos de galería.',
+        );
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isPickingImage = false;
+        });
+      }
+    }
+  }
+
+  void _clearSelectedImage() {
+    setState(() {
+      _selectedImage = null;
+      _selectedImageBytes = null;
+    });
+  }
+
+  Widget _buildAttachmentPreview(BuildContext context) {
+    final bytes = _selectedImageBytes;
+    if (bytes == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: AppPalette.softLilac,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: AppPalette.royalViolet.withValues(alpha: 0.12),
+        ),
+      ),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: Image.memory(
+              bytes,
+              width: 58,
+              height: 58,
+              fit: BoxFit.cover,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              _selectedImage?.name ?? context.l10n.ts('Imagen seleccionada'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: AppPalette.butterflyInk,
+                  ),
+            ),
+          ),
+          TextButton(
+            onPressed: _clearSelectedImage,
+            child: Text(context.l10n.ts('Quitar')),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -204,38 +315,58 @@ class _OrderChatScreenState extends State<OrderChatScreen>
               border: Border(top: BorderSide(color: AppPalette.border)),
             ),
             padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    minLines: 1,
-                    maxLines: 4,
-                    keyboardType: TextInputType.multiline,
-                    textInputAction: TextInputAction.newline,
-                    textCapitalization: TextCapitalization.sentences,
-                    decoration: InputDecoration(
-                      hintText: l10n.ts('Escribe sobre pago o entrega'),
+                if (_selectedImage != null) _buildAttachmentPreview(context),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    IconButton.filledTonal(
+                      onPressed:
+                          _isPickingImage || _isSending ? null : _pickImage,
+                      icon: _isPickingImage
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.photo_rounded),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                FilledButton(
-                  onPressed: _canSend ? _send : null,
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextField(
+                        controller: _messageController,
+                        minLines: 1,
+                        maxLines: 4,
+                        keyboardType: TextInputType.multiline,
+                        textInputAction: TextInputAction.newline,
+                        textCapitalization: TextCapitalization.sentences,
+                        decoration: InputDecoration(
+                          hintText: l10n.ts(
+                            'Escribe sobre pago o entrega',
+                          ),
+                        ),
+                      ),
                     ),
-                  ),
-                  child: _isSending
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.send_rounded),
+                    const SizedBox(width: 10),
+                    FilledButton(
+                      onPressed: _canSend ? _send : null,
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
+                      ),
+                      child: _isSending
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.send_rounded),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -420,13 +551,32 @@ class _OrderChatBubble extends StatelessWidget {
                       ),
                 ),
                 const SizedBox(height: 6),
-                Text(
-                  message.body,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: foreground,
-                        height: 1.4,
+                if ((message.imageUrl ?? '').trim().isNotEmpty) ...[
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: AspectRatio(
+                      aspectRatio: 4 / 3,
+                      child: Image.network(
+                        message.imageUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          color: AppPalette.softLilac,
+                          alignment: Alignment.center,
+                          child: const Icon(Icons.broken_image_rounded),
+                        ),
                       ),
-                ),
+                    ),
+                  ),
+                  if (message.body.trim().isNotEmpty) const SizedBox(height: 8),
+                ],
+                if (message.body.trim().isNotEmpty)
+                  Text(
+                    message.body,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: foreground,
+                          height: 1.4,
+                        ),
+                  ),
                 const SizedBox(height: 8),
                 Text(
                   formatSchedule(message.createdAt),

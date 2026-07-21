@@ -37,6 +37,7 @@ export interface ChatMessage {
   authorType: ChatAuthorType;
   authorId: string;
   body: string;
+  imageUrl: string | null;
   createdAt: string;
 }
 
@@ -70,6 +71,7 @@ export interface CreateChatThreadInput {
 
 export interface CreateChatMessageInput {
   body?: string;
+  imageUrl?: string;
 }
 
 export interface CreateCommunityChatMessageInput {
@@ -103,6 +105,7 @@ interface MessageRow extends QueryResultRow {
   author_type: ChatAuthorType;
   author_id: string;
   body: string;
+  image_url: string | null;
   created_at: Date | string;
 }
 
@@ -147,6 +150,7 @@ const mockMessages: ChatMessage[] = [
     authorType: "specialist",
     authorId: "spec-amaya",
     body: "Ya revisé el motivo de tu consulta. Antes de la sesión te dejaré dos preguntas guía.",
+    imageUrl: null,
     createdAt: "2026-03-24T15:01:00.000Z",
   },
   {
@@ -155,6 +159,7 @@ const mockMessages: ChatMessage[] = [
     authorType: "user",
     authorId: demoUserId,
     body: "Perfecto, quiero enfocarme en claridad laboral y vínculos.",
+    imageUrl: null,
     createdAt: "2026-03-24T15:06:00.000Z",
   },
 ];
@@ -233,6 +238,15 @@ function buildPreview(body: string): string {
   return `${normalized.slice(0, 87)}...`;
 }
 
+function buildMessagePreview(body: string, imageUrl?: string | null): string {
+  const normalized = body.trim();
+  if (normalized.length > 0) {
+    return buildPreview(normalized);
+  }
+
+  return imageUrl ? "Imagen adjunta" : "";
+}
+
 function mapThreadRow(row: ThreadRow): ChatThreadSummary {
   return {
     id: row.id,
@@ -257,6 +271,7 @@ function mapMessageRow(row: MessageRow): ChatMessage {
     authorType: row.author_type,
     authorId: row.author_id,
     body: row.body,
+    imageUrl: resolveThreadImageUrl(row.image_url ?? undefined),
     createdAt: toIsoString(row.created_at) ?? new Date().toISOString(),
   };
 }
@@ -275,7 +290,10 @@ function buildMockThreadSummary(thread: ThreadRecord): ChatThreadSummary {
     bookingId: thread.bookingId,
     orderId: thread.orderId,
     status: thread.status,
-    lastMessagePreview: buildPreview(lastMessage?.body ?? ""),
+    lastMessagePreview: buildMessagePreview(
+      lastMessage?.body ?? "",
+      lastMessage?.imageUrl ?? null,
+    ),
     lastMessageAt: lastMessage?.createdAt ?? null,
     messageCount: messages.length,
     createdAt: thread.createdAt,
@@ -301,7 +319,14 @@ async function getThreadRowById(
         t.created_at,
         t.updated_at,
         (
-          select m.body
+          select coalesce(
+            nullif(m.body, ''),
+            case
+              when m.image_url is not null and length(trim(m.image_url)) > 0
+                then 'Imagen adjunta'
+              else ''
+            end
+          )
           from chat_messages m
           where m.thread_id = t.id
           order by m.created_at desc
@@ -337,7 +362,7 @@ async function getThreadMessages(
   const execute = runner ? runner.query.bind(runner) : query;
   const result = await execute<MessageRow>(
     `
-      select id, thread_id, author_type, author_id, body, created_at
+      select id, thread_id, author_type, author_id, body, image_url, created_at
       from chat_messages
       where thread_id = $1
       order by created_at asc
@@ -358,16 +383,29 @@ function buildThreadDetail(
   };
 }
 
-function ensureThreadMessage(input: CreateChatMessageInput): string {
+type ChatMessageContent = {
+  body: string;
+  imageUrl: string | null;
+};
+
+function ensureThreadMessage(input: CreateChatMessageInput): ChatMessageContent {
   const body = input.body?.trim() ?? "";
-  if (body.length < 1) {
+  const rawImageUrl = input.imageUrl?.trim() ?? "";
+  const imageUrl = resolveThreadImageUrl(rawImageUrl);
+  if (rawImageUrl.length > 0 && !imageUrl) {
+    throw new Error("La imagen del mensaje no es válida.");
+  }
+  if (body.length < 1 && !imageUrl) {
     throw new Error("El mensaje no puede estar vacío.");
   }
   if (body.length > 4000) {
     throw new Error("El mensaje es demasiado largo.");
   }
+  if (rawImageUrl.length > 2048) {
+    throw new Error("La imagen del mensaje no es válida.");
+  }
 
-  return body;
+  return { body, imageUrl };
 }
 
 function ensureCommunityMessage(
@@ -410,6 +448,10 @@ function resolveCommunityImageUrl(value?: string): string | null {
   }
 
   return null;
+}
+
+function resolveThreadImageUrl(value?: string): string | null {
+  return resolveCommunityImageUrl(value);
 }
 
 function resolveCommunityAvatarUrl(value?: string): string | null {
@@ -555,7 +597,14 @@ export async function getChatThreads(
         t.created_at,
         t.updated_at,
         (
-          select m.body
+          select coalesce(
+            nullif(m.body, ''),
+            case
+              when m.image_url is not null and length(trim(m.image_url)) > 0
+                then 'Imagen adjunta'
+              else ''
+            end
+          )
           from chat_messages m
           where m.thread_id = t.id
           order by m.created_at desc
@@ -708,6 +757,7 @@ export async function createChatThread(
         authorType: "user",
         authorId: resolvedUserId,
         body: initialMessage,
+        imageUrl: null,
         createdAt: new Date().toISOString(),
       });
       thread.updatedAt = new Date().toISOString();
@@ -802,7 +852,7 @@ export async function createChatMessage(
   userId?: string,
 ): Promise<ChatThreadDetail> {
   const resolvedUserId = userId ?? demoUserId;
-  const body = ensureThreadMessage(input);
+  const message = ensureThreadMessage(input);
 
   if (!isDatabaseConfigured()) {
     const thread = mockThreads.find(
@@ -820,7 +870,8 @@ export async function createChatMessage(
       threadId,
       authorType: "user",
       authorId: resolvedUserId,
-      body,
+      body: message.body,
+      imageUrl: message.imageUrl,
       createdAt: new Date().toISOString(),
     });
     thread.updatedAt = new Date().toISOString();
@@ -844,10 +895,17 @@ export async function createChatMessage(
           thread_id,
           author_type,
           author_id,
-          body
-        ) values ($1, $2, 'user', $3, $4)
+          body,
+          image_url
+        ) values ($1, $2, 'user', $3, $4, $5)
       `,
-      [randomUUID(), threadId, resolvedUserId, body],
+      [
+        randomUUID(),
+        threadId,
+        resolvedUserId,
+        message.body,
+        message.imageUrl,
+      ],
     );
 
     await client.query(
@@ -879,11 +937,23 @@ export async function ensureOrderChatThread(
   order: ShopOrder,
   options: {
     message?: string;
+    imageUrl?: string;
     authorType?: ChatAuthorType;
     authorId?: string;
   } = {},
 ): Promise<ChatThreadDetail> {
   const body = options.message?.trim() ?? "";
+  const rawImageUrl = options.imageUrl?.trim() ?? "";
+  const imageUrl = resolveThreadImageUrl(rawImageUrl);
+  if (rawImageUrl.length > 0 && !imageUrl) {
+    throw new Error("La imagen del mensaje no es válida.");
+  }
+  if (body.length > 4000) {
+    throw new Error("El mensaje es demasiado largo.");
+  }
+  if (rawImageUrl.length > 2048) {
+    throw new Error("La imagen del mensaje no es válida.");
+  }
   const authorType = options.authorType ?? "specialist";
   const authorId =
     options.authorId?.trim() ||
@@ -911,13 +981,14 @@ export async function ensureOrderChatThread(
       mockThreads.unshift(thread);
     }
 
-    if (body.length > 0) {
+    if (body.length > 0 || imageUrl) {
       mockMessages.push({
         id: randomUUID(),
         threadId: thread.id,
         authorType,
         authorId,
         body,
+        imageUrl,
         createdAt: new Date().toISOString(),
       });
       thread.updatedAt = new Date().toISOString();
@@ -956,7 +1027,7 @@ export async function ensureOrderChatThread(
       );
     }
 
-    if (body.length > 0) {
+    if (body.length > 0 || imageUrl) {
       await client.query(
         `
           insert into chat_messages (
@@ -964,10 +1035,11 @@ export async function ensureOrderChatThread(
             thread_id,
             author_type,
             author_id,
-            body
-          ) values ($1, $2, $3, $4, $5)
+            body,
+            image_url
+          ) values ($1, $2, $3, $4, $5, $6)
         `,
-        [randomUUID(), threadId, authorType, authorId, body],
+        [randomUUID(), threadId, authorType, authorId, body, imageUrl],
       );
       await client.query(
         `

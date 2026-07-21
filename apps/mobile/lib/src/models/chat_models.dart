@@ -81,6 +81,7 @@ class ChatMessage {
     required this.authorType,
     required this.authorId,
     required this.body,
+    required this.imageUrl,
     required this.createdAt,
   });
 
@@ -89,6 +90,7 @@ class ChatMessage {
   final String authorType;
   final String authorId;
   final String body;
+  final String? imageUrl;
   final String createdAt;
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) {
@@ -98,6 +100,7 @@ class ChatMessage {
       authorType: json['authorType'] as String? ?? '',
       authorId: json['authorId'] as String? ?? '',
       body: json['body'] as String? ?? '',
+      imageUrl: json['imageUrl'] as String?,
       createdAt: json['createdAt'] as String? ?? '',
     );
   }

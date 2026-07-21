@@ -690,8 +690,9 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
 
   Future<ChatThreadDetail> sendOrderChatMessage(
     String orderId,
-    String body,
-  ) async {
+    String body, {
+    XFile? imageFile,
+  }) async {
     final currentSession = _session;
     if (currentSession == null) {
       throw Exception(
@@ -700,10 +701,22 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     }
 
     try {
+      String? imageUrl;
+      if (imageFile != null) {
+        final bytes = await imageFile.readAsBytes();
+        imageUrl = await _apiClient.uploadCommunityChatImage(
+          accessToken: currentSession.accessToken,
+          bytes: bytes,
+          fileName: imageFile.name,
+          contentType: _mimeTypeFor(imageFile.name),
+        );
+      }
+
       return await _apiClient.sendOrderChatMessage(
         accessToken: currentSession.accessToken,
         orderId: orderId,
         body: body,
+        imageUrl: imageUrl,
       );
     } catch (error) {
       throw Exception(_readErrorMessage(error));

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../core/i18n/app_i18n.dart';
 import '../../core/theme/app_palette.dart';
@@ -40,8 +41,11 @@ class ShopScreen extends StatefulWidget {
   }) onUpdateOrderStatus;
   final Future<List<ChatThreadSummary>> Function() onLoadChatThreads;
   final Future<ChatThreadDetail> Function(String orderId) onLoadOrderChat;
-  final Future<ChatThreadDetail> Function(String orderId, String body)
-      onSendOrderChatMessage;
+  final Future<ChatThreadDetail> Function(
+    String orderId,
+    String body, {
+    XFile? imageFile,
+  }) onSendOrderChatMessage;
   final bool canManageShop;
 
   @override

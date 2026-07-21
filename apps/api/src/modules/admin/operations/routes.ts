@@ -831,7 +831,7 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
 
   app.post<{
     Params: { orderId: string };
-    Body: { body?: string };
+    Body: { body?: string; imageUrl?: string };
   }>("/orders/:orderId/chat/messages", async (request, reply) => {
     const admin = await requireAdminSession(request, reply);
     if (!admin) {
@@ -853,6 +853,7 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
           authorType: "specialist",
           authorId: order.specialistId,
           message: request.body?.body,
+          imageUrl: request.body?.imageUrl,
         }),
       };
     } catch (error) {
