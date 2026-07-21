@@ -18,6 +18,10 @@ test("energy profile uses zodiac sign table from esoteric system", () => {
   assert.equal(profile.energyStone, "Fluorita");
   assert.equal(profile.chakra, "Corona");
   assert.equal(profile.ritual, "Innovación, creatividad e inspiración.");
+  assert.equal(
+    profile.affirmation,
+    "Canalizo la energía de acuario con claridad en innovación, creatividad e inspiración y activo mi número 7.",
+  );
 });
 
 test("energy profile normalizes zodiac signs without accents", () => {

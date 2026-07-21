@@ -236,8 +236,9 @@ function buildAffirmation(
   focusArea: string,
   energyNumber: number,
 ): string {
+  const normalizedFocus = focusArea.replace(/[.!?]+$/g, "").trim();
   const focusFragment =
-    focusArea.length > 0 ? ` en ${focusArea.toLowerCase()}` : "";
+    normalizedFocus.length > 0 ? ` en ${normalizedFocus.toLowerCase()}` : "";
   return `Canalizo la energía de ${sign.toLowerCase()} con claridad${focusFragment} y activo mi número ${energyNumber}.`;
 }
 
