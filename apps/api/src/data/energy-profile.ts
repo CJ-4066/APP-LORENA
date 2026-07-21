@@ -13,8 +13,10 @@ export interface EnergyProfile {
   rulingPlanet: string;
   powerColorName: string;
   powerColorHex: string;
+  powerDay: string;
   energyNumber: number;
   energyStone: string;
+  chakra: string;
   ritual: string;
   affirmation: string;
   focusArea: string;
@@ -23,139 +25,175 @@ export interface EnergyProfile {
 
 const zodiacRules: Record<
   string,
-  Omit<EnergyProfile, "energyNumber" | "focusArea" | "affirmation">
+  Omit<EnergyProfile, "focusArea" | "affirmation">
 > = {
   Aries: {
     sign: "Aries",
     element: "Fuego",
     modality: "Cardinal",
     rulingPlanet: "Marte",
-    powerColorName: "Rojo ritual",
+    powerColorName: "Rojo",
     powerColorHex: "#B63A3A",
-    energyStone: "Cornalina",
-    ritual: "Respiración activa, intención concreta y una acción valiente antes del mediodía.",
-    energyTheme: "Iniciativa y coraje enfocado.",
+    powerDay: "Martes",
+    energyNumber: 9,
+    energyStone: "Jaspe Rojo",
+    chakra: "Raíz",
+    ritual: "Fuerza, valentía, liderazgo y protección.",
+    energyTheme: "Hoy tu energía se activa con Fuego, Marte y el chakra Raíz.",
   },
   Tauro: {
     sign: "Tauro",
     element: "Tierra",
     modality: "Fijo",
     rulingPlanet: "Venus",
-    powerColorName: "Verde musgo",
+    powerColorName: "Verde",
     powerColorHex: "#5E7C57",
-    energyStone: "Cuarzo verde",
-    ritual: "Contacto con el cuerpo, pausa sensorial y orden suave de tu espacio.",
-    energyTheme: "Estabilidad, placer y arraigo.",
+    powerDay: "Viernes",
+    energyNumber: 6,
+    energyStone: "Cuarzo Rosa",
+    chakra: "Corazón",
+    ritual: "Prosperidad, estabilidad, abundancia y bienestar.",
+    energyTheme: "Hoy tu energía se sostiene con Tierra, Venus y el chakra Corazón.",
   },
   Géminis: {
     sign: "Géminis",
     element: "Aire",
     modality: "Mutable",
     rulingPlanet: "Mercurio",
-    powerColorName: "Amarillo aura",
+    powerColorName: "Amarillo",
     powerColorHex: "#D0A13B",
-    energyStone: "Citrino",
-    ritual: "Escribe tres ideas clave y elige una sola dirección para hoy.",
-    energyTheme: "Claridad mental y movimiento inteligente.",
+    powerDay: "Miércoles",
+    energyNumber: 5,
+    energyStone: "Ágata",
+    chakra: "Garganta",
+    ritual: "Comunicación, creatividad y aprendizaje.",
+    energyTheme: "Hoy tu energía se mueve con Aire, Mercurio y el chakra Garganta.",
   },
   Cáncer: {
     sign: "Cáncer",
     element: "Agua",
     modality: "Cardinal",
     rulingPlanet: "Luna",
-    powerColorName: "Perla lunar",
-    powerColorHex: "#A8B8D8",
-    energyStone: "Piedra luna",
-    ritual: "Agua, silencio breve y cuidado emocional antes de responder a todo.",
-    energyTheme: "Contención, intuición y hogar interno.",
+    powerColorName: "Blanco",
+    powerColorHex: "#F7F2E8",
+    powerDay: "Lunes",
+    energyNumber: 2,
+    energyStone: "Piedra Luna",
+    chakra: "Corazón",
+    ritual: "Sanación emocional y protección familiar.",
+    energyTheme: "Hoy tu energía se sensibiliza con Agua, la Luna y el chakra Corazón.",
   },
   Leo: {
     sign: "Leo",
     element: "Fuego",
     modality: "Fijo",
     rulingPlanet: "Sol",
-    powerColorName: "Dorado solar",
+    powerColorName: "Dorado",
     powerColorHex: "#D99A2B",
+    powerDay: "Domingo",
+    energyNumber: 1,
     energyStone: "Ojo de tigre",
-    ritual: "Enciende una luz, endereza tu postura y recuerda qué quieres irradiar.",
-    energyTheme: "Presencia, expresión y confianza.",
+    chakra: "Plexo Solar",
+    ritual: "Éxito, autoestima, liderazgo y reconocimiento.",
+    energyTheme: "Hoy tu energía irradia con Fuego, el Sol y el chakra Plexo Solar.",
   },
   Virgo: {
     sign: "Virgo",
     element: "Tierra",
     modality: "Mutable",
     rulingPlanet: "Mercurio",
-    powerColorName: "Oliva sagrada",
+    powerColorName: "Verde Oliva",
     powerColorHex: "#7A8C5A",
-    energyStone: "Ágata musgo",
-    ritual: "Limpieza ligera, lista corta y una mejora concreta en tu rutina.",
-    energyTheme: "Orden útil y servicio consciente.",
+    powerDay: "Miércoles",
+    energyNumber: 5,
+    energyStone: "Amazonita",
+    chakra: "Garganta",
+    ritual: "Organización, limpieza energética y salud.",
+    energyTheme: "Hoy tu energía se ordena con Tierra, Mercurio y el chakra Garganta.",
   },
   Libra: {
     sign: "Libra",
     element: "Aire",
     modality: "Cardinal",
     rulingPlanet: "Venus",
-    powerColorName: "Rosa templo",
+    powerColorName: "Rosa",
     powerColorHex: "#C98095",
+    powerDay: "Viernes",
+    energyNumber: 6,
     energyStone: "Cuarzo rosa",
-    ritual: "Busca armonía visual, regula el tono de tus vínculos y decide sin postergar.",
-    energyTheme: "Armonía, belleza y equilibrio relacional.",
+    chakra: "Corazón",
+    ritual: "Amor, armonía y equilibrio.",
+    energyTheme: "Hoy tu energía armoniza con Aire, Venus y el chakra Corazón.",
   },
   Escorpio: {
     sign: "Escorpio",
     element: "Agua",
     modality: "Fijo",
     rulingPlanet: "Plutón",
-    powerColorName: "Borgoña profundo",
-    powerColorHex: "#6E2C4D",
+    powerColorName: "Negro",
+    powerColorHex: "#1F1D2B",
+    powerDay: "Martes",
+    energyNumber: 8,
     energyStone: "Obsidiana",
-    ritual: "Escritura íntima, corte de ruido y una decisión transformadora.",
-    energyTheme: "Transformación, magnetismo e intensidad consciente.",
+    chakra: "Sacro",
+    ritual: "Transformación, protección y renacimiento.",
+    energyTheme: "Hoy tu energía transforma con Agua, Plutón y el chakra Sacro.",
   },
   Sagitario: {
     sign: "Sagitario",
     element: "Fuego",
     modality: "Mutable",
     rulingPlanet: "Júpiter",
-    powerColorName: "Violeta viajero",
+    powerColorName: "Morado",
     powerColorHex: "#6759AA",
+    powerDay: "Jueves",
+    energyNumber: 3,
     energyStone: "Amatista",
-    ritual: "Expande tu mirada, define una verdad guía y da un paso con fe.",
-    energyTheme: "Expansión, sentido y visión.",
+    chakra: "Tercer Ojo",
+    ritual: "Expansión, sabiduría y prosperidad.",
+    energyTheme: "Hoy tu energía expande con Fuego, Júpiter y el chakra Tercer Ojo.",
   },
   Capricornio: {
     sign: "Capricornio",
     element: "Tierra",
     modality: "Cardinal",
     rulingPlanet: "Saturno",
-    powerColorName: "Grafito místico",
+    powerColorName: "Gris",
     powerColorHex: "#4B5563",
-    energyStone: "Onix",
-    ritual: "Prioriza, estructura y honra el avance lento pero sólido.",
-    energyTheme: "Disciplina, estructura y maestría.",
+    powerDay: "Sábado",
+    energyNumber: 4,
+    energyStone: "Ónix",
+    chakra: "Raíz",
+    ritual: "Disciplina, estabilidad y éxito profesional.",
+    energyTheme: "Hoy tu energía se estructura con Tierra, Saturno y el chakra Raíz.",
   },
   Acuario: {
     sign: "Acuario",
     element: "Aire",
     modality: "Fijo",
     rulingPlanet: "Urano",
-    powerColorName: "Turquesa eléctrico",
-    powerColorHex: "#3D8FA1",
-    energyStone: "Aguamarina",
-    ritual: "Despega de la inercia, cambia un patrón y comparte una idea nueva.",
-    energyTheme: "Originalidad, libertad y visión colectiva.",
+    powerColorName: "Azul Eléctrico",
+    powerColorHex: "#2677C9",
+    powerDay: "Sábado",
+    energyNumber: 7,
+    energyStone: "Fluorita",
+    chakra: "Corona",
+    ritual: "Innovación, creatividad e inspiración.",
+    energyTheme: "Hoy tu energía innova con Aire, Urano y el chakra Corona.",
   },
   Piscis: {
     sign: "Piscis",
     element: "Agua",
     modality: "Mutable",
     rulingPlanet: "Neptuno",
-    powerColorName: "Lavanda oceánica",
-    powerColorHex: "#8D88C7",
-    energyStone: "Amatista",
-    ritual: "Música suave, pausa contemplativa y escucha de tu intuición.",
-    energyTheme: "Sensibilidad, compasión e inspiración.",
+    powerColorName: "Turquesa",
+    powerColorHex: "#35B7B2",
+    powerDay: "Jueves",
+    energyNumber: 12,
+    energyStone: "Aguamarina",
+    chakra: "Corona",
+    ritual: "Espiritualidad, intuición y conexión interior.",
+    energyTheme: "Hoy tu energía conecta con Agua, Neptuno y el chakra Corona.",
   },
 };
 
@@ -174,34 +212,11 @@ const signOrder = [
   "Piscis",
 ];
 
-function normalizeBirthDate(value?: string): string {
-  const trimmed = value?.trim() ?? "";
-  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-    return trimmed;
-  }
-  return "";
-}
-
-function inferLifePathNumber(birthDate?: string): number {
-  const normalized = normalizeBirthDate(birthDate);
-  if (!normalized) {
-    return 7;
-  }
-
-  const digits = normalized.replaceAll("-", "").split("").map(Number);
-  let total = digits.reduce((sum, item) => sum + item, 0);
-  while (total > 9 && total !== 11 && total !== 22 && total !== 33) {
-    total = String(total)
-      .split("")
-      .map(Number)
-      .reduce((sum, item) => sum + item, 0);
-  }
-
-  if (total > 9) {
-    return total % 9 === 0 ? 9 : total % 9;
-  }
-
-  return Math.max(1, total);
+function normalizeComparable(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
 }
 
 function normalizeSign(value?: string): string {
@@ -211,7 +226,7 @@ function normalizeSign(value?: string): string {
   }
 
   const match = signOrder.find(
-    (item) => item.toLowerCase() === trimmed.toLowerCase(),
+    (item) => normalizeComparable(item) === normalizeComparable(trimmed),
   );
   return match ?? trimmed;
 }
@@ -219,23 +234,21 @@ function normalizeSign(value?: string): string {
 function buildAffirmation(
   sign: string,
   focusArea: string,
-  lifePathNumber: number,
+  energyNumber: number,
 ): string {
   const focusFragment =
     focusArea.length > 0 ? ` en ${focusArea.toLowerCase()}` : "";
-  return `Canalizo lo mejor de ${sign.toLowerCase()} con claridad${focusFragment} y sostengo mi camino ${lifePathNumber}.`;
+  return `Canalizo la energía de ${sign.toLowerCase()} con claridad${focusFragment} y activo mi número ${energyNumber}.`;
 }
 
 export function buildEnergyProfile(seed: EnergySeed): EnergyProfile {
   const sign = normalizeSign(seed.zodiacSign) || "Sagitario";
   const rule = zodiacRules[sign] ?? zodiacRules.Sagitario;
-  const focusArea = seed.focusAreas?.find((item) => item.trim().length > 0)?.trim() || "tu proceso actual";
-  const energyNumber = inferLifePathNumber(seed.birthDate);
+  const focusArea = seed.focusAreas?.find((item) => item.trim().length > 0)?.trim() || rule.ritual;
 
   return {
     ...rule,
-    energyNumber,
     focusArea,
-    affirmation: buildAffirmation(rule.sign, focusArea, energyNumber),
+    affirmation: buildAffirmation(rule.sign, focusArea, rule.energyNumber),
   };
 }

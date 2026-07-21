@@ -769,6 +769,7 @@ class _EnergyProfileCard extends StatelessWidget {
                 label: 'Color',
                 value: profile.powerColorName,
               ),
+              _ProfileEnergyPill(label: 'Día', value: profile.powerDay),
               _ProfileEnergyPill(
                 label: 'Número',
                 value: '${profile.energyNumber}',
@@ -777,6 +778,7 @@ class _EnergyProfileCard extends StatelessWidget {
                 label: 'Piedra',
                 value: profile.energyStone,
               ),
+              _ProfileEnergyPill(label: 'Chakra', value: profile.chakra),
               _ProfileEnergyPill(label: 'Enfoque', value: profile.focusArea),
             ],
           ),

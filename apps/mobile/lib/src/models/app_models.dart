@@ -354,8 +354,10 @@ class EnergyProfile {
     required this.rulingPlanet,
     required this.powerColorName,
     required this.powerColorHex,
+    required this.powerDay,
     required this.energyNumber,
     required this.energyStone,
+    required this.chakra,
     required this.ritual,
     required this.affirmation,
     required this.focusArea,
@@ -368,8 +370,10 @@ class EnergyProfile {
   final String rulingPlanet;
   final String powerColorName;
   final String powerColorHex;
+  final String powerDay;
   final int energyNumber;
   final String energyStone;
+  final String chakra;
   final String ritual;
   final String affirmation;
   final String focusArea;
@@ -382,8 +386,10 @@ class EnergyProfile {
         rulingPlanet = '',
         powerColorName = '',
         powerColorHex = '',
+        powerDay = '',
         energyNumber = 0,
         energyStone = '',
+        chakra = '',
         ritual = '',
         affirmation = '',
         focusArea = '',
@@ -402,8 +408,10 @@ class EnergyProfile {
       rulingPlanet: json['rulingPlanet'] as String? ?? '',
       powerColorName: json['powerColorName'] as String? ?? '',
       powerColorHex: json['powerColorHex'] as String? ?? '',
+      powerDay: json['powerDay'] as String? ?? '',
       energyNumber: json['energyNumber'] as int? ?? 0,
       energyStone: json['energyStone'] as String? ?? '',
+      chakra: json['chakra'] as String? ?? '',
       ritual: json['ritual'] as String? ?? '',
       affirmation: json['affirmation'] as String? ?? '',
       focusArea: json['focusArea'] as String? ?? '',
@@ -419,8 +427,10 @@ class EnergyProfile {
       'rulingPlanet': rulingPlanet,
       'powerColorName': powerColorName,
       'powerColorHex': powerColorHex,
+      'powerDay': powerDay,
       'energyNumber': energyNumber,
       'energyStone': energyStone,
+      'chakra': chakra,
       'ritual': ritual,
       'affirmation': affirmation,
       'focusArea': focusArea,
