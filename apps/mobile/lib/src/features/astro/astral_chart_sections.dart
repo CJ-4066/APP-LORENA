@@ -466,9 +466,12 @@ class _BigThreeCard extends StatelessWidget {
       title: l10n.ts('Tu tríada central'),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final isWide = constraints.maxWidth > 680;
+          final columns = constraints.maxWidth > 680 ? 3 : 2;
+          const spacing = 12.0;
           final itemWidth =
-              isWide ? (constraints.maxWidth - 24) / 3 : constraints.maxWidth;
+              ((constraints.maxWidth - (spacing * (columns - 1))) / columns)
+                  .clamp(0.0, constraints.maxWidth)
+                  .toDouble();
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -481,8 +484,8 @@ class _BigThreeCard extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               Wrap(
-                spacing: 12,
-                runSpacing: 12,
+                spacing: spacing,
+                runSpacing: spacing,
                 children: _buildBigThreeItems(itemWidth),
               ),
             ],
@@ -1143,22 +1146,6 @@ class _HouseSystemChip extends StatelessWidget {
   }
 }
 
-class _ChartWheelExportImage extends StatelessWidget {
-  const _ChartWheelExportImage({
-    required this.result,
-  });
-
-  final AstroNatalChartResult result;
-
-  @override
-  Widget build(BuildContext context) {
-    return AstroChartExportBoard(
-      result: result,
-      size: 2100,
-    );
-  }
-}
-
 class _TimelineRow extends StatelessWidget {
   const _TimelineRow({
     required this.label,
@@ -1353,15 +1340,6 @@ String _qualityMeaning(String quality) {
     default:
       return '';
   }
-}
-
-String _formatBirthDateForForm(String value) {
-  final match = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(value.trim());
-  if (match == null) {
-    return value;
-  }
-
-  return '${match.group(3)}-${match.group(2)}-${match.group(1)}';
 }
 
 String _mcMeaning(String sign) {

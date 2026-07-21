@@ -6,6 +6,8 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../core/data/birth_place_catalog.dart';
 import '../../core/i18n/app_i18n.dart';
+import '../../core/widgets/birth_date_fields.dart';
+import '../../core/widgets/birth_time_wheel_field.dart';
 import '../../models/app_models.dart';
 import '../../models/profile_models.dart';
 import 'birth_place_selector.dart';
@@ -43,7 +45,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late final TextEditingController _emailController;
   late final TextEditingController _locationController;
   late final TextEditingController _zodiacSignController;
-  late final TextEditingController _birthDateController;
+  late final BirthDateInputControllers _birthDateControllers;
   late final TextEditingController _birthTimeController;
   late final TextEditingController _cityController;
   late final TextEditingController _countryController;
@@ -71,8 +73,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _emailController = TextEditingController(text: user.email);
     _locationController = TextEditingController(text: user.location);
     _zodiacSignController = TextEditingController(text: user.zodiacSign);
-    _birthDateController =
-        TextEditingController(text: user.natalChart.birthDate);
+    _birthDateControllers =
+        BirthDateInputControllers.fromDate(user.natalChart.birthDate);
     _birthTimeController =
         TextEditingController(text: user.natalChart.birthTime);
     _cityController = TextEditingController(text: user.natalChart.city);
@@ -103,7 +105,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     _emailController.dispose();
     _locationController.dispose();
     _zodiacSignController.dispose();
-    _birthDateController.dispose();
+    _birthDateControllers.dispose();
     _birthTimeController.dispose();
     _cityController.dispose();
     _countryController.dispose();
@@ -161,7 +163,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final lastName = _lastNameController.text.trim();
     final city = _cityController.text.trim();
     final country = _countryController.text.trim();
-    final birthDate = _birthDateController.text.trim();
+    final birthDate = _birthDateControllers.normalizedIsoDate();
     final birthTime = _birthTimeController.text.trim();
     final utcOffset = _utcOffsetController.text.trim();
     final latitudeText = _latitudeController.text.trim();
@@ -171,11 +173,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         lastName.isEmpty ||
         city.isEmpty ||
         country.isEmpty ||
-        birthDate.isEmpty ||
         birthTime.isEmpty) {
       setState(() {
         _errorMessage = context.l10n.ts(
           'Completa nombre, apellido, ciudad, país, fecha y hora de nacimiento.',
+        );
+      });
+      return;
+    }
+
+    if (birthDate == null) {
+      setState(() {
+        _errorMessage = context.l10n.ts(
+          'Ingresa una fecha de nacimiento válida en año, día y mes.',
         );
       });
       return;
@@ -393,20 +403,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            TextField(
-              controller: _birthDateController,
-              decoration: InputDecoration(
-                labelText: l10n.ts('Fecha de nacimiento'),
-                hintText: '2000-11-28',
-              ),
+            BirthDateFields(
+              controllers: _birthDateControllers,
+              enabled: !_isSaving && !_isPickingImage,
             ),
             const SizedBox(height: 12),
-            TextField(
+            BirthTimeWheelField(
               controller: _birthTimeController,
-              decoration: InputDecoration(
-                labelText: l10n.ts('Hora de nacimiento'),
-                hintText: '01:40',
-              ),
+              enabled: !_isSaving && !_isPickingImage,
             ),
             const SizedBox(height: 12),
             BirthPlaceSelector(

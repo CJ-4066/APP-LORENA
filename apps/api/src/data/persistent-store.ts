@@ -1352,7 +1352,8 @@ function isShopOrderStatus(value: unknown): value is ShopOrderStatus {
     value === "pending" ||
     value === "confirmed" ||
     value === "preparing" ||
-    value === "shipped"
+    value === "shipped" ||
+    value === "delivered"
   );
 }
 
@@ -4830,6 +4831,9 @@ export async function getBootstrap(userId?: string): Promise<AppBootstrap> {
   }
 
   const user = await getDatabaseUser(userId);
+  const canManageCourses =
+    (user.roles?.includes("admin") ?? false) ||
+    (user.accountType === "specialist" && Boolean(user.specialistProfileId?.trim()));
   await recordBadgeAction(user.id, {
     actionKey: "app_opened",
   });
@@ -4858,7 +4862,7 @@ export async function getBootstrap(userId?: string): Promise<AppBootstrap> {
     payments: getPaymentsConfigBilling(),
     services: specialistScopedServices,
     specialists: getSpecialists(),
-    courses: getCourses(),
+    courses: canManageCourses ? getAdminCourses() : getCourses(),
     shop: await getShopData(user.id),
     bookings: await getBookings(user.id),
     admin: getAdminSummary(),

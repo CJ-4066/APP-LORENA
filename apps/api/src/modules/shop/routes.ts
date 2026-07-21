@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 
+import { ensureOrderChatThread } from "../../data/chat-store.js";
 import {
   createShopProduct,
   createShopOrder,
@@ -17,6 +18,7 @@ import {
   requireManagedSpecialistProfile,
   requireShopManagerAccess,
 } from "../shared/access.js";
+import { maybeOpenOrderCoordinationChat } from "./order-coordination.js";
 
 export async function registerShopRoutes(app: FastifyInstance) {
   app.get("/", async (request, reply) => {
@@ -161,9 +163,15 @@ export async function registerShopRoutes(app: FastifyInstance) {
         request.body ?? {},
         access.userId,
       );
+      const chatThread = await maybeOpenOrderCoordinationChat(
+        item,
+        request.body ?? {},
+        access.specialistProfileId ?? access.userId,
+      );
 
       return {
         item,
+        chatThread,
       };
     } catch (error) {
       reply.code(400);
@@ -172,6 +180,69 @@ export async function registerShopRoutes(app: FastifyInstance) {
           error instanceof Error
             ? error.message
             : "No se pudo actualizar la orden.",
+      };
+    }
+  });
+
+  app.get<{ Params: { orderId: string } }>(
+    "/orders/:orderId/chat",
+    async (request, reply) => {
+      const userId = await requireAuthenticatedUser(request, reply);
+      if (!userId) {
+        return {
+          error: "Inicia sesión para revisar el chat de la orden.",
+        };
+      }
+
+      const order = (await getShopOrders(userId)).find(
+        (item) => item.id === request.params.orderId,
+      );
+      if (!order) {
+        reply.code(404);
+        return { error: "La orden no existe." };
+      }
+
+      return {
+        item: await ensureOrderChatThread(order),
+      };
+    },
+  );
+
+  app.post<{
+    Params: { orderId: string };
+    Body: { body?: string };
+  }>("/orders/:orderId/chat/messages", async (request, reply) => {
+    const userId = await requireAuthenticatedUser(request, reply);
+    if (!userId) {
+      return {
+        error: "Inicia sesión para responder el chat de la orden.",
+      };
+    }
+
+    const order = (await getShopOrders(userId)).find(
+      (item) => item.id === request.params.orderId,
+    );
+    if (!order) {
+      reply.code(404);
+      return { error: "La orden no existe." };
+    }
+
+    try {
+      reply.code(201);
+      return {
+        item: await ensureOrderChatThread(order, {
+          authorType: order.userId === userId ? "user" : "specialist",
+          authorId: order.userId === userId ? userId : order.specialistId,
+          message: request.body?.body,
+        }),
+      };
+    } catch (error) {
+      reply.code(400);
+      return {
+        error:
+          error instanceof Error
+            ? error.message
+            : "No se pudo enviar el mensaje.",
       };
     }
   });

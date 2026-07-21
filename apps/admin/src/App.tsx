@@ -74,6 +74,33 @@ type AdminChat = {
   }>;
 };
 
+type AdminPrivateChatMessage = {
+  id: string;
+  threadId: string;
+  authorType: "user" | "specialist" | "system";
+  authorId: string;
+  body: string;
+  createdAt: string;
+};
+
+type AdminPrivateChatThread = {
+  thread: {
+    id: string;
+    userId: string;
+    specialistId: string;
+    specialistName: string;
+    bookingId: string | null;
+    orderId: string | null;
+    status: string;
+    lastMessagePreview: string;
+    lastMessageAt: string | null;
+    messageCount: number;
+    createdAt: string;
+    updatedAt: string;
+  };
+  messages: AdminPrivateChatMessage[];
+};
+
 type AdminService = {
   id: string;
   name: string;
@@ -169,13 +196,21 @@ type AdminShopOrder = {
   id: string;
   orderCode: string;
   userId: string;
-  userName: string;
+  userName?: string;
   specialistId: string;
   specialistName: string;
   status: string;
-  mode: string;
+  mode?: string;
   createdAt: string;
+  deliveryAddress?: string;
+  notes?: string;
   itemCount: number;
+  items?: Array<{
+    productId: string;
+    productName: string;
+    category: string;
+    quantity: number;
+  }>;
   total: {
     amount: number;
     currency: string;
@@ -311,11 +346,7 @@ type AdminSection =
   | "developer";
 
 type DeveloperSection =
-  | "incidents"
-  | "badges"
-  | "audit"
-  | "diagnostics"
-  | "settings";
+  "incidents" | "badges" | "audit" | "diagnostics" | "settings";
 
 type ProtectedResourceKey =
   | "bookings"
@@ -333,12 +364,7 @@ type ProtectedResourceKey =
   | "audit";
 
 type SpecialistDetailTab =
-  | "profile"
-  | "services"
-  | "availability"
-  | "bookings"
-  | "metrics"
-  | "history";
+  "profile" | "services" | "availability" | "bookings" | "metrics" | "history";
 
 type BadgeCategory =
   | "DESPERTAR"
@@ -388,7 +414,10 @@ const protectedResourceKeys: ProtectedResourceKey[] = [
   "audit",
 ];
 
-function createProtectedResourceLoadState(): Record<ProtectedResourceKey, boolean> {
+function createProtectedResourceLoadState(): Record<
+  ProtectedResourceKey,
+  boolean
+> {
   return protectedResourceKeys.reduce(
     (state, key) => ({ ...state, [key]: false }),
     {} as Record<ProtectedResourceKey, boolean>,
@@ -572,7 +601,14 @@ const brandLogoUrl = `${import.meta.env.BASE_URL}branding/lo-renaciente-isotipo.
 const adminBasePath = import.meta.env.BASE_URL.replace(/\/+$/u, "") || "";
 const adminBuildStamp = "reset-2026-06-29-ops-2";
 
-type CourseWorkspaceTab = "data" | "modules" | "lessons" | "resources" | "library" | "publication" | "history";
+type CourseWorkspaceTab =
+  | "data"
+  | "modules"
+  | "lessons"
+  | "resources"
+  | "library"
+  | "publication"
+  | "history";
 
 function AuthParticles() {
   const particles: Array<{
@@ -930,13 +966,19 @@ function getCourseWorkspaceRouteFromLocation() {
 
   return {
     open: true,
-    courseId: courseMatch[1] === "new" ? null : decodeURIComponent(courseMatch[1]),
+    courseId:
+      courseMatch[1] === "new" ? null : decodeURIComponent(courseMatch[1]),
     tab: (tabParam as CourseWorkspaceTab | null) ?? "data",
   };
 }
 
-function buildCourseWorkspaceUrl(courseId: string | null, tab: CourseWorkspaceTab) {
-  const path = courseId ? `/courses/${encodeURIComponent(courseId)}` : "/courses/new";
+function buildCourseWorkspaceUrl(
+  courseId: string | null,
+  tab: CourseWorkspaceTab,
+) {
+  const path = courseId
+    ? `/courses/${encodeURIComponent(courseId)}`
+    : "/courses/new";
   return `${adminBasePath}${path}?tab=${encodeURIComponent(tab)}`;
 }
 
@@ -982,10 +1024,7 @@ function buildCourseForm(course: AdminCourse | null) {
   };
 }
 
-function getConnectionErrorMessage(
-  error: unknown,
-  fallback: string,
-): string {
+function getConnectionErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof TypeError && error.message === "Failed to fetch") {
     return "No se pudo conectar con la API de administración. Verifica que el servidor esté en ejecución.";
   }
@@ -1029,7 +1068,8 @@ function isSupportedLibraryFile(file: File): boolean {
   return (
     mimeType === "application/pdf" ||
     mimeType === "application/msword" ||
-    mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+    mimeType ===
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
     name.endsWith(".pdf") ||
     name.endsWith(".doc") ||
     name.endsWith(".docx")
@@ -1206,7 +1246,16 @@ const userRoleLabels: Record<UserAccessPreset, string> = {
 const userAccessByPreset: Record<UserAccessPreset, string[]> = {
   client: ["Inicio", "Perfil", "Reservas", "Tienda"],
   specialist: ["Especialistas", "Servicios", "Agenda", "Tienda"],
-  admin: ["Usuarios", "Especialistas", "Servicios", "Agenda", "Tienda", "Cursos", "Biblioteca", "Auditoría"],
+  admin: [
+    "Usuarios",
+    "Especialistas",
+    "Servicios",
+    "Agenda",
+    "Tienda",
+    "Cursos",
+    "Biblioteca",
+    "Auditoría",
+  ],
 };
 
 function isAdminSection(value: string | null): value is AdminSection {
@@ -1253,15 +1302,9 @@ function getUserAccessSummary(user: AdminUser): string[] {
   return [...access];
 }
 
-type SidebarIconName =
-  | AdminSection
-  | DeveloperSection;
+type SidebarIconName = AdminSection | DeveloperSection;
 
-function SidebarIcon({
-  name,
-}: {
-  name: SidebarIconName;
-}) {
+function SidebarIcon({ name }: { name: SidebarIconName }) {
   switch (name) {
     case "specialists":
       return (
@@ -1411,11 +1454,7 @@ type ActionIconName =
   | "close"
   | "files";
 
-function ActionIcon({
-  name,
-}: {
-  name: ActionIconName;
-}) {
+function ActionIcon({ name }: { name: ActionIconName }) {
   switch (name) {
     case "login":
       return (
@@ -1549,11 +1588,7 @@ function formatDate(value: string): string {
 }
 
 function getNameInitials(value: string): string {
-  const parts = value
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2);
+  const parts = value.trim().split(/\s+/).filter(Boolean).slice(0, 2);
   if (parts.length === 0) {
     return "LR";
   }
@@ -1561,7 +1596,9 @@ function getNameInitials(value: string): string {
   return parts.map((item) => item[0]?.toUpperCase() ?? "").join("");
 }
 
-function getCommunityRoleLabel(role: AdminCommunityMessage["authorRole"]): string {
+function getCommunityRoleLabel(
+  role: AdminCommunityMessage["authorRole"],
+): string {
   switch (role) {
     case "guide":
       return "Admin";
@@ -1610,6 +1647,21 @@ function formatOrderStatusLabel(status: string): string {
   }
 }
 
+function formatOrderStatusPurpose(status: string): string {
+  switch (status) {
+    case "confirmed":
+      return "Confirma venta y abre coordinación de pago/entrega.";
+    case "preparing":
+      return "Avisa que el pedido está en preparación.";
+    case "shipped":
+      return "Marca salida o envío del pedido.";
+    case "delivered":
+      return "Cierra la entrega con confirmación final.";
+    default:
+      return "Pedido recibido, pendiente de gestión.";
+  }
+}
+
 function formatModeLabel(mode: string): string {
   switch (mode) {
     case "chat":
@@ -1625,19 +1677,19 @@ function formatModeLabel(mode: string): string {
   }
 }
 
-function seedServiceDrafts(
-  services: AdminService[],
-): Record<string, {
-  name: string;
-  category: string;
-  description: string;
-  priceAmount: string;
-  priceCurrency: string;
-  durationMinutes: string;
-  isActive: boolean;
-  isVisible: boolean;
-}> {
-  return services.reduce<Record<string, {
+const availabilityWeekdayOptions = [
+  { value: "1", label: "Lun" },
+  { value: "2", label: "Mar" },
+  { value: "3", label: "Mié" },
+  { value: "4", label: "Jue" },
+  { value: "5", label: "Vie" },
+  { value: "6", label: "Sáb" },
+  { value: "0", label: "Dom" },
+];
+
+function seedServiceDrafts(services: AdminService[]): Record<
+  string,
+  {
     name: string;
     category: string;
     description: string;
@@ -1646,7 +1698,23 @@ function seedServiceDrafts(
     durationMinutes: string;
     isActive: boolean;
     isVisible: boolean;
-  }>>(
+  }
+> {
+  return services.reduce<
+    Record<
+      string,
+      {
+        name: string;
+        category: string;
+        description: string;
+        priceAmount: string;
+        priceCurrency: string;
+        durationMinutes: string;
+        isActive: boolean;
+        isVisible: boolean;
+      }
+    >
+  >(
     (accumulator, service) => ({
       ...accumulator,
       [service.id]: {
@@ -1697,6 +1765,20 @@ function fromDateTimeLocalValue(value: string): string {
   return Number.isNaN(date.getTime()) ? value : date.toISOString();
 }
 
+function toDateInputValue(value: Date): string {
+  const offset = value.getTimezoneOffset() * 60 * 1000;
+  return new Date(value.getTime() - offset).toISOString().slice(0, 10);
+}
+
+function parseDateInputValue(value: string): Date | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return null;
+  }
+
+  const parsed = new Date(`${value}T00:00:00`);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 function formatMoney(amount: number, currency: string): string {
   return new Intl.NumberFormat("es-PE", {
     style: "currency",
@@ -1717,14 +1799,18 @@ function parseImageList(value: string): string[] {
   return parseCommaList(value);
 }
 
-function buildProductDraft(product: AdminShopProduct | null, specialistId: string): ProductFormState {
+function buildProductDraft(
+  product: AdminShopProduct | null,
+  specialistId: string,
+): ProductFormState {
   return {
     name: product?.name ?? "",
     category: product?.category ?? "",
     specialistId: product?.specialistId ?? specialistId,
     shortDescription: "",
     description: "",
-    priceAmount: product?.price.amount != null ? String(product.price.amount) : "",
+    priceAmount:
+      product?.price.amount != null ? String(product.price.amount) : "",
     priceCurrency: product?.price.currency ?? "USD",
     sku: product?.sku ?? "",
     status: product?.status ?? "active",
@@ -1732,7 +1818,8 @@ function buildProductDraft(product: AdminShopProduct | null, specialistId: strin
     imageUrls: product?.imageUrls?.join(", ") ?? "",
     artwork: product?.artwork ?? "",
     badge: product?.badge ?? "",
-    stockQuantity: product?.stockQuantity != null ? String(product.stockQuantity) : "0",
+    stockQuantity:
+      product?.stockQuantity != null ? String(product.stockQuantity) : "0",
     madeToOrder: product?.madeToOrder ?? false,
     featured: product?.featured ?? false,
     tags: "",
@@ -1763,12 +1850,18 @@ function getProductCommercialLabel(status: string): string {
   return "Borrador";
 }
 
-function buildBookingDraft(booking: AdminBooking | null, userId: string, specialistId: string): BookingFormState {
+function buildBookingDraft(
+  booking: AdminBooking | null,
+  userId: string,
+  specialistId: string,
+): BookingFormState {
   return {
     userId: booking?.userId ?? userId,
     specialistId: booking?.specialistId ?? specialistId,
     serviceId: booking?.serviceId ?? "",
-    scheduledAt: booking?.scheduledAt ? toDateTimeLocalValue(booking.scheduledAt) : "",
+    scheduledAt: booking?.scheduledAt
+      ? toDateTimeLocalValue(booking.scheduledAt)
+      : "",
     mode: booking?.mode ?? "chat",
     notes: booking?.notes ?? "",
     status: booking?.status ?? "pending_payment",
@@ -1785,7 +1878,10 @@ function createRuleDraft(): BadgeRuleDraft {
   };
 }
 
-function resolvePathMeta(pathId: string | undefined, category: BadgeCategory): BadgePathMeta {
+function resolvePathMeta(
+  pathId: string | undefined,
+  category: BadgeCategory,
+): BadgePathMeta {
   const byPath = badgePathMeta.find((item) => item.pathId === pathId);
   if (byPath) {
     return byPath;
@@ -1796,8 +1892,14 @@ function resolvePathMeta(pathId: string | undefined, category: BadgeCategory): B
   );
 }
 
-function badgeToForm(badge: Badge | null, pathHint?: BadgePathId): BadgeFormState {
-  const meta = resolvePathMeta(badge?.pathId ?? pathHint, badge?.category ?? "DESPERTAR");
+function badgeToForm(
+  badge: Badge | null,
+  pathHint?: BadgePathId,
+): BadgeFormState {
+  const meta = resolvePathMeta(
+    badge?.pathId ?? pathHint,
+    badge?.category ?? "DESPERTAR",
+  );
   return {
     name: badge?.name ?? "",
     description: badge?.description ?? "",
@@ -1819,16 +1921,15 @@ function badgeToForm(badge: Badge | null, pathHint?: BadgePathId): BadgeFormStat
         ? badge.isSecret
         : badge?.category === "SECRET",
     isActive: badge?.isActive ?? true,
-    rules:
-      badge?.rules?.length
-        ? badge.rules.map((rule) => ({
-            id: rule.id,
-            ruleKey: rule.ruleKey,
-            operator: rule.operator,
-            value: rule.value,
-            isActive: rule.isActive,
-          }))
-        : [createRuleDraft()],
+    rules: badge?.rules?.length
+      ? badge.rules.map((rule) => ({
+          id: rule.id,
+          ruleKey: rule.ruleKey,
+          operator: rule.operator,
+          value: rule.value,
+          isActive: rule.isActive,
+        }))
+      : [createRuleDraft()],
   };
 }
 
@@ -1889,14 +1990,19 @@ function getBadgeStepTitle(stepIndex: number): string {
 }
 
 function getBadgeRarityForStep(stepIndex: number): BadgeRarity {
-  return badgeRarityByStepIndex[Math.min(Math.max(stepIndex, 1), 5)] ?? "COMMON";
+  return (
+    badgeRarityByStepIndex[Math.min(Math.max(stepIndex, 1), 5)] ?? "COMMON"
+  );
 }
 
 function getBadgeMetricForPath(pathId: BadgePathId): string | null {
   return badgeMetricByPath[pathId] ?? null;
 }
 
-function buildBadgeRulesForDraft(pathId: BadgePathId, stepIndex: number): BadgeRuleDraft[] {
+function buildBadgeRulesForDraft(
+  pathId: BadgePathId,
+  stepIndex: number,
+): BadgeRuleDraft[] {
   const metric = getBadgeMetricForPath(pathId);
   if (!metric) {
     return [];
@@ -1907,7 +2013,9 @@ function buildBadgeRulesForDraft(pathId: BadgePathId, stepIndex: number): BadgeR
       id: crypto.randomUUID(),
       ruleKey: metric,
       operator: "GTE",
-      value: String([1, 3, 7, 21, 40][Math.min(Math.max(stepIndex, 1), 5) - 1] ?? 1),
+      value: String(
+        [1, 3, 7, 21, 40][Math.min(Math.max(stepIndex, 1), 5) - 1] ?? 1,
+      ),
       isActive: true,
     },
   ];
@@ -1922,7 +2030,9 @@ function buildBadgeDraft(
   const previousBadge =
     badges.find(
       (badge) =>
-        badge.pathId === pathId && badge.stepIndex === Math.max(1, stepIndex - 1) && badge.isActive,
+        badge.pathId === pathId &&
+        badge.stepIndex === Math.max(1, stepIndex - 1) &&
+        badge.isActive,
     ) ?? null;
   const isSecret = meta.category === "SECRET";
   const isOccupiedActive = badges.some(
@@ -1954,9 +2064,7 @@ function buildBadgeDraft(
     iconUrl: `/assets/badges/${pathId}-${stepIndex}.svg`,
     isSecret,
     isActive: !isOccupiedActive,
-    rules: isSecret
-      ? []
-      : buildBadgeRulesForDraft(pathId, stepIndex),
+    rules: isSecret ? [] : buildBadgeRulesForDraft(pathId, stepIndex),
   };
 }
 
@@ -1986,11 +2094,17 @@ function buildBadgePreview(
   const stepIndex = Number.parseInt(form.stepIndex, 10) || 1;
   const isHidden = form.isSecret || form.category === "SECRET";
   const unlocked = form.isActive && !isHidden;
-  const blocked = !form.isActive || (selectedBadge ? !selectedBadge.isActive : false);
+  const blocked =
+    !form.isActive || (selectedBadge ? !selectedBadge.isActive : false);
   const pathMeta = resolvePathMeta(pathId, form.category);
   const nextBadge =
     badges
-      .filter((badge) => badge.pathId === pathId && badge.stepIndex > stepIndex && badge.isActive)
+      .filter(
+        (badge) =>
+          badge.pathId === pathId &&
+          badge.stepIndex > stepIndex &&
+          badge.isActive,
+      )
       .sort((left, right) => left.stepIndex - right.stepIndex)[0] ?? null;
 
   return {
@@ -1998,7 +2112,11 @@ function buildBadgePreview(
     blocked,
     hidden: isHidden,
     iconUrl: form.iconUrl.trim(),
-    iconFallbackLabel: getBadgePreviewFallbackLabel(pathId, stepIndex, isHidden),
+    iconFallbackLabel: getBadgePreviewFallbackLabel(
+      pathId,
+      stepIndex,
+      isHidden,
+    ),
     accentClass: pathMeta.accentClass,
     displayName: isHidden ? "Insignia oculta" : form.name || "Nombre pendiente",
     displayDescription: isHidden
@@ -2009,7 +2127,9 @@ function buildBadgePreview(
 }
 
 function getRouteProgressPercent(badges: Badge[]): number {
-  return Math.round((Math.min(badges.filter((badge) => badge.isActive).length, 5) / 5) * 100);
+  return Math.round(
+    (Math.min(badges.filter((badge) => badge.isActive).length, 5) / 5) * 100,
+  );
 }
 
 function formatAuditValue(value: unknown): string {
@@ -2101,14 +2221,25 @@ function isAuditStructuredValue(value: unknown): boolean {
 }
 
 function getAuditChangeLabel(fieldChanged: string): string {
-  if (["rules", "prerequisiteBadgeIds", "pathId", "pathOrder", "stepIndex"].includes(fieldChanged)) {
+  if (
+    [
+      "rules",
+      "prerequisiteBadgeIds",
+      "pathId",
+      "pathOrder",
+      "stepIndex",
+    ].includes(fieldChanged)
+  ) {
     return "Cambio de progresión";
   }
 
   return "Detalle del cambio";
 }
 
-function getCourseAuditActionLabel(action: string, fieldChanged: string): string {
+function getCourseAuditActionLabel(
+  action: string,
+  fieldChanged: string,
+): string {
   if (action === "PUBLISHED") {
     return "Publicado";
   }
@@ -2135,7 +2266,13 @@ function getCourseAuditActionLabel(action: string, fieldChanged: string): string
 }
 
 function getCourseAuditElementLabel(entry: BadgeAuditLogEntry): string {
-  return entry.elementLabel ?? entry.courseName ?? entry.badgeName ?? entry.entityType ?? "Curso";
+  return (
+    entry.elementLabel ??
+    entry.courseName ??
+    entry.badgeName ??
+    entry.entityType ??
+    "Curso"
+  );
 }
 
 function hasRenderableBadgeIcon(iconUrl: string): boolean {
@@ -2143,7 +2280,9 @@ function hasRenderableBadgeIcon(iconUrl: string): boolean {
 }
 
 function hasRenderableMediaUrl(url: string): boolean {
-  return /^(https?:\/\/|data:image\/|blob:|\/assets\/|assets\/|\/uploads\/|uploads\/|\/api\/storage\/assets\/)/i.test(url);
+  return /^(https?:\/\/|data:image\/|blob:|\/assets\/|assets\/|\/uploads\/|uploads\/|\/api\/storage\/assets\/)/i.test(
+    url,
+  );
 }
 
 function resolveMediaUrl(url: string): string {
@@ -2168,7 +2307,11 @@ function resolveMediaUrl(url: string): string {
   return trimmed;
 }
 
-function getBadgePreviewFallbackLabel(pathId: BadgePathId, stepIndex: number, hidden: boolean) {
+function getBadgePreviewFallbackLabel(
+  pathId: BadgePathId,
+  stepIndex: number,
+  hidden: boolean,
+) {
   if (hidden) {
     return "⟡\nSECRET";
   }
@@ -2182,11 +2325,7 @@ function getBadgePreviewFallbackLabel(pathId: BadgePathId, stepIndex: number, hi
   return `${shortLabel}\n${Math.max(1, Math.min(5, stepIndex))}`;
 }
 
-function BrandLockup({
-  compact = false,
-}: {
-  compact?: boolean;
-}) {
+function BrandLockup({ compact = false }: { compact?: boolean }) {
   return (
     <div className={`brand-lockup ${compact ? "brand-lockup-compact" : ""}`}>
       <img
@@ -2232,7 +2371,9 @@ function BadgePreviewArtwork({
 
 function App() {
   const [authStatus, setAuthStatus] = useState<AuthStatus>("loading");
-  const [activeSection, setActiveSection] = useState<AdminSection>(getInitialAdminSection);
+  const [activeSection, setActiveSection] = useState<AdminSection>(
+    getInitialAdminSection,
+  );
   const [adminUser, setAdminUser] = useState<AdminSession | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
   const [loginEmail, setLoginEmail] = useState("");
@@ -2243,20 +2384,29 @@ function App() {
     Record<ProtectedResourceKey, boolean>
   >(() => createProtectedResourceLoadState());
   const [specialists, setSpecialists] = useState<AdminSpecialist[]>([]);
-  const [selectedSpecialistId, setSelectedSpecialistId] = useState<string | null>(null);
+  const [selectedSpecialistId, setSelectedSpecialistId] = useState<
+    string | null
+  >(null);
   const [selectedSpecialistDetail, setSelectedSpecialistDetail] =
     useState<AdminSpecialistDetail | null>(null);
-  const [selectedSpecialistServices, setSelectedSpecialistServices] = useState<AdminService[]>([]);
-  const [selectedSpecialistAvailability, setSelectedSpecialistAvailability] = useState<
-    SpecialistAvailabilitySlot[]
+  const [selectedSpecialistServices, setSelectedSpecialistServices] = useState<
+    AdminService[]
   >([]);
-  const [selectedSpecialistBookings, setSelectedSpecialistBookings] = useState<AdminBooking[]>([]);
-  const [selectedSpecialistAudit, setSelectedSpecialistAudit] = useState<SpecialistAuditEntry[]>([]);
+  const [selectedSpecialistAvailability, setSelectedSpecialistAvailability] =
+    useState<SpecialistAvailabilitySlot[]>([]);
+  const [selectedSpecialistBookings, setSelectedSpecialistBookings] = useState<
+    AdminBooking[]
+  >([]);
+  const [selectedSpecialistAudit, setSelectedSpecialistAudit] = useState<
+    SpecialistAuditEntry[]
+  >([]);
   const [specialistDetailTab, setSpecialistDetailTab] =
     useState<SpecialistDetailTab>("profile");
   const [isSpecialistDrawerOpen, setIsSpecialistDrawerOpen] = useState(false);
   const [specialistDrawerLoading, setSpecialistDrawerLoading] = useState(false);
-  const [specialistDrawerError, setSpecialistDrawerError] = useState<string | null>(null);
+  const [specialistDrawerError, setSpecialistDrawerError] = useState<
+    string | null
+  >(null);
   const [specialistFilters, setSpecialistFilters] = useState({
     search: "",
     featured: "",
@@ -2264,16 +2414,19 @@ function App() {
     visible: "",
   });
   const [specialistServiceDrafts, setSpecialistServiceDrafts] = useState<
-    Record<string, {
-      name: string;
-      category: string;
-      description: string;
-      priceAmount: string;
-      priceCurrency: string;
-      durationMinutes: string;
-      isActive: boolean;
-      isVisible: boolean;
-    }>
+    Record<
+      string,
+      {
+        name: string;
+        category: string;
+        description: string;
+        priceAmount: string;
+        priceCurrency: string;
+        durationMinutes: string;
+        isActive: boolean;
+        isVisible: boolean;
+      }
+    >
   >({});
   const [specialistProfileDraft, setSpecialistProfileDraft] = useState({
     publicName: "",
@@ -2299,6 +2452,11 @@ function App() {
     endsAt: "",
     mode: "chat",
     isAvailable: true,
+    weeklyStartDate: "",
+    weeklyEndDate: "",
+    weeklyStartTime: "09:00",
+    weeklyEndTime: "17:00",
+    weeklyWeekdays: ["1", "2", "3", "4", "5"],
   });
   const [serviceFilters, setServiceFilters] = useState({
     specialistId: "",
@@ -2313,22 +2471,38 @@ function App() {
   const [orders, setOrders] = useState<AdminShopOrder[]>([]);
   const [products, setProducts] = useState<AdminShopProduct[]>([]);
   const [courses, setCourses] = useState<AdminCourse[]>([]);
-  const [courseResources, setCourseResources] = useState<AdminCourseResource[]>([]);
+  const [courseResources, setCourseResources] = useState<AdminCourseResource[]>(
+    [],
+  );
   const [libraryPdfs, setLibraryPdfs] = useState<AdminLibraryPdf[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
-  const [selectedCourseModuleId, setSelectedCourseModuleId] = useState<string | null>(null);
-  const [selectedCourseLessonId, setSelectedCourseLessonId] = useState<string | null>(null);
-  const [selectedCourseResourceId, setSelectedCourseResourceId] = useState<string | null>(null);
-  const [selectedLibraryPdfId, setSelectedLibraryPdfId] = useState<string | null>(null);
+  const [selectedCourseModuleId, setSelectedCourseModuleId] = useState<
+    string | null
+  >(null);
+  const [selectedCourseLessonId, setSelectedCourseLessonId] = useState<
+    string | null
+  >(null);
+  const [selectedCourseResourceId, setSelectedCourseResourceId] = useState<
+    string | null
+  >(null);
+  const [selectedLibraryPdfId, setSelectedLibraryPdfId] = useState<
+    string | null
+  >(null);
   const initialCourseWorkspaceRoute = getCourseWorkspaceRouteFromLocation();
-  const [isCourseDrawerOpen, setIsCourseDrawerOpen] = useState(initialCourseWorkspaceRoute.open);
+  const [isCourseDrawerOpen, setIsCourseDrawerOpen] = useState(
+    initialCourseWorkspaceRoute.open,
+  );
   const [courseDrawerTab, setCourseDrawerTab] = useState<CourseWorkspaceTab>(
     initialCourseWorkspaceRoute.tab,
   );
-  const previousCourseWorkspaceIdRef = useRef<string | null | undefined>(undefined);
+  const previousCourseWorkspaceIdRef = useRef<string | null | undefined>(
+    undefined,
+  );
   const [courseMessage, setCourseMessage] = useState<string | null>(null);
   const [courseError, setCourseError] = useState<string | null>(null);
-  const [savingCourseId, setSavingCourseId] = useState<string | "new" | null>(null);
+  const [savingCourseId, setSavingCourseId] = useState<string | "new" | null>(
+    null,
+  );
   const [courseForm, setCourseForm] = useState(() => createEmptyCourseForm());
   const [courseModuleForm, setCourseModuleForm] = useState({
     title: "",
@@ -2372,9 +2546,12 @@ function App() {
   const [libraryBulkFiles, setLibraryBulkFiles] = useState<File[]>([]);
   const [libraryBulkUploading, setLibraryBulkUploading] = useState(false);
   const [libraryBulkProgress, setLibraryBulkProgress] = useState(0);
-  const [libraryBulkNotice, setLibraryBulkNotice] = useState<LibraryNotice | null>(null);
+  const [libraryBulkNotice, setLibraryBulkNotice] =
+    useState<LibraryNotice | null>(null);
   const [librarySearch, setLibrarySearch] = useState("");
-  const [libraryFilter, setLibraryFilter] = useState<"all" | "free" | "linked" | "published">("all");
+  const [libraryFilter, setLibraryFilter] = useState<
+    "all" | "free" | "linked" | "published"
+  >("all");
   const [libraryCategoryFilter, setLibraryCategoryFilter] = useState("all");
   const [libraryBulkForm, setLibraryBulkForm] = useState({
     description: "",
@@ -2410,27 +2587,54 @@ function App() {
     profileCompleted: false,
   });
   const [chat, setChat] = useState<AdminChat | null>(null);
-  const [communityMessages, setCommunityMessages] = useState<AdminCommunityMessage[]>([]);
+  const [orderChat, setOrderChat] = useState<AdminPrivateChatThread | null>(
+    null,
+  );
+  const [orderChatOrder, setOrderChatOrder] = useState<AdminShopOrder | null>(
+    null,
+  );
+  const [orderChatReply, setOrderChatReply] = useState("");
+  const [orderChatError, setOrderChatError] = useState<string | null>(null);
+  const [orderChatLoading, setOrderChatLoading] = useState(false);
+  const [sendingOrderChatReply, setSendingOrderChatReply] = useState(false);
+  const [communityMessages, setCommunityMessages] = useState<
+    AdminCommunityMessage[]
+  >([]);
   const [communityReply, setCommunityReply] = useState("");
   const [communityReplyImageUrl, setCommunityReplyImageUrl] = useState("");
   const [communityReplyImageName, setCommunityReplyImageName] = useState("");
-  const [communityReplyImageUploading, setCommunityReplyImageUploading] = useState(false);
-  const [communityReplyImageProgress, setCommunityReplyImageProgress] = useState(0);
-  const [communityReplyImageError, setCommunityReplyImageError] = useState<string | null>(null);
-  const [communityReplyError, setCommunityReplyError] = useState<string | null>(null);
+  const [communityReplyImageUploading, setCommunityReplyImageUploading] =
+    useState(false);
+  const [communityReplyImageProgress, setCommunityReplyImageProgress] =
+    useState(0);
+  const [communityReplyImageError, setCommunityReplyImageError] = useState<
+    string | null
+  >(null);
+  const [communityReplyError, setCommunityReplyError] = useState<string | null>(
+    null,
+  );
   const [sendingCommunityReply, setSendingCommunityReply] = useState(false);
-  const [moderatingCommunityMessageId, setModeratingCommunityMessageId] = useState<string | null>(null);
+  const [moderatingCommunityMessageId, setModeratingCommunityMessageId] =
+    useState<string | null>(null);
   const communityReplyImageInputRef = useRef<HTMLInputElement | null>(null);
   const [incidents, setIncidents] = useState<AdminIncident[]>([]);
   const [badges, setBadges] = useState<Badge[]>([]);
-  const [diagnostics, setDiagnostics] = useState<BadgeDiagnosticsResult | null>(null);
+  const [diagnostics, setDiagnostics] = useState<BadgeDiagnosticsResult | null>(
+    null,
+  );
   const [auditEntries, setAuditEntries] = useState<BadgeAuditLogEntry[]>([]);
   const [auditError, setAuditError] = useState<string | null>(null);
-  const [selectedAuditEntry, setSelectedAuditEntry] = useState<BadgeAuditLogEntry | null>(null);
-  const [courseAuditEntries, setCourseAuditEntries] = useState<BadgeAuditLogEntry[]>([]);
+  const [selectedAuditEntry, setSelectedAuditEntry] =
+    useState<BadgeAuditLogEntry | null>(null);
+  const [courseAuditEntries, setCourseAuditEntries] = useState<
+    BadgeAuditLogEntry[]
+  >([]);
   const [courseAuditError, setCourseAuditError] = useState<string | null>(null);
-  const [developerSection, setDeveloperSection] = useState<DeveloperSection>("badges");
-  const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
+  const [developerSection, setDeveloperSection] =
+    useState<DeveloperSection>("badges");
+  const [selectedBookingId, setSelectedBookingId] = useState<string | null>(
+    null,
+  );
   const [bookingForm, setBookingForm] = useState<BookingFormState>({
     userId: "",
     specialistId: "",
@@ -2440,7 +2644,9 @@ function App() {
     notes: "",
     status: "pending_payment",
   });
-  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(
+    null,
+  );
   const [productForm, setProductForm] = useState<ProductFormState>({
     name: "",
     category: "",
@@ -2460,8 +2666,12 @@ function App() {
     featured: false,
     tags: "",
   });
-  const [operatingPanelMessage, setOperatingPanelMessage] = useState<string | null>(null);
-  const [operatingPanelError, setOperatingPanelError] = useState<string | null>(null);
+  const [operatingPanelMessage, setOperatingPanelMessage] = useState<
+    string | null
+  >(null);
+  const [operatingPanelError, setOperatingPanelError] = useState<string | null>(
+    null,
+  );
   const [isProductDrawerOpen, setIsProductDrawerOpen] = useState(false);
   const [isBookingDrawerOpen, setIsBookingDrawerOpen] = useState(false);
   const [productFilters, setProductFilters] = useState<ProductFilters>({
@@ -2483,19 +2693,25 @@ function App() {
   const [badgeForm, setBadgeForm] = useState<BadgeFormState>(() =>
     buildBadgeDraft("despertar_path", 1, []),
   );
-  const [selectedRouteId, setSelectedRouteId] = useState<BadgePathId>("despertar_path");
+  const [selectedRouteId, setSelectedRouteId] =
+    useState<BadgePathId>("despertar_path");
   const [isBadgeEditorOpen, setIsBadgeEditorOpen] = useState(false);
   const [editorMode, setEditorMode] = useState<"edit" | "preview">("edit");
   const [badgeMessage, setBadgeMessage] = useState<string | null>(null);
   const [badgeError, setBadgeError] = useState<string | null>(null);
-  const [savingBadgeId, setSavingBadgeId] = useState<string | "new" | null>(null);
+  const [savingBadgeId, setSavingBadgeId] = useState<string | "new" | null>(
+    null,
+  );
   const [error, setError] = useState<string | null>(null);
   const [developerAccessGranted, setDeveloperAccessGranted] = useState(false);
-  const [developerAccessModalOpen, setDeveloperAccessModalOpen] = useState(false);
+  const [developerAccessModalOpen, setDeveloperAccessModalOpen] =
+    useState(false);
   const [pendingDeveloperSection, setPendingDeveloperSection] =
     useState<DeveloperSection>("badges");
   const [developerPasscode, setDeveloperPasscode] = useState("");
-  const [developerPasscodeError, setDeveloperPasscodeError] = useState<string | null>(null);
+  const [developerPasscodeError, setDeveloperPasscodeError] = useState<
+    string | null
+  >(null);
 
   const requestDeveloperAccess = useCallback(
     (section: DeveloperSection = "badges") => {
@@ -2513,53 +2729,63 @@ function App() {
     [developerAccessGranted],
   );
 
-  const handleDeveloperPasscodeSubmit = useCallback((event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const handleDeveloperPasscodeSubmit = useCallback(
+    (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
 
-    if (developerPasscode.trim() !== "1111") {
-      setDeveloperPasscodeError("Contraseña incorrecta.");
-      return;
-    }
+      if (developerPasscode.trim() !== "1111") {
+        setDeveloperPasscodeError("Contraseña incorrecta.");
+        return;
+      }
 
-    setDeveloperAccessGranted(true);
-    setDeveloperAccessModalOpen(false);
-    setActiveSection("developer");
-    setDeveloperSection(pendingDeveloperSection);
-    setDeveloperPasscode("");
-    setDeveloperPasscodeError(null);
-  }, [developerPasscode, pendingDeveloperSection]);
+      setDeveloperAccessGranted(true);
+      setDeveloperAccessModalOpen(false);
+      setActiveSection("developer");
+      setDeveloperSection(pendingDeveloperSection);
+      setDeveloperPasscode("");
+      setDeveloperPasscodeError(null);
+    },
+    [developerPasscode, pendingDeveloperSection],
+  );
 
   const handleSelectCourseDrawerTab = useCallback(
     (tab: CourseWorkspaceTab) => {
       setCourseDrawerTab(tab);
       if (isCourseDrawerOpen) {
-        window.history.replaceState({}, "", buildCourseWorkspaceUrl(selectedCourseId, tab));
+        window.history.replaceState(
+          {},
+          "",
+          buildCourseWorkspaceUrl(selectedCourseId, tab),
+        );
       }
     },
     [isCourseDrawerOpen, selectedCourseId],
   );
 
-  const openCourseWorkspaceTab = useCallback((courseId: string | null, tab: CourseWorkspaceTab) => {
-    const nextCourse = courseId
-      ? courses.find((course) => course.id === courseId) ?? null
-      : null;
+  const openCourseWorkspaceTab = useCallback(
+    (courseId: string | null, tab: CourseWorkspaceTab) => {
+      const nextCourse = courseId
+        ? (courses.find((course) => course.id === courseId) ?? null)
+        : null;
 
-    setActiveSection("courses");
-    setIsCourseDrawerOpen(true);
-    setCourseDrawerTab(tab);
-    setSelectedCourseId(courseId);
-    setSelectedCourseModuleId(null);
-    setSelectedCourseLessonId(null);
-    setSelectedCourseResourceId(null);
-    if (tab !== "library") {
-      setSelectedLibraryPdfId(null);
-    }
-    setCourseMessage(null);
-    setCourseError(null);
-    setCourseForm(buildCourseForm(nextCourse));
-    window.history.pushState({}, "", buildCourseWorkspaceUrl(courseId, tab));
-    previousCourseWorkspaceIdRef.current = courseId;
-  }, [courses]);
+      setActiveSection("courses");
+      setIsCourseDrawerOpen(true);
+      setCourseDrawerTab(tab);
+      setSelectedCourseId(courseId);
+      setSelectedCourseModuleId(null);
+      setSelectedCourseLessonId(null);
+      setSelectedCourseResourceId(null);
+      if (tab !== "library") {
+        setSelectedLibraryPdfId(null);
+      }
+      setCourseMessage(null);
+      setCourseError(null);
+      setCourseForm(buildCourseForm(nextCourse));
+      window.history.pushState({}, "", buildCourseWorkspaceUrl(courseId, tab));
+      previousCourseWorkspaceIdRef.current = courseId;
+    },
+    [courses],
+  );
 
   const handleNavigateSection = useCallback(
     (section: AdminSection) => {
@@ -2585,7 +2811,11 @@ function App() {
       }
 
       if (typeof window !== "undefined") {
-        window.history.replaceState({}, "", `${window.location.pathname}${window.location.search}#${section}`);
+        window.history.replaceState(
+          {},
+          "",
+          `${window.location.pathname}${window.location.search}#${section}`,
+        );
       }
       setActiveSection(section);
     },
@@ -2632,7 +2862,7 @@ function App() {
     const selectedCourse =
       selectedCourseId == null
         ? null
-        : courses.find((course) => course.id === selectedCourseId) ?? null;
+        : (courses.find((course) => course.id === selectedCourseId) ?? null);
 
     setCourseForm(buildCourseForm(selectedCourse));
     setSelectedCourseModuleId(null);
@@ -2689,6 +2919,11 @@ function App() {
       endsAt: "",
       mode: "chat",
       isAvailable: true,
+      weeklyStartDate: "",
+      weeklyEndDate: "",
+      weeklyStartTime: "09:00",
+      weeklyEndTime: "17:00",
+      weeklyWeekdays: ["1", "2", "3", "4", "5"],
     });
     setServiceFilters({
       specialistId: "",
@@ -2818,12 +3053,15 @@ function App() {
     });
   }, [badges]);
 
-  const handleSessionInvalid = useCallback((message: string) => {
-    setAdminUser(null);
-    setAuthStatus("unauthenticated");
-    setAuthError(message);
-    clearProtectedState();
-  }, [clearProtectedState]);
+  const handleSessionInvalid = useCallback(
+    (message: string) => {
+      setAdminUser(null);
+      setAuthStatus("unauthenticated");
+      setAuthError(message);
+      clearProtectedState();
+    },
+    [clearProtectedState],
+  );
 
   const refreshLibraryPdfs = useCallback(async () => {
     const response = await fetch(`${apiBaseUrl}/api/admin/library/pdfs`, {
@@ -2902,7 +3140,10 @@ function App() {
         case "chat":
           return fetch(`${apiBaseUrl}/api/admin/chat?limit=20`, options);
         case "community":
-          return fetch(`${apiBaseUrl}/api/admin/chat/community?limit=40`, options);
+          return fetch(
+            `${apiBaseUrl}/api/admin/chat/community?limit=40`,
+            options,
+          );
         case "incidents":
           return fetch(`${apiBaseUrl}/api/admin/incidents`, options);
         case "diagnostics":
@@ -2953,7 +3194,9 @@ function App() {
           break;
         }
         case "products": {
-          const json = (await response.json()) as { items?: AdminShopProduct[] };
+          const json = (await response.json()) as {
+            items?: AdminShopProduct[];
+          };
           setProducts(json.items ?? []);
           break;
         }
@@ -2963,7 +3206,9 @@ function App() {
           break;
         }
         case "courseResources": {
-          const json = (await response.json()) as { items?: AdminCourseResource[] };
+          const json = (await response.json()) as {
+            items?: AdminCourseResource[];
+          };
           setCourseResources(json.items ?? []);
           break;
         }
@@ -2983,7 +3228,9 @@ function App() {
           break;
         }
         case "community": {
-          const json = (await response.json()) as { items?: AdminCommunityMessage[] };
+          const json = (await response.json()) as {
+            items?: AdminCommunityMessage[];
+          };
           setCommunityMessages(json.items ?? []);
           break;
         }
@@ -3124,14 +3371,22 @@ function App() {
             return ["specialists"] as ProtectedResourceKey[];
           case "agenda":
           case "bookings":
-            return ["specialists", "bookings", "users"] as ProtectedResourceKey[];
+            return [
+              "specialists",
+              "bookings",
+              "users",
+            ] as ProtectedResourceKey[];
           case "orders":
             return ["orders"] as ProtectedResourceKey[];
           case "shop":
             return ["products"] as ProtectedResourceKey[];
           case "courses":
             return isCourseDrawerOpen && courseDrawerTab === "library"
-              ? (["courses", "courseResources", "libraryPdfs"] as ProtectedResourceKey[])
+              ? ([
+                  "courses",
+                  "courseResources",
+                  "libraryPdfs",
+                ] as ProtectedResourceKey[])
               : (["courses", "courseResources"] as ProtectedResourceKey[]);
           case "library":
             return ["libraryPdfs", "courses"] as ProtectedResourceKey[];
@@ -3154,7 +3409,8 @@ function App() {
       })();
 
       const resourcesToLoad = requiredResources.filter(
-        (resourceKey) => resourceKey === "audit" || !loadedProtectedResources[resourceKey],
+        (resourceKey) =>
+          resourceKey === "audit" || !loadedProtectedResources[resourceKey],
       );
 
       if (resourcesToLoad.length === 0) {
@@ -3162,9 +3418,15 @@ function App() {
       }
 
       try {
-        const responses = await Promise.all(resourcesToLoad.map((key) => fetchProtectedResource(key)));
+        const responses = await Promise.all(
+          resourcesToLoad.map((key) => fetchProtectedResource(key)),
+        );
 
-        if (responses.some((response) => response.status === 401 || response.status === 403)) {
+        if (
+          responses.some(
+            (response) => response.status === 401 || response.status === 403,
+          )
+        ) {
           if (!cancelled) {
             handleSessionInvalid("Tu sesión de admin expiró.");
           }
@@ -3172,7 +3434,9 @@ function App() {
         }
 
         if (responses.some((response) => !response.ok)) {
-          throw new Error("La sesión admin no pudo cargar las vistas protegidas.");
+          throw new Error(
+            "La sesión admin no pudo cargar las vistas protegidas.",
+          );
         }
 
         if (!cancelled) {
@@ -3249,13 +3513,25 @@ function App() {
       }
     };
 
-    eventSource.addEventListener("content.changed", handleContentChange as EventListener);
+    eventSource.addEventListener(
+      "content.changed",
+      handleContentChange as EventListener,
+    );
 
     return () => {
-      eventSource.removeEventListener("content.changed", handleContentChange as EventListener);
+      eventSource.removeEventListener(
+        "content.changed",
+        handleContentChange as EventListener,
+      );
       eventSource.close();
     };
-  }, [activeSection, apiBaseUrl, authStatus, refreshCommunityChatSnapshot, refreshLibraryPdfs]);
+  }, [
+    activeSection,
+    apiBaseUrl,
+    authStatus,
+    refreshCommunityChatSnapshot,
+    refreshLibraryPdfs,
+  ]);
 
   useEffect(() => {
     if (authStatus !== "authenticated" || activeSection !== "community") {
@@ -3289,7 +3565,11 @@ function App() {
     let cancelled = false;
 
     async function loadCourseAudit() {
-      if (!isCourseDrawerOpen || !selectedCourseId || courseDrawerTab !== "history") {
+      if (
+        !isCourseDrawerOpen ||
+        !selectedCourseId ||
+        courseDrawerTab !== "history"
+      ) {
         if (!cancelled) {
           setCourseAuditEntries([]);
           setCourseAuditError(null);
@@ -3317,20 +3597,23 @@ function App() {
         }
 
         const json = (await response.json()) as {
-          items: Array<BadgeAuditLogEntry & {
-            entityType: string;
-            entityId: string;
-            courseId: string;
-            courseName?: string | null;
-            elementLabel?: string;
-          }>;
+          items: Array<
+            BadgeAuditLogEntry & {
+              entityType: string;
+              entityId: string;
+              courseId: string;
+              courseName?: string | null;
+              elementLabel?: string;
+            }
+          >;
         };
 
         if (!cancelled) {
           const nextEntries = (json.items ?? []).map((entry) => ({
             ...entry,
             badgeId: entry.courseId,
-            badgeName: entry.courseName ?? entry.elementLabel ?? entry.entityType,
+            badgeName:
+              entry.courseName ?? entry.elementLabel ?? entry.entityType,
             pathId: null,
           }));
           setCourseAuditEntries(nextEntries);
@@ -3352,14 +3635,20 @@ function App() {
     return () => {
       cancelled = true;
     };
-  }, [courseDrawerTab, handleSessionInvalid, isCourseDrawerOpen, selectedCourseId]);
+  }, [
+    courseDrawerTab,
+    handleSessionInvalid,
+    isCourseDrawerOpen,
+    selectedCourseId,
+  ]);
 
   useEffect(() => {
     if (selectedBadgeId == null) {
       return;
     }
 
-    const selectedBadge = badges.find((badge) => badge.id === selectedBadgeId) ?? null;
+    const selectedBadge =
+      badges.find((badge) => badge.id === selectedBadgeId) ?? null;
     if (selectedBadge) {
       setBadgeForm(badgeToForm(selectedBadge));
     }
@@ -3436,7 +3725,9 @@ function App() {
     } catch (loginException) {
       setAdminUser(null);
       setAuthStatus("unauthenticated");
-      setAuthError(getConnectionErrorMessage(loginException, "No se pudo iniciar sesión."));
+      setAuthError(
+        getConnectionErrorMessage(loginException, "No se pudo iniciar sesión."),
+      );
     } finally {
       setLoginLoading(false);
     }
@@ -3476,17 +3767,20 @@ function App() {
     setCommunityReplyError(null);
 
     try {
-      const response = await fetch(`${apiBaseUrl}/api/admin/chat/community/messages`, {
-        method: "POST",
-        credentials: "include",
-        headers: {
-          "content-type": "application/json",
+      const response = await fetch(
+        `${apiBaseUrl}/api/admin/chat/community/messages`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            body,
+            imageUrl: imageUrl.length > 0 ? imageUrl : undefined,
+          }),
         },
-        body: JSON.stringify({
-          body,
-          imageUrl: imageUrl.length > 0 ? imageUrl : undefined,
-        }),
-      });
+      );
 
       const json = (await response.json()) as {
         items?: AdminCommunityMessage[];
@@ -3513,7 +3807,9 @@ function App() {
       }
     } catch (sendError) {
       setCommunityReplyError(
-        sendError instanceof Error ? sendError.message : "No se pudo responder al chat.",
+        sendError instanceof Error
+          ? sendError.message
+          : "No se pudo responder al chat.",
       );
     } finally {
       setSendingCommunityReply(false);
@@ -3539,7 +3835,9 @@ function App() {
           if (!event.lengthComputable) {
             return;
           }
-          setCommunityReplyImageProgress(Math.round((event.loaded / event.total) * 100));
+          setCommunityReplyImageProgress(
+            Math.round((event.loaded / event.total) * 100),
+          );
         };
 
         xhr.onerror = () => reject(new Error("No se pudo subir la imagen."));
@@ -3550,7 +3848,11 @@ function App() {
               error?: string;
             };
 
-            if (xhr.status < 200 || xhr.status >= 300 || !payload.item?.publicUrl) {
+            if (
+              xhr.status < 200 ||
+              xhr.status >= 300 ||
+              !payload.item?.publicUrl
+            ) {
               reject(new Error(payload.error ?? "No se pudo subir la imagen."));
               return;
             }
@@ -3586,7 +3888,9 @@ function App() {
       setCommunityReplyImageUrl(publicUrl);
     } catch (uploadError) {
       setCommunityReplyImageError(
-        uploadError instanceof Error ? uploadError.message : "No se pudo subir la imagen.",
+        uploadError instanceof Error
+          ? uploadError.message
+          : "No se pudo subir la imagen.",
       );
       setCommunityReplyImageName("");
       setCommunityReplyImageUrl("");
@@ -3636,7 +3940,9 @@ function App() {
       setCommunityMessages(json.items ?? []);
     } catch (moderationError) {
       setCommunityReplyError(
-        moderationError instanceof Error ? moderationError.message : fallbackError,
+        moderationError instanceof Error
+          ? moderationError.message
+          : fallbackError,
       );
     } finally {
       setModeratingCommunityMessageId(null);
@@ -3770,7 +4076,10 @@ function App() {
           body: JSON.stringify(payload),
         },
       );
-      const json = (await response.json()) as { item?: AdminCourse; error?: string };
+      const json = (await response.json()) as {
+        item?: AdminCourse;
+        error?: string;
+      };
       if (!response.ok || !json.item) {
         setCourseError(json.error ?? "No se pudo guardar el curso.");
         return;
@@ -3778,7 +4087,9 @@ function App() {
       const savedCourse = json.item;
 
       setCourses((current) => {
-        const existingIndex = current.findIndex((item) => item.id === savedCourse.id);
+        const existingIndex = current.findIndex(
+          (item) => item.id === savedCourse.id,
+        );
         if (existingIndex >= 0) {
           const next = [...current];
           next[existingIndex] = savedCourse;
@@ -3805,13 +4116,19 @@ function App() {
       });
       setCourseMessage(wasEditing ? "Curso actualizado." : "Curso creado.");
     } catch (saveError) {
-      setCourseError(saveError instanceof Error ? saveError.message : "No se pudo guardar el curso.");
+      setCourseError(
+        saveError instanceof Error
+          ? saveError.message
+          : "No se pudo guardar el curso.",
+      );
     } finally {
       setSavingCourseId(null);
     }
   }
 
-  async function handlePublishCourse(nextStatus: "publish" | "unpublish" | "archive") {
+  async function handlePublishCourse(
+    nextStatus: "publish" | "unpublish" | "archive",
+  ) {
     if (!selectedCourseId) {
       return;
     }
@@ -3829,14 +4146,19 @@ function App() {
           credentials: "include",
         },
       );
-      const json = (await response.json()) as { item?: AdminCourse; error?: string };
+      const json = (await response.json()) as {
+        item?: AdminCourse;
+        error?: string;
+      };
       if (!response.ok || !json.item) {
         setCourseError(json.error ?? "No se pudo actualizar la publicación.");
         return;
       }
       const savedCourse = json.item;
       setCourses((current) =>
-        current.map((item) => (item.id === savedCourse.id ? savedCourse : item)),
+        current.map((item) =>
+          item.id === savedCourse.id ? savedCourse : item,
+        ),
       );
       setCourseMessage(
         nextStatus === "publish"
@@ -3847,7 +4169,9 @@ function App() {
       );
     } catch (publishError) {
       setCourseError(
-        publishError instanceof Error ? publishError.message : "No se pudo actualizar la publicación.",
+        publishError instanceof Error
+          ? publishError.message
+          : "No se pudo actualizar la publicación.",
       );
     } finally {
       setSavingCourseId(null);
@@ -3880,7 +4204,10 @@ function App() {
         body: JSON.stringify(payload),
       },
     );
-    const json = (await response.json()) as { item?: AdminCourse; error?: string };
+    const json = (await response.json()) as {
+      item?: AdminCourse;
+      error?: string;
+    };
     if (!response.ok || !json.item) {
       setCourseError(json.error ?? "No se pudo guardar el módulo.");
       return;
@@ -3889,7 +4216,9 @@ function App() {
     setCourses((current) =>
       current.map((item) => (item.id === savedCourse.id ? savedCourse : item)),
     );
-    setCourseMessage(selectedCourseModuleId ? "Módulo actualizado." : "Módulo creado.");
+    setCourseMessage(
+      selectedCourseModuleId ? "Módulo actualizado." : "Módulo creado.",
+    );
   }
 
   async function handleSaveCourseLesson(event: FormEvent<HTMLFormElement>) {
@@ -3922,7 +4251,10 @@ function App() {
         body: JSON.stringify(payload),
       },
     );
-    const json = (await response.json()) as { item?: AdminCourse; error?: string };
+    const json = (await response.json()) as {
+      item?: AdminCourse;
+      error?: string;
+    };
     if (!response.ok || !json.item) {
       setCourseError(json.error ?? "No se pudo guardar la lección.");
       return;
@@ -3931,7 +4263,9 @@ function App() {
     setCourses((current) =>
       current.map((item) => (item.id === savedCourse.id ? savedCourse : item)),
     );
-    setCourseMessage(selectedCourseLessonId ? "Lección actualizada." : "Lección creada.");
+    setCourseMessage(
+      selectedCourseLessonId ? "Lección actualizada." : "Lección creada.",
+    );
   }
 
   async function handleSaveCourseResource(event: FormEvent<HTMLFormElement>) {
@@ -3968,7 +4302,9 @@ function App() {
     }
     const savedItem = json.item as AdminCourseResource;
     setCourseResources((current) => {
-      const existingIndex = current.findIndex((item) => item.id === savedItem.id);
+      const existingIndex = current.findIndex(
+        (item) => item.id === savedItem.id,
+      );
       if (existingIndex >= 0) {
         const next = [...current];
         next[existingIndex] = savedItem;
@@ -3977,7 +4313,9 @@ function App() {
       return [savedItem, ...current];
     });
     setSelectedCourseResourceId(savedItem.id);
-    setCourseMessage(selectedCourseResourceId ? "Recurso actualizado." : "Recurso creado.");
+    setCourseMessage(
+      selectedCourseResourceId ? "Recurso actualizado." : "Recurso creado.",
+    );
   }
 
   async function handleSaveLibraryPdf(event: FormEvent<HTMLFormElement>) {
@@ -4004,12 +4342,13 @@ function App() {
     formData.append("title", libraryPdfForm.title.trim());
     formData.append("description", libraryPdfForm.description.trim());
     formData.append("category", normalizedCategory);
-    const selectedCourseForLibrary =
-      libraryPdfForm.linkToCourse
-        ? libraryPdfForm.courseId.trim() || selectedCourseId || ""
-        : "";
+    const selectedCourseForLibrary = libraryPdfForm.linkToCourse
+      ? libraryPdfForm.courseId.trim() || selectedCourseId || ""
+      : "";
     if (libraryPdfForm.linkToCourse && !selectedCourseForLibrary) {
-      setCourseError("Selecciona un curso para vincular este PDF o desactiva la vinculación.");
+      setCourseError(
+        "Selecciona un curso para vincular este PDF o desactiva la vinculación.",
+      );
       return;
     }
     formData.append("courseId", selectedCourseForLibrary);
@@ -4039,7 +4378,9 @@ function App() {
     }
     const savedItem = json.item as AdminLibraryPdf;
     setLibraryPdfs((current) => {
-      const existingIndex = current.findIndex((item) => item.id === savedItem.id);
+      const existingIndex = current.findIndex(
+        (item) => item.id === savedItem.id,
+      );
       if (existingIndex >= 0) {
         const next = [...current];
         next[existingIndex] = savedItem;
@@ -4061,7 +4402,9 @@ function App() {
       isActive: savedItem.isActive ?? true,
     });
     await refreshLibraryPdfs();
-    setCourseMessage(selectedLibraryPdfId ? "PDF actualizado." : "PDF agregado.");
+    setCourseMessage(
+      selectedLibraryPdfId ? "PDF actualizado." : "PDF agregado.",
+    );
   }
 
   function buildBulkUploadSummary() {
@@ -4073,7 +4416,8 @@ function App() {
       ? libraryBulkForm.courseId.trim() || selectedCourseId || ""
       : "";
     const courseLabel = courseId
-      ? courses.find((course) => course.id === courseId)?.title ?? "Curso seleccionado"
+      ? (courses.find((course) => course.id === courseId)?.title ??
+        "Curso seleccionado")
       : "Sin vínculo";
 
     return {
@@ -4119,7 +4463,9 @@ function App() {
         ? libraryBulkForm.courseId.trim() || selectedCourseId || ""
         : "";
       if (libraryBulkForm.linkToCourse && !courseId) {
-        throw new Error("Selecciona un curso para vincular estos PDFs o desactiva la vinculación.");
+        throw new Error(
+          "Selecciona un curso para vincular estos PDFs o desactiva la vinculación.",
+        );
       }
       formData.append("description", libraryBulkForm.description.trim());
       formData.append("category", normalizedCategory);
@@ -4145,7 +4491,9 @@ function App() {
             return;
           }
 
-          setLibraryBulkProgress(Math.round((event.loaded / event.total) * 100));
+          setLibraryBulkProgress(
+            Math.round((event.loaded / event.total) * 100),
+          );
         };
 
         xhr.onerror = () => {
@@ -4161,7 +4509,9 @@ function App() {
               failures?: LibraryBulkFailure[];
             };
             if (xhr.status < 200 || xhr.status >= 300) {
-              reject(new Error(payload.error ?? "No se pudieron subir los PDFs."));
+              reject(
+                new Error(payload.error ?? "No se pudieron subir los PDFs."),
+              );
               return;
             }
             resolve(payload);
@@ -4202,8 +4552,12 @@ function App() {
         setLibraryBulkNotice({
           tone: "warning",
           title: "Carga parcial",
-          message: json.warning ?? `Se publicaron ${json.items.length} PDF(s) y ${failures.length} quedaron pendientes.`,
-          details: failures.slice(0, 4).map((failure) => `${failure.fileName}: ${failure.error}`),
+          message:
+            json.warning ??
+            `Se publicaron ${json.items.length} PDF(s) y ${failures.length} quedaron pendientes.`,
+          details: failures
+            .slice(0, 4)
+            .map((failure) => `${failure.fileName}: ${failure.error}`),
         });
       } else {
         setLibraryBulkNotice({
@@ -4213,7 +4567,10 @@ function App() {
         });
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : "No se pudieron subir los PDFs.";
+      const message =
+        error instanceof Error
+          ? error.message
+          : "No se pudieron subir los PDFs.";
       setLibraryBulkNotice({
         tone: "error",
         title: "No se pudo publicar",
@@ -4254,12 +4611,14 @@ function App() {
     }
 
     if (libraryBulkForm.linkToCourse) {
-      const courseId = libraryBulkForm.courseId.trim() || selectedCourseId || "";
+      const courseId =
+        libraryBulkForm.courseId.trim() || selectedCourseId || "";
       if (!courseId) {
         setLibraryBulkNotice({
           tone: "warning",
           title: "Falta curso",
-          message: "Selecciona un curso o desactiva la vinculación para continuar.",
+          message:
+            "Selecciona un curso o desactiva la vinculación para continuar.",
         });
         return;
       }
@@ -4284,7 +4643,11 @@ function App() {
         },
       );
 
-      const json = (await response.json()) as { item?: AdminLibraryPdf; ok?: boolean; error?: string };
+      const json = (await response.json()) as {
+        item?: AdminLibraryPdf;
+        ok?: boolean;
+        error?: string;
+      };
       if (!response.ok || (action === "delete" ? !json.ok : !json.item)) {
         throw new Error(
           json.error ??
@@ -4297,7 +4660,9 @@ function App() {
       }
 
       if (action === "delete") {
-        setLibraryPdfs((current) => current.filter((item) => item.id !== pdfId));
+        setLibraryPdfs((current) =>
+          current.filter((item) => item.id !== pdfId),
+        );
         if (selectedLibraryPdfId === pdfId) {
           resetLibraryPdfDraft(null);
         }
@@ -4321,22 +4686,29 @@ function App() {
       );
     } catch (actionError) {
       setCourseError(
-        actionError instanceof Error ? actionError.message : "No se pudo completar la acción.",
+        actionError instanceof Error
+          ? actionError.message
+          : "No se pudo completar la acción.",
       );
     }
   }
 
-  function handleOpenBookingDrawer(booking?: AdminBooking, specialistHintId?: string) {
+  function handleOpenBookingDrawer(
+    booking?: AdminBooking,
+    specialistHintId?: string,
+  ) {
     const nextBooking = booking ?? null;
     const nextSpecialistId =
       nextBooking?.specialistId ?? specialistHintId ?? specialists[0]?.id ?? "";
     const nextUserId = nextBooking?.userId ?? users[0]?.id ?? "";
-    const nextSpecialist = specialists.find((item) => item.id === nextSpecialistId) ?? null;
+    const nextSpecialist =
+      specialists.find((item) => item.id === nextSpecialistId) ?? null;
     const nextServiceId =
       nextBooking?.serviceId ??
       nextSpecialist?.services[0]?.id ??
-      nextSpecialist?.services.find((service) => service.specialistIds?.includes(nextSpecialist.id))
-        ?.id ??
+      nextSpecialist?.services.find((service) =>
+        service.specialistIds?.includes(nextSpecialist.id),
+      )?.id ??
       "";
     setSelectedBookingId(nextBooking?.id ?? null);
     setBookingForm({
@@ -4368,7 +4740,9 @@ function App() {
       accountType: nextUser?.accountType ?? "client",
       adminAccess: nextUser?.roles.includes("admin") ?? false,
       specialistAccess:
-        nextUser?.accountType === "specialist" || nextUser?.roles.includes("specialist") || false,
+        nextUser?.accountType === "specialist" ||
+        nextUser?.roles.includes("specialist") ||
+        false,
       profileCompleted: nextUser?.profileCompleted ?? false,
     });
     setUserError(null);
@@ -4399,7 +4773,7 @@ function App() {
       accountType: userForm.accountType,
       roles: [
         ...(userForm.adminAccess ? (["admin"] as const) : []),
-        ...((userForm.specialistAccess || userForm.accountType === "specialist")
+        ...(userForm.specialistAccess || userForm.accountType === "specialist"
           ? (["specialist"] as const)
           : []),
       ],
@@ -4418,7 +4792,10 @@ function App() {
           body: JSON.stringify(payload),
         },
       );
-      const json = (await response.json()) as { item?: AdminUser; error?: string };
+      const json = (await response.json()) as {
+        item?: AdminUser;
+        error?: string;
+      };
       if (!response.ok || !json.item) {
         setUserError(json.error ?? "No se pudo guardar el usuario.");
         return;
@@ -4426,7 +4803,9 @@ function App() {
 
       const savedUser = json.item;
       setUsers((current) => {
-        const existingIndex = current.findIndex((item) => item.id === savedUser.id);
+        const existingIndex = current.findIndex(
+          (item) => item.id === savedUser.id,
+        );
         if (existingIndex >= 0) {
           const next = [...current];
           next[existingIndex] = savedUser;
@@ -4435,11 +4814,19 @@ function App() {
         return [savedUser, ...current];
       });
       setSelectedUserId(savedUser.id);
-      setUserMessage(selectedUserId ? "Usuario actualizado." : "Usuario creado.");
-      setOperatingPanelMessage(selectedUserId ? "Usuario actualizado." : "Usuario creado.");
+      setUserMessage(
+        selectedUserId ? "Usuario actualizado." : "Usuario creado.",
+      );
+      setOperatingPanelMessage(
+        selectedUserId ? "Usuario actualizado." : "Usuario creado.",
+      );
       setIsUserDrawerOpen(false);
     } catch (error) {
-      setUserError(error instanceof Error ? error.message : "No se pudo guardar el usuario.");
+      setUserError(
+        error instanceof Error
+          ? error.message
+          : "No se pudo guardar el usuario.",
+      );
     } finally {
       setSavingUserId(null);
     }
@@ -4456,24 +4843,35 @@ function App() {
     setIsSpecialistDrawerOpen(true);
 
     try {
-      const [detailResponse, servicesResponse, availabilityResponse, bookingsResponse, auditResponse] =
-        await Promise.all([
-          fetch(`${apiBaseUrl}/api/admin/specialists/${specialist.id}`, {
+      const [
+        detailResponse,
+        servicesResponse,
+        availabilityResponse,
+        bookingsResponse,
+        auditResponse,
+      ] = await Promise.all([
+        fetch(`${apiBaseUrl}/api/admin/specialists/${specialist.id}`, {
+          credentials: "include",
+        }),
+        fetch(`${apiBaseUrl}/api/admin/specialists/${specialist.id}/services`, {
+          credentials: "include",
+        }),
+        fetch(
+          `${apiBaseUrl}/api/admin/specialists/${specialist.id}/availability`,
+          {
             credentials: "include",
-          }),
-          fetch(`${apiBaseUrl}/api/admin/specialists/${specialist.id}/services`, {
+          },
+        ),
+        fetch(`${apiBaseUrl}/api/admin/specialists/${specialist.id}/bookings`, {
+          credentials: "include",
+        }),
+        fetch(
+          `${apiBaseUrl}/api/admin/specialists/${specialist.id}/audit-log`,
+          {
             credentials: "include",
-          }),
-          fetch(`${apiBaseUrl}/api/admin/specialists/${specialist.id}/availability`, {
-            credentials: "include",
-          }),
-          fetch(`${apiBaseUrl}/api/admin/specialists/${specialist.id}/bookings`, {
-            credentials: "include",
-          }),
-          fetch(`${apiBaseUrl}/api/admin/specialists/${specialist.id}/audit-log`, {
-            credentials: "include",
-          }),
-        ]);
+          },
+        ),
+      ]);
 
       if (
         detailResponse.status === 401 ||
@@ -4496,21 +4894,31 @@ function App() {
         throw new Error("No se pudo cargar el detalle del especialista.");
       }
 
-      const [detailJson, servicesJson, availabilityJson, bookingsJson, auditJson] = await Promise.all([
+      const [
+        detailJson,
+        servicesJson,
+        availabilityJson,
+        bookingsJson,
+        auditJson,
+      ] = await Promise.all([
         detailResponse.json() as Promise<{ item: AdminSpecialistDetail }>,
         servicesResponse.json() as Promise<{ items: AdminService[] }>,
-        availabilityResponse.json() as Promise<{ items: SpecialistAvailabilitySlot[] }>,
+        availabilityResponse.json() as Promise<{
+          items: SpecialistAvailabilitySlot[];
+        }>,
         bookingsResponse.json() as Promise<{ items: AdminBooking[] }>,
         auditResponse.json() as Promise<{ items: SpecialistAuditEntry[] }>,
       ]);
 
       const nextServices = servicesJson.items ?? [];
-      const nextAvailability = (availabilityJson.items ?? []).slice().sort((left, right) =>
-        left.startsAt.localeCompare(right.startsAt),
-      );
-      const nextBookings = (bookingsJson.items ?? []).slice().sort((left, right) =>
-        right.scheduledAt.localeCompare(left.scheduledAt),
-      );
+      const nextAvailability = (availabilityJson.items ?? [])
+        .slice()
+        .sort((left, right) => left.startsAt.localeCompare(right.startsAt));
+      const nextBookings = (bookingsJson.items ?? [])
+        .slice()
+        .sort((left, right) =>
+          right.scheduledAt.localeCompare(left.scheduledAt),
+        );
 
       const nextDetail = detailJson.item ?? specialist;
       setSelectedSpecialistDetail(nextDetail);
@@ -4543,6 +4951,11 @@ function App() {
         endsAt: "",
         mode: nextServices[0]?.deliveryModes?.[0] ?? "chat",
         isAvailable: true,
+        weeklyStartDate: "",
+        weeklyEndDate: "",
+        weeklyStartTime: "09:00",
+        weeklyEndTime: "17:00",
+        weeklyWeekdays: ["1", "2", "3", "4", "5"],
       });
     } catch (loadError) {
       setSpecialistDrawerError(
@@ -4568,9 +4981,12 @@ function App() {
   }
 
   async function refreshSpecialistAudit(specialistId: string) {
-    const response = await fetch(`${apiBaseUrl}/api/admin/specialists/${specialistId}/audit-log`, {
-      credentials: "include",
-    });
+    const response = await fetch(
+      `${apiBaseUrl}/api/admin/specialists/${specialistId}/audit-log`,
+      {
+        credentials: "include",
+      },
+    );
     if (response.status === 401) {
       handleSessionInvalid("Tu sesión de admin expiró.");
       return;
@@ -4623,8 +5039,11 @@ function App() {
     const category = draft?.category?.trim() || service.category;
     const description = draft?.description?.trim() || service.description;
     const amount = Number(draft?.priceAmount ?? service.price.amount);
-    const durationMinutes = Number(draft?.durationMinutes ?? service.durationMinutes);
-    const priceCurrency = (draft?.priceCurrency ?? service.price.currency).trim() || "USD";
+    const durationMinutes = Number(
+      draft?.durationMinutes ?? service.durationMinutes,
+    );
+    const priceCurrency =
+      (draft?.priceCurrency ?? service.price.currency).trim() || "USD";
 
     if (name.length < 3) {
       setSpecialistDrawerError("Ingresa un nombre válido.");
@@ -4671,7 +5090,10 @@ function App() {
       },
     );
 
-    const json = (await response.json()) as { item?: AdminService; error?: string };
+    const json = (await response.json()) as {
+      item?: AdminService;
+      error?: string;
+    };
     if (response.status === 401) {
       handleSessionInvalid("Tu sesión de admin expiró.");
       return;
@@ -4683,7 +5105,9 @@ function App() {
 
     const savedService = json.item;
     setSelectedSpecialistServices((current) =>
-      current.map((item) => (item.id === savedService.id ? savedService : item)),
+      current.map((item) =>
+        item.id === savedService.id ? savedService : item,
+      ),
     );
     setSpecialists((current) =>
       current.map((item) =>
@@ -4720,24 +5144,30 @@ function App() {
     }
 
     setSpecialistDrawerError(null);
-    const response = await fetch(`${apiBaseUrl}/api/admin/specialists/${selectedSpecialistId}`, {
-      method: "PATCH",
-      credentials: "include",
-      headers: {
-        "content-type": "application/json",
+    const response = await fetch(
+      `${apiBaseUrl}/api/admin/specialists/${selectedSpecialistId}`,
+      {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          isActive: specialistProfileDraft.isActive,
+          isPublic: specialistProfileDraft.isVisible,
+          publicName: specialistProfileDraft.publicName,
+          headline: specialistProfileDraft.headline,
+          specialty: specialistProfileDraft.specialty,
+          bio: specialistProfileDraft.bio,
+          avatarUrl: specialistProfileDraft.avatarUrl,
+        }),
       },
-      body: JSON.stringify({
-        isActive: specialistProfileDraft.isActive,
-        isPublic: specialistProfileDraft.isVisible,
-        publicName: specialistProfileDraft.publicName,
-        headline: specialistProfileDraft.headline,
-        specialty: specialistProfileDraft.specialty,
-        bio: specialistProfileDraft.bio,
-        avatarUrl: specialistProfileDraft.avatarUrl,
-      }),
-    });
+    );
 
-    const json = (await response.json()) as { item?: AdminSpecialistDetail; error?: string };
+    const json = (await response.json()) as {
+      item?: AdminSpecialistDetail;
+      error?: string;
+    };
     if (response.status === 401) {
       handleSessionInvalid("Tu sesión de admin expiró.");
       return;
@@ -4748,7 +5178,10 @@ function App() {
     }
 
     const saved = json.item;
-    setSelectedSpecialistDetail((current) => ({ ...(current ?? saved), ...saved }));
+    setSelectedSpecialistDetail((current) => ({
+      ...(current ?? saved),
+      ...saved,
+    }));
     setSpecialists((current) =>
       current.map((item) =>
         item.id === selectedSpecialistId ? { ...item, ...saved } : item,
@@ -4813,7 +5246,10 @@ function App() {
       },
     );
 
-    const json = (await response.json()) as { item?: AdminService; error?: string };
+    const json = (await response.json()) as {
+      item?: AdminService;
+      error?: string;
+    };
     if (response.status === 401) {
       handleSessionInvalid("Tu sesión de admin expiró.");
       return;
@@ -4868,11 +5304,15 @@ function App() {
     setOperatingPanelError(null);
 
     if (!serviceFilters.specialistId) {
-      setOperatingPanelError("Selecciona un especialista para crearle un servicio.");
+      setOperatingPanelError(
+        "Selecciona un especialista para crearle un servicio.",
+      );
       return;
     }
 
-    const specialist = specialists.find((item) => item.id === serviceFilters.specialistId);
+    const specialist = specialists.find(
+      (item) => item.id === serviceFilters.specialistId,
+    );
     if (!specialist) {
       setOperatingPanelError("No se encontró el especialista seleccionado.");
       return;
@@ -4892,19 +5332,22 @@ function App() {
     }
 
     setSpecialistDrawerError(null);
-    const response = await fetch(`${apiBaseUrl}/api/admin/specialists/${selectedSpecialistId}/availability`, {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        "content-type": "application/json",
+    const response = await fetch(
+      `${apiBaseUrl}/api/admin/specialists/${selectedSpecialistId}/availability`,
+      {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          startsAt: fromDateTimeLocalValue(availabilityDraft.startsAt),
+          endsAt: fromDateTimeLocalValue(availabilityDraft.endsAt),
+          mode: availabilityDraft.mode,
+          isAvailable: availabilityDraft.isAvailable,
+        }),
       },
-      body: JSON.stringify({
-        startsAt: fromDateTimeLocalValue(availabilityDraft.startsAt),
-        endsAt: fromDateTimeLocalValue(availabilityDraft.endsAt),
-        mode: availabilityDraft.mode,
-        isAvailable: availabilityDraft.isAvailable,
-      }),
-    });
+    );
 
     const json = (await response.json()) as {
       item?: SpecialistAvailabilitySlot;
@@ -4915,12 +5358,16 @@ function App() {
       return;
     }
     if (!response.ok || !json.item) {
-      setSpecialistDrawerError(json.error ?? "No se pudo guardar la disponibilidad.");
+      setSpecialistDrawerError(
+        json.error ?? "No se pudo guardar la disponibilidad.",
+      );
       return;
     }
 
     setSelectedSpecialistAvailability((current) =>
-      [...current, json.item!].sort((left, right) => left.startsAt.localeCompare(right.startsAt)),
+      [...current, json.item!].sort((left, right) =>
+        left.startsAt.localeCompare(right.startsAt),
+      ),
     );
     setAvailabilityDraft((current) => ({
       ...current,
@@ -4928,6 +5375,131 @@ function App() {
       endsAt: "",
     }));
     setOperatingPanelMessage("Disponibilidad guardada.");
+    await refreshSpecialistAudit(selectedSpecialistId);
+  }
+
+  async function handleCreateWeeklyAvailability() {
+    if (!selectedSpecialistId) {
+      return;
+    }
+
+    const startDate = parseDateInputValue(availabilityDraft.weeklyStartDate);
+    const endDate = parseDateInputValue(availabilityDraft.weeklyEndDate);
+    const selectedWeekdays = new Set(availabilityDraft.weeklyWeekdays);
+
+    if (
+      !startDate ||
+      !endDate ||
+      !availabilityDraft.weeklyStartTime ||
+      !availabilityDraft.weeklyEndTime
+    ) {
+      setSpecialistDrawerError("Completa fechas, horas y días de atención.");
+      return;
+    }
+
+    if (endDate.getTime() < startDate.getTime()) {
+      setSpecialistDrawerError(
+        "La fecha final debe ser igual o posterior a la fecha inicial.",
+      );
+      return;
+    }
+
+    if (selectedWeekdays.size === 0) {
+      setSpecialistDrawerError("Selecciona al menos un día de atención.");
+      return;
+    }
+
+    const blocks: Array<{
+      startsAt: string;
+      endsAt: string;
+      mode: string;
+      isAvailable: boolean;
+    }> = [];
+    const cursor = new Date(startDate);
+
+    while (cursor.getTime() <= endDate.getTime()) {
+      const weekday = String(cursor.getDay());
+      if (selectedWeekdays.has(weekday)) {
+        const dateValue = toDateInputValue(cursor);
+        const startsAt = fromDateTimeLocalValue(
+          `${dateValue}T${availabilityDraft.weeklyStartTime}`,
+        );
+        const endsAt = fromDateTimeLocalValue(
+          `${dateValue}T${availabilityDraft.weeklyEndTime}`,
+        );
+
+        if (new Date(startsAt).getTime() >= new Date(endsAt).getTime()) {
+          setSpecialistDrawerError(
+            "La hora final debe ser posterior a la hora inicial.",
+          );
+          return;
+        }
+
+        blocks.push({
+          startsAt,
+          endsAt,
+          mode: availabilityDraft.mode,
+          isAvailable: availabilityDraft.isAvailable,
+        });
+      }
+
+      cursor.setDate(cursor.getDate() + 1);
+    }
+
+    if (blocks.length === 0) {
+      setSpecialistDrawerError(
+        "No hay días seleccionados dentro del rango indicado.",
+      );
+      return;
+    }
+
+    setSpecialistDrawerError(null);
+    const savedSlots: SpecialistAvailabilitySlot[] = [];
+
+    for (const block of blocks) {
+      const response = await fetch(
+        `${apiBaseUrl}/api/admin/specialists/${selectedSpecialistId}/availability`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify(block),
+        },
+      );
+
+      const json = (await response.json()) as {
+        item?: SpecialistAvailabilitySlot;
+        error?: string;
+      };
+      if (response.status === 401) {
+        handleSessionInvalid("Tu sesión de admin expiró.");
+        return;
+      }
+      if (!response.ok || !json.item) {
+        setSpecialistDrawerError(
+          json.error ?? "No se pudieron generar todos los horarios.",
+        );
+        return;
+      }
+
+      savedSlots.push(json.item);
+    }
+
+    setSelectedSpecialistAvailability((current) =>
+      [...current, ...savedSlots].sort((left, right) =>
+        left.startsAt.localeCompare(right.startsAt),
+      ),
+    );
+    setAvailabilityDraft((current) => ({
+      ...current,
+      weeklyStartDate: "",
+      weeklyEndDate: "",
+    }));
+    setOperatingPanelMessage(
+      `${savedSlots.length} horarios de atención generados.`,
+    );
     await refreshSpecialistAudit(selectedSpecialistId);
   }
 
@@ -4954,7 +5526,10 @@ function App() {
       },
     );
 
-    const json = (await response.json()) as { item?: SpecialistAvailabilitySlot; error?: string };
+    const json = (await response.json()) as {
+      item?: SpecialistAvailabilitySlot;
+      error?: string;
+    };
     if (response.status === 401) {
       handleSessionInvalid("Tu sesión de admin expiró.");
       return;
@@ -5062,7 +5637,10 @@ function App() {
       },
     );
 
-    const json = (await response.json()) as { item?: AdminShopProduct; error?: string };
+    const json = (await response.json()) as {
+      item?: AdminShopProduct;
+      error?: string;
+    };
     if (!response.ok || !json.item) {
       setOperatingPanelError(json.error ?? "No se pudo guardar el producto.");
       return;
@@ -5070,7 +5648,9 @@ function App() {
     const savedProduct = json.item;
 
     setProducts((current) => {
-      const existingIndex = current.findIndex((item) => item.id === savedProduct.id);
+      const existingIndex = current.findIndex(
+        (item) => item.id === savedProduct.id,
+      );
       if (existingIndex >= 0) {
         const next = [...current];
         next[existingIndex] = savedProduct;
@@ -5079,7 +5659,12 @@ function App() {
       return [savedProduct, ...current];
     });
     setSelectedProductId(savedProduct.id);
-    setProductForm(buildProductDraft(savedProduct, savedProduct.specialistId ?? productForm.specialistId));
+    setProductForm(
+      buildProductDraft(
+        savedProduct,
+        savedProduct.specialistId ?? productForm.specialistId,
+      ),
+    );
     setOperatingPanelMessage(`Producto ${savedProduct.name} guardado.`);
     setIsProductDrawerOpen(false);
   }
@@ -5123,16 +5708,23 @@ function App() {
     setOperatingPanelError(null);
 
     const response = await patchProduct(product.id, patch);
-    const json = (await response.json()) as { item?: AdminShopProduct; error?: string };
+    const json = (await response.json()) as {
+      item?: AdminShopProduct;
+      error?: string;
+    };
 
     if (!response.ok || !json.item) {
-      setOperatingPanelError(json.error ?? "No se pudo actualizar el producto.");
+      setOperatingPanelError(
+        json.error ?? "No se pudo actualizar el producto.",
+      );
       return;
     }
 
     const savedProduct = json.item;
     setProducts((current) =>
-      current.map((item) => (item.id === savedProduct.id ? savedProduct : item)),
+      current.map((item) =>
+        item.id === savedProduct.id ? savedProduct : item,
+      ),
     );
     setOperatingPanelMessage(successMessage);
   }
@@ -5221,7 +5813,10 @@ function App() {
   function handleDuplicateProduct(product: AdminShopProduct) {
     setSelectedProductId(null);
     setProductForm({
-      ...buildProductDraft(product, product.specialistId ?? specialists[0]?.id ?? ""),
+      ...buildProductDraft(
+        product,
+        product.specialistId ?? specialists[0]?.id ?? "",
+      ),
       name: `${product.name} copia`,
       sku: "",
       imageUrls: product.imageUrls?.join(", ") ?? "",
@@ -5269,7 +5864,10 @@ function App() {
           body: JSON.stringify(payload),
         });
 
-    const json = (await response.json()) as { item?: AdminBooking; error?: string };
+    const json = (await response.json()) as {
+      item?: AdminBooking;
+      error?: string;
+    };
     if (!response.ok || !json.item) {
       setOperatingPanelError(json.error ?? "No se pudo guardar la reserva.");
       return;
@@ -5277,7 +5875,9 @@ function App() {
     const savedBooking = json.item;
 
     setBookings((current) => {
-      const existingIndex = current.findIndex((item) => item.id === savedBooking.id);
+      const existingIndex = current.findIndex(
+        (item) => item.id === savedBooking.id,
+      );
       if (existingIndex >= 0) {
         const next = [...current];
         next[existingIndex] = savedBooking;
@@ -5297,25 +5897,34 @@ function App() {
     setIsBookingDrawerOpen(false);
   }
 
-  async function handleUpdateBookingStatus(booking: AdminBooking, nextStatus: string) {
+  async function handleUpdateBookingStatus(
+    booking: AdminBooking,
+    nextStatus: string,
+  ) {
     setOperatingPanelMessage(null);
     setOperatingPanelError(null);
 
-    const response = await fetch(`${apiBaseUrl}/api/admin/bookings/${booking.id}`, {
-      method: "PATCH",
-      credentials: "include",
-      headers: {
-        "content-type": "application/json",
+    const response = await fetch(
+      `${apiBaseUrl}/api/admin/bookings/${booking.id}`,
+      {
+        method: "PATCH",
+        credentials: "include",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          status: nextStatus,
+          scheduledAt: booking.scheduledAt,
+          mode: booking.mode,
+          notes: booking.notes ?? "",
+        }),
       },
-      body: JSON.stringify({
-        status: nextStatus,
-        scheduledAt: booking.scheduledAt,
-        mode: booking.mode,
-        notes: booking.notes ?? "",
-      }),
-    });
+    );
 
-    const json = (await response.json()) as { item?: AdminBooking; error?: string };
+    const json = (await response.json()) as {
+      item?: AdminBooking;
+      error?: string;
+    };
     if (!response.ok || !json.item) {
       setOperatingPanelError(json.error ?? "No se pudo actualizar la reserva.");
       return;
@@ -5323,12 +5932,20 @@ function App() {
     const savedBooking = json.item;
 
     setBookings((current) =>
-      current.map((item) => (item.id === savedBooking.id ? savedBooking : item)),
+      current.map((item) =>
+        item.id === savedBooking.id ? savedBooking : item,
+      ),
     );
-    setOperatingPanelMessage(`Reserva ${savedBooking.serviceName} actualizada.`);
+    setOperatingPanelMessage(
+      `Reserva ${savedBooking.serviceName} actualizada.`,
+    );
   }
 
-  async function handleUpdateOrderStatus(order: AdminShopOrder, nextStatus: string) {
+  async function handleUpdateOrderStatus(
+    order: AdminShopOrder,
+    nextStatus: string,
+    options: { openChat?: boolean } = {},
+  ) {
     setOperatingPanelMessage(null);
     setOperatingPanelError(null);
 
@@ -5338,10 +5955,17 @@ function App() {
       headers: {
         "content-type": "application/json",
       },
-      body: JSON.stringify({ status: nextStatus }),
+      body: JSON.stringify({
+        status: nextStatus,
+        openCoordinationChat: options.openChat ?? true,
+      }),
     });
 
-    const json = (await response.json()) as { item?: AdminShopOrder; error?: string };
+    const json = (await response.json()) as {
+      item?: AdminShopOrder;
+      chatThread?: AdminPrivateChatThread | null;
+      error?: string;
+    };
     if (!response.ok || !json.item) {
       setOperatingPanelError(json.error ?? "No se pudo actualizar la orden.");
       return;
@@ -5350,7 +5974,89 @@ function App() {
     setOrders((current) =>
       current.map((item) => (item.id === json.item?.id ? json.item : item)),
     );
-    setOperatingPanelMessage(`Orden ${json.item.orderCode} actualizada.`);
+    if (json.chatThread) {
+      setOrderChat(json.chatThread);
+      setOrderChatOrder(json.item);
+      setOrderChatReply("");
+      setOrderChatError(null);
+    }
+    setOperatingPanelMessage(
+      json.chatThread
+        ? `Orden ${json.item.orderCode} actualizada y chat abierto.`
+        : `Orden ${json.item.orderCode} actualizada.`,
+    );
+  }
+
+  async function handleOpenOrderChat(order: AdminShopOrder) {
+    setOrderChatLoading(true);
+    setOrderChatError(null);
+    setOrderChatOrder(order);
+    try {
+      const response = await fetch(
+        `${apiBaseUrl}/api/admin/orders/${order.id}/chat`,
+        {
+          credentials: "include",
+        },
+      );
+      const json = (await response.json()) as {
+        item?: AdminPrivateChatThread;
+        error?: string;
+      };
+      if (!response.ok || !json.item) {
+        throw new Error(json.error ?? "No se pudo abrir el chat.");
+      }
+      setOrderChat(json.item);
+      setOrderChatReply("");
+    } catch (error) {
+      setOrderChatError(
+        error instanceof Error ? error.message : "No se pudo abrir el chat.",
+      );
+    } finally {
+      setOrderChatLoading(false);
+    }
+  }
+
+  async function handleSendOrderChatReply(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const order = orderChatOrder;
+    const body = orderChatReply.trim();
+    if (!order || body.length === 0) {
+      return;
+    }
+
+    setSendingOrderChatReply(true);
+    setOrderChatError(null);
+    try {
+      const response = await fetch(
+        `${apiBaseUrl}/api/admin/orders/${order.id}/chat/messages`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({ body }),
+        },
+      );
+      const json = (await response.json()) as {
+        item?: AdminPrivateChatThread;
+        error?: string;
+      };
+      if (!response.ok || !json.item) {
+        throw new Error(json.error ?? "No se pudo enviar el mensaje.");
+      }
+      setOrderChat(json.item);
+      setOrderChatReply("");
+      setOperatingPanelMessage(`Mensaje enviado para ${order.orderCode}.`);
+    } catch (error) {
+      setOrderChatError(
+        error instanceof Error
+          ? error.message
+          : "No se pudo enviar el mensaje.",
+      );
+    } finally {
+      setSendingOrderChatReply(false);
+    }
   }
 
   async function persistBadge(
@@ -5361,10 +6067,20 @@ function App() {
     const payload = formToRequestBody({
       ...badgeForm,
       isActive:
-        typeof nextActiveState === "boolean" ? nextActiveState : badgeForm.isActive,
+        typeof nextActiveState === "boolean"
+          ? nextActiveState
+          : badgeForm.isActive,
       stepIndex:
         typeof stepDelta === "number"
-          ? String(Math.max(1, Math.min(5, Number.parseInt(badgeForm.stepIndex, 10) + stepDelta)))
+          ? String(
+              Math.max(
+                1,
+                Math.min(
+                  5,
+                  Number.parseInt(badgeForm.stepIndex, 10) + stepDelta,
+                ),
+              ),
+            )
           : badgeForm.stepIndex,
     });
 
@@ -5411,7 +6127,9 @@ function App() {
       };
 
       setBadges((current) => {
-        const existingIndex = current.findIndex((item) => item.id === savedBadge.id);
+        const existingIndex = current.findIndex(
+          (item) => item.id === savedBadge.id,
+        );
         if (existingIndex >= 0) {
           const next = [...current];
           next[existingIndex] = savedBadge;
@@ -5422,23 +6140,32 @@ function App() {
       setSelectedBadgeId(savedBadge.id);
       setBadgeForm(badgeToForm(savedBadge));
       setBadgeMessage(
-        badgeId ? `Badge ${savedBadge.name} actualizado.` : `Badge ${savedBadge.name} creado.`,
+        badgeId
+          ? `Badge ${savedBadge.name} actualizado.`
+          : `Badge ${savedBadge.name} creado.`,
       );
 
-      const diagnosticsResponse = await fetch(`${apiBaseUrl}/api/badges/admin/diagnostics`, {
-        credentials: "include",
-      });
+      const diagnosticsResponse = await fetch(
+        `${apiBaseUrl}/api/badges/admin/diagnostics`,
+        {
+          credentials: "include",
+        },
+      );
       if (diagnosticsResponse.status === 401) {
         handleSessionInvalid("Tu sesión de admin expiró.");
         return;
       }
       if (diagnosticsResponse.ok) {
-        setDiagnostics((await diagnosticsResponse.json()) as BadgeDiagnosticsResult);
+        setDiagnostics(
+          (await diagnosticsResponse.json()) as BadgeDiagnosticsResult,
+        );
       }
       setAuditFilters((current) => ({ ...current }));
     } catch (saveError) {
       setBadgeError(
-        saveError instanceof Error ? saveError.message : "No se pudo guardar la insignia.",
+        saveError instanceof Error
+          ? saveError.message
+          : "No se pudo guardar la insignia.",
       );
     } finally {
       setSavingBadgeId(null);
@@ -5458,7 +6185,9 @@ function App() {
     }
 
     if (!isBadgeReorderSafe(badge, nextStep, badges)) {
-      setBadgeError("No se puede reordenar: el escalón destino ya tiene un badge activo.");
+      setBadgeError(
+        "No se puede reordenar: el escalón destino ya tiene un badge activo.",
+      );
       return;
     }
 
@@ -5501,7 +6230,7 @@ function App() {
   const selectedBadge =
     selectedBadgeId == null
       ? null
-      : badges.find((badge) => badge.id === selectedBadgeId) ?? null;
+      : (badges.find((badge) => badge.id === selectedBadgeId) ?? null);
   const currentStepIndex = Number.parseInt(badgeForm.stepIndex, 10) || 1;
   const currentPathMeta = resolvePathMeta(badgeForm.pathId, badgeForm.category);
   const occupiedActiveBadge =
@@ -5515,34 +6244,49 @@ function App() {
   const previewState = buildBadgePreview(badgeForm, selectedBadge, badges);
   const diagnosticsIssues = diagnostics?.issues ?? [];
   const diagnosticsSummary = {
-    error: diagnosticsIssues.filter((issue) => issue.severity === "error").length,
-    warning: diagnosticsIssues.filter((issue) => issue.severity === "warning").length,
+    error: diagnosticsIssues.filter((issue) => issue.severity === "error")
+      .length,
+    warning: diagnosticsIssues.filter((issue) => issue.severity === "warning")
+      .length,
     info: diagnosticsIssues.filter((issue) => issue.severity === "info").length,
   };
   const selectedRoute =
-    groupedBadges.find((route) => route.pathId === selectedRouteId) ?? groupedBadges[0];
-  const saveBlockedByActiveConflict = Boolean(occupiedActiveBadge && badgeForm.isActive);
+    groupedBadges.find((route) => route.pathId === selectedRouteId) ??
+    groupedBadges[0];
+  const saveBlockedByActiveConflict = Boolean(
+    occupiedActiveBadge && badgeForm.isActive,
+  );
   const auditBadgeOptions = [...badges].sort((left, right) =>
     left.name.localeCompare(right.name),
   );
-  const productCategories = Array.from(new Set(products.map((product) => product.category))).sort(
-    (left, right) => left.localeCompare(right),
-  );
+  const productCategories = Array.from(
+    new Set(products.map((product) => product.category)),
+  ).sort((left, right) => left.localeCompare(right));
   const filteredProducts = [...products]
     .filter((product) => {
       const query = productFilters.search.trim().toLowerCase();
       const matchesSearch =
         query.length === 0 ||
-        [product.name, product.sku, product.category, product.badge, product.specialistName]
+        [
+          product.name,
+          product.sku,
+          product.category,
+          product.badge,
+          product.specialistName,
+        ]
           .filter(Boolean)
           .some((value) => String(value).toLowerCase().includes(query));
       const matchesCategory =
-        productFilters.category.length === 0 || product.category === productFilters.category;
+        productFilters.category.length === 0 ||
+        product.category === productFilters.category;
       const matchesStatus =
-        productFilters.status.length === 0 || product.status === productFilters.status;
+        productFilters.status.length === 0 ||
+        product.status === productFilters.status;
       const matchesFeatured =
         productFilters.featured.length === 0 ||
-        (productFilters.featured === "true" ? product.featured : !product.featured);
+        (productFilters.featured === "true"
+          ? product.featured
+          : !product.featured);
       const matchesMadeToOrder =
         productFilters.madeToOrder.length === 0 ||
         (productFilters.madeToOrder === "true"
@@ -5566,7 +6310,10 @@ function App() {
         case "stock":
           return right.stockQuantity - left.stockQuantity;
         case "recent":
-          return toTimestamp(right.updatedAt ?? right.createdAt) - toTimestamp(left.updatedAt ?? left.createdAt);
+          return (
+            toTimestamp(right.updatedAt ?? right.createdAt) -
+            toTimestamp(left.updatedAt ?? left.createdAt)
+          );
         default:
           return 0;
       }
@@ -5604,21 +6351,33 @@ function App() {
       const matchesVisible =
         specialistFilters.visible.length === 0 ||
         String(specialist.isVisible) === specialistFilters.visible;
-      return matchesSearch && matchesFeatured && matchesActive && matchesVisible;
+      return (
+        matchesSearch && matchesFeatured && matchesActive && matchesVisible
+      );
     })
     .sort((left, right) => left.name.localeCompare(right.name));
   const specialistOverview = {
     total: filteredSpecialists.length,
-    active: filteredSpecialists.filter((specialist) => specialist.isActive).length,
-    visible: filteredSpecialists.filter((specialist) => specialist.isVisible).length,
-    featured: filteredSpecialists.filter((specialist) => specialist.featured).length,
+    active: filteredSpecialists.filter((specialist) => specialist.isActive)
+      .length,
+    visible: filteredSpecialists.filter((specialist) => specialist.isVisible)
+      .length,
+    featured: filteredSpecialists.filter((specialist) => specialist.featured)
+      .length,
   };
   const filteredUsers = users
     .filter((user) => {
       const query = userFilters.search.trim().toLowerCase();
       const matchesSearch =
         query.length === 0 ||
-        [user.fullName, user.email, user.phoneNumber, user.planId, user.roles.join(" "), user.accountType]
+        [
+          user.fullName,
+          user.email,
+          user.phoneNumber,
+          user.planId,
+          user.roles.join(" "),
+          user.accountType,
+        ]
           .filter(Boolean)
           .some((value) => String(value).toLowerCase().includes(query));
       const matchesRole =
@@ -5633,15 +6392,19 @@ function App() {
             !user.roles.includes("specialist") &&
             !user.roles.includes("admin")
           : userFilters.accountType === "specialist"
-            ? user.accountType === "specialist" || user.roles.includes("specialist")
+            ? user.accountType === "specialist" ||
+              user.roles.includes("specialist")
             : user.roles.includes("admin"));
       return matchesSearch && matchesRole && matchesAccountType;
     })
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
   const userTotals = {
     total: users.length,
-    clients: users.filter((user) => user.accountType === "client" && user.roles.length === 0).length,
-    specialists: users.filter((user) => user.roles.includes("specialist")).length,
+    clients: users.filter(
+      (user) => user.accountType === "client" && user.roles.length === 0,
+    ).length,
+    specialists: users.filter((user) => user.roles.includes("specialist"))
+      .length,
     admins: users.filter((user) => user.roles.includes("admin")).length,
   };
   const courseStats = {
@@ -5668,12 +6431,19 @@ function App() {
         serviceFilters.specialistId.length === 0 ||
         specialist.id === serviceFilters.specialistId;
       const matchesCategory =
-        serviceFilters.category.length === 0 || service.category === serviceFilters.category;
+        serviceFilters.category.length === 0 ||
+        service.category === serviceFilters.category;
       return matchesSearch && matchesSpecialist && matchesCategory;
     })
-    .sort((left, right) => left.specialist.name.localeCompare(right.specialist.name));
+    .sort((left, right) =>
+      left.specialist.name.localeCompare(right.specialist.name),
+    );
   const serviceCategories = Array.from(
-    new Set(specialists.flatMap((specialist) => specialist.services.map((service) => service.category))),
+    new Set(
+      specialists.flatMap((specialist) =>
+        specialist.services.map((service) => service.category),
+      ),
+    ),
   ).sort((left, right) => left.localeCompare(right));
   const agendaBookings = [...bookings]
     .filter((booking) => {
@@ -5681,32 +6451,40 @@ function App() {
         agendaFilters.specialistId.length === 0 ||
         booking.specialistId === agendaFilters.specialistId;
       const matchesStatus =
-        agendaFilters.status.length === 0 || booking.status === agendaFilters.status;
+        agendaFilters.status.length === 0 ||
+        booking.status === agendaFilters.status;
       return matchesSpecialist && matchesStatus;
     })
     .sort((left, right) => left.scheduledAt.localeCompare(right.scheduledAt));
   const specialistMetrics = {
     bookings: selectedSpecialistBookings.length,
     services: selectedSpecialistServices.length,
-    availability: selectedSpecialistAvailability.filter((slot) => slot.isAvailable).length,
+    availability: selectedSpecialistAvailability.filter(
+      (slot) => slot.isAvailable,
+    ).length,
     nextAvailableAt:
-      selectedSpecialistAvailability.find((slot) => new Date(slot.startsAt).getTime() > Date.now())
-        ?.startsAt ?? selectedSpecialistDetail?.nextAvailableAt ?? "",
+      selectedSpecialistAvailability.find(
+        (slot) => new Date(slot.startsAt).getTime() > Date.now(),
+      )?.startsAt ??
+      selectedSpecialistDetail?.nextAvailableAt ??
+      "",
   };
   const selectedProduct = selectedProductId
-    ? products.find((product) => product.id === selectedProductId) ?? null
+    ? (products.find((product) => product.id === selectedProductId) ?? null)
     : null;
   const selectedCourse = selectedCourseId
-    ? courses.find((course) => course.id === selectedCourseId) ?? null
+    ? (courses.find((course) => course.id === selectedCourseId) ?? null)
     : null;
   const selectedCourseModules = selectedCourse?.modules ?? [];
-  const selectedCourseModule =
-    selectedCourseModuleId
-      ? selectedCourseModules.find((module) => module.id === selectedCourseModuleId) ?? null
-      : null;
+  const selectedCourseModule = selectedCourseModuleId
+    ? (selectedCourseModules.find(
+        (module) => module.id === selectedCourseModuleId,
+      ) ?? null)
+    : null;
   const selectedCourseLessons = selectedCourseModule?.lessons ?? [];
   const selectedCourseResources = courseResources.filter(
-    (resource) => resource.courseId === (selectedCourse?.id ?? selectedCourseId ?? ""),
+    (resource) =>
+      resource.courseId === (selectedCourse?.id ?? selectedCourseId ?? ""),
   );
   const libraryCategorySummaries = (() => {
     const categories = new Map<
@@ -5747,7 +6525,9 @@ function App() {
       left.label.localeCompare(right.label),
     );
   })();
-  const libraryCategorySuggestions = libraryCategorySummaries.map((item) => item.label);
+  const libraryCategorySuggestions = libraryCategorySummaries.map(
+    (item) => item.label,
+  );
   const libraryRecentPdfs = [...libraryPdfs].sort((left, right) => {
     const rightUpdated = right.updatedAt ?? "";
     const leftUpdated = left.updatedAt ?? "";
@@ -5759,7 +6539,9 @@ function App() {
     return left.title.localeCompare(right.title);
   });
   const librarySearchTerm = librarySearch.trim().toLowerCase();
-  const libraryCategoryFilterKey = normalizeLibraryCategoryKey(libraryCategoryFilter);
+  const libraryCategoryFilterKey = normalizeLibraryCategoryKey(
+    libraryCategoryFilter,
+  );
   const libraryFolderInputProps = {
     webkitdirectory: "",
     directory: "",
@@ -5769,15 +6551,20 @@ function App() {
       pdf.title,
       pdf.description,
       pdf.category,
-      pdf.courseId ? courses.find((course) => course.id === pdf.courseId)?.title ?? pdf.courseId : "",
+      pdf.courseId
+        ? (courses.find((course) => course.id === pdf.courseId)?.title ??
+          pdf.courseId)
+        : "",
       pdf.status ?? "",
     ]
       .join(" ")
       .toLowerCase();
-    const matchesSearch = !librarySearchTerm || searchableText.includes(librarySearchTerm);
+    const matchesSearch =
+      !librarySearchTerm || searchableText.includes(librarySearchTerm);
     const matchesCategory =
       libraryCategoryFilterKey === "all" ||
-      normalizeLibraryCategoryKey(pdf.category ?? "") === libraryCategoryFilterKey;
+      normalizeLibraryCategoryKey(pdf.category ?? "") ===
+        libraryCategoryFilterKey;
     const matchesFilter =
       libraryFilter === "all"
         ? true
@@ -5789,8 +6576,12 @@ function App() {
 
     return matchesSearch && matchesCategory && matchesFilter;
   });
-  const libraryStandaloneCount = libraryPdfs.filter((pdf) => !pdf.courseId).length;
-  const libraryLinkedCount = libraryPdfs.filter((pdf) => Boolean(pdf.courseId)).length;
+  const libraryStandaloneCount = libraryPdfs.filter(
+    (pdf) => !pdf.courseId,
+  ).length;
+  const libraryLinkedCount = libraryPdfs.filter((pdf) =>
+    Boolean(pdf.courseId),
+  ).length;
   const libraryPublishedCount = libraryPdfs.filter(
     (pdf) => pdf.status === "published" && pdf.isActive !== false,
   ).length;
@@ -5798,7 +6589,7 @@ function App() {
     (pdf) => pdf.status === "archived" || pdf.isActive === false,
   ).length;
   const selectedLibraryCourse = libraryPdfForm.linkToCourse
-    ? courses.find((course) => course.id === libraryPdfForm.courseId) ?? null
+    ? (courses.find((course) => course.id === libraryPdfForm.courseId) ?? null)
     : null;
   const openLibraryPdfEditor = (pdf: AdminLibraryPdf) => {
     resetLibraryPdfDraft(pdf);
@@ -5806,16 +6597,24 @@ function App() {
     setIsCourseDrawerOpen(true);
     setSelectedCourseId(pdf.courseId ?? null);
     setCourseDrawerTab("library");
-    window.history.pushState({}, "", buildCourseWorkspaceUrl(pdf.courseId ?? null, "library"));
+    window.history.pushState(
+      {},
+      "",
+      buildCourseWorkspaceUrl(pdf.courseId ?? null, "library"),
+    );
   };
   const selectedBooking = selectedBookingId
-    ? bookings.find((booking) => booking.id === selectedBookingId) ?? null
+    ? (bookings.find((booking) => booking.id === selectedBookingId) ?? null)
     : null;
   const selectedBookingSpecialist =
-    specialists.find((specialist) => specialist.id === bookingForm.specialistId) ?? null;
+    specialists.find(
+      (specialist) => specialist.id === bookingForm.specialistId,
+    ) ?? null;
   const selectedBookingServices = selectedBookingSpecialist?.services ?? [];
   const selectedBookingService =
-    selectedBookingServices.find((service) => service.id === bookingForm.serviceId) ?? null;
+    selectedBookingServices.find(
+      (service) => service.id === bookingForm.serviceId,
+    ) ?? null;
   const auditRouteOptions = badgePathMeta.reduce<Record<string, BadgePathMeta>>(
     (accumulator, path) => ({
       ...accumulator,
@@ -5853,9 +6652,7 @@ function App() {
       "description",
       "category",
       "level",
-    ].includes(
-      selectedAuditEntry.fieldChanged,
-    );
+    ].includes(selectedAuditEntry.fieldChanged);
 
   if (authStatus === "loading") {
     return null;
@@ -5865,10 +6662,16 @@ function App() {
     const loginErrorMessage = authError ?? error;
 
     return (
-      <main className="admin-shell admin-auth-shell container-xxl" data-build={adminBuildStamp}>
+      <main
+        className="admin-shell admin-auth-shell container-xxl"
+        data-build={adminBuildStamp}
+      >
         <section className="admin-auth-panel admin-auth-panel-entry">
           <AuthParticles />
-          <form className="auth-card auth-entry-card" onSubmit={(event) => void handleLogin(event)}>
+          <form
+            className="auth-card auth-entry-card"
+            onSubmit={(event) => void handleLogin(event)}
+          >
             <div className="auth-entry-brand">
               <BrandLockup />
               <h1>Acceso seguro</h1>
@@ -5894,14 +6697,20 @@ function App() {
                 placeholder="Tu contraseña"
               />
             </label>
-            <button type="submit" className="primary-button button-with-icon" disabled={loginLoading}>
+            <button
+              type="submit"
+              className="primary-button button-with-icon"
+              disabled={loginLoading}
+            >
               <span className="button-icon" aria-hidden="true">
                 <ActionIcon name="login" />
               </span>
               <span>{loginLoading ? "Ingresando..." : "Ingresar"}</span>
             </button>
             {loginErrorMessage ? (
-              <p className="badge-feedback badge-feedback-error">{loginErrorMessage}</p>
+              <p className="badge-feedback badge-feedback-error">
+                {loginErrorMessage}
+              </p>
             ) : null}
           </form>
         </section>
@@ -5910,39 +6719,59 @@ function App() {
   }
 
   return (
-      <main
-        className={isCourseDrawerOpen ? "admin-shell admin-dashboard-shell admin-shell-course-view container-xxl" : "admin-shell admin-dashboard-shell container-xxl"}
-        data-build={adminBuildStamp}
+    <main
+      className={
+        isCourseDrawerOpen
+          ? "admin-shell admin-dashboard-shell admin-shell-course-view container-xxl"
+          : "admin-shell admin-dashboard-shell container-xxl"
+      }
+      data-build={adminBuildStamp}
+    >
+      <div
+        className={
+          isCourseDrawerOpen
+            ? "admin-layout admin-layout-course-view"
+            : "admin-layout"
+        }
       >
-      <div className={isCourseDrawerOpen ? "admin-layout admin-layout-course-view" : "admin-layout"}>
         <aside className="admin-sidebar">
           <BrandLockup compact />
 
           <nav className="admin-nav" aria-label="Secciones administrativas">
-            {(Object.entries(adminSectionLabels) as Array<[AdminSection, string]>).map(
-              ([section, label]) => (
-                <button
-                  key={section}
-                  type="button"
-                  className={activeSection === section ? "nav-item nav-item-active" : "nav-item"}
-                  onClick={() => handleNavigateSection(section)}
-                >
-                  <span className="nav-item-icon" aria-hidden="true">
-                    <SidebarIcon name={section} />
-                  </span>
-                  <span className="nav-item-copy">
-                    <strong>{label}</strong>
-                  </span>
-                </button>
-              ),
-            )}
+            {(
+              Object.entries(adminSectionLabels) as Array<
+                [AdminSection, string]
+              >
+            ).map(([section, label]) => (
+              <button
+                key={section}
+                type="button"
+                className={
+                  activeSection === section
+                    ? "nav-item nav-item-active"
+                    : "nav-item"
+                }
+                onClick={() => handleNavigateSection(section)}
+              >
+                <span className="nav-item-icon" aria-hidden="true">
+                  <SidebarIcon name={section} />
+                </span>
+                <span className="nav-item-copy">
+                  <strong>{label}</strong>
+                </span>
+              </button>
+            ))}
           </nav>
 
           <div className="sidebar-session">
             <span>Sesión activa</span>
             <strong>Cuenta activa</strong>
             <p>{adminUser?.email ?? "Sin email"}</p>
-            <button type="button" className="secondary-button button-with-icon" onClick={() => void handleLogout()}>
+            <button
+              type="button"
+              className="secondary-button button-with-icon"
+              onClick={() => void handleLogout()}
+            >
               <span className="button-icon" aria-hidden="true">
                 <ActionIcon name="logout" />
               </span>
@@ -5983,7 +6812,11 @@ function App() {
                   <p className="eyebrow">Especialistas</p>
                   <h2>Equipo operativo</h2>
                 </div>
-                <button type="button" className="secondary-button" onClick={() => setActiveSection("agenda")}>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => setActiveSection("agenda")}
+                >
                   Ver agenda
                 </button>
               </div>
@@ -6077,9 +6910,16 @@ function App() {
                     <div className="specialist-card-top">
                       <div className="specialist-avatar-shell">
                         {specialist.avatarUrl ? (
-                          <img src={specialist.avatarUrl} alt={specialist.name} className="specialist-avatar" />
+                          <img
+                            src={specialist.avatarUrl}
+                            alt={specialist.name}
+                            className="specialist-avatar"
+                          />
                         ) : (
-                          <span className="specialist-avatar specialist-avatar-fallback" aria-hidden="true">
+                          <span
+                            className="specialist-avatar specialist-avatar-fallback"
+                            aria-hidden="true"
+                          >
                             {specialist.name
                               .split(" ")
                               .filter(Boolean)
@@ -6092,7 +6932,9 @@ function App() {
                       <div className="specialist-card-head">
                         <div>
                           <h3>{specialist.name}</h3>
-                          <p className="product-card-meta specialist-headline">{specialist.headline}</p>
+                          <p className="product-card-meta specialist-headline">
+                            {specialist.headline}
+                          </p>
                         </div>
                         <span className="topbar-pill">
                           {specialist.featured ? "Destacado" : "Especialista"}
@@ -6111,7 +6953,8 @@ function App() {
 
                     <div className="specialist-card-body">
                       <p className="muted-copy specialist-specialties">
-                        {specialist.specialties.slice(0, 2).join(" · ") || "Sin especialidad"}
+                        {specialist.specialties.slice(0, 2).join(" · ") ||
+                          "Sin especialidad"}
                       </p>
                       <p className="muted-copy specialist-services-preview">
                         {specialist.services.length > 0
@@ -6120,7 +6963,9 @@ function App() {
                               .map((service) => service.name)
                               .join(" · ")
                           : "Sin servicios"}
-                        {specialist.services.length > 2 ? ` +${specialist.services.length - 2}` : ""}
+                        {specialist.services.length > 2
+                          ? ` +${specialist.services.length - 2}`
+                          : ""}
                       </p>
                     </div>
 
@@ -6139,21 +6984,30 @@ function App() {
                       <button
                         type="button"
                         className="primary-button"
-                        onClick={() => void handleOpenSpecialistDrawer(specialist, "profile")}
+                        onClick={() =>
+                          void handleOpenSpecialistDrawer(specialist, "profile")
+                        }
                       >
                         Gestionar
                       </button>
                       <button
                         type="button"
                         className="secondary-button"
-                        onClick={() => void handleOpenSpecialistDrawer(specialist, "services")}
+                        onClick={() =>
+                          void handleOpenSpecialistDrawer(
+                            specialist,
+                            "services",
+                          )
+                        }
                       >
                         Servicios
                       </button>
                       <button
                         type="button"
                         className="secondary-button"
-                        onClick={() => handleOpenBookingDrawer(undefined, specialist.id)}
+                        onClick={() =>
+                          handleOpenBookingDrawer(undefined, specialist.id)
+                        }
                       >
                         Nueva reunión
                       </button>
@@ -6171,14 +7025,17 @@ function App() {
                   <p className="eyebrow">Servicios</p>
                   <h2>Precio y duración</h2>
                   <p className="hero-copy">
-                    Filtra por especialista y abre el editor para crear un nuevo servicio.
+                    Filtra por especialista y abre el editor para crear un nuevo
+                    servicio.
                   </p>
                 </div>
                 <div className="editor-actions">
                   <button
                     type="button"
                     className="secondary-button"
-                    onClick={() => void handleCreateServiceFromServicesSection()}
+                    onClick={() =>
+                      void handleCreateServiceFromServicesSection()
+                    }
                   >
                     Nuevo servicio
                   </button>
@@ -6241,21 +7098,34 @@ function App() {
 
               <div className="table-list">
                 {allServices.map(({ specialist, service }) => (
-                  <article key={`${specialist.id}-${service.id}`} className="table-row service-row">
+                  <article
+                    key={`${specialist.id}-${service.id}`}
+                    className="table-row service-row"
+                  >
                     <div>
                       <strong>{service.name}</strong>
                       <p>{specialist.name}</p>
                       <small>{service.category}</small>
                     </div>
                     <div>
-                      <strong>{formatMoney(service.price.amount, service.price.currency)}</strong>
+                      <strong>
+                        {formatMoney(
+                          service.price.amount,
+                          service.price.currency,
+                        )}
+                      </strong>
                       <p>{service.durationMinutes} min</p>
                     </div>
                     <div className="align-right">
                       <button
                         type="button"
                         className="secondary-button"
-                        onClick={() => void handleOpenSpecialistDrawer(specialist, "services")}
+                        onClick={() =>
+                          void handleOpenSpecialistDrawer(
+                            specialist,
+                            "services",
+                          )
+                        }
                       >
                         Editar
                       </button>
@@ -6273,7 +7143,11 @@ function App() {
                   <p className="eyebrow">Agenda</p>
                   <h2>Próximas sesiones</h2>
                 </div>
-                <button type="button" className="secondary-button" onClick={() => handleOpenBookingDrawer()}>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => handleOpenBookingDrawer()}
+                >
                   Nueva reunión
                 </button>
               </div>
@@ -6330,10 +7204,16 @@ function App() {
                       <p>{formatDate(booking.scheduledAt)}</p>
                     </div>
                     <div className="align-right">
-                      <button type="button" className="secondary-button" onClick={() => handleOpenBookingDrawer(booking)}>
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        onClick={() => handleOpenBookingDrawer(booking)}
+                      >
                         Editar
                       </button>
-                      <span className="topbar-pill">{formatBookingStatusLabel(booking.status)}</span>
+                      <span className="topbar-pill">
+                        {formatBookingStatusLabel(booking.status)}
+                      </span>
                     </div>
                   </article>
                 ))}
@@ -6349,10 +7229,18 @@ function App() {
                   <h2>Agenda global</h2>
                 </div>
                 <div className="editor-actions">
-                  <button type="button" className="secondary-button" onClick={() => handleOpenBookingDrawer()}>
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => handleOpenBookingDrawer()}
+                  >
                     Nueva reunión
                   </button>
-                  <button type="button" className="secondary-button" onClick={() => setActiveSection("orders")}>
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => setActiveSection("orders")}
+                  >
                     Órdenes
                   </button>
                 </div>
@@ -6369,17 +7257,25 @@ function App() {
                       <p>{formatDate(booking.scheduledAt)}</p>
                     </div>
                     <div className="align-right">
-                      <button type="button" className="secondary-button" onClick={() => handleOpenBookingDrawer(booking)}>
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        onClick={() => handleOpenBookingDrawer(booking)}
+                      >
                         Editar
                       </button>
                       <button
                         type="button"
                         className="secondary-button"
-                        onClick={() => void handleUpdateBookingStatus(booking, "confirmed")}
+                        onClick={() =>
+                          void handleUpdateBookingStatus(booking, "confirmed")
+                        }
                       >
                         Confirmar
                       </button>
-                      <span className="topbar-pill">{formatBookingStatusLabel(booking.status)}</span>
+                      <span className="topbar-pill">
+                        {formatBookingStatusLabel(booking.status)}
+                      </span>
                     </div>
                   </article>
                 ))}
@@ -6394,7 +7290,11 @@ function App() {
                   <p className="eyebrow">Órdenes</p>
                   <h2>Seguimiento comercial</h2>
                 </div>
-                <button type="button" className="secondary-button" onClick={() => setActiveSection("shop")}>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => setActiveSection("shop")}
+                >
                   Tienda
                 </button>
               </div>
@@ -6403,22 +7303,60 @@ function App() {
                   <article key={order.id} className="table-row">
                     <div>
                       <strong>{order.orderCode}</strong>
-                      <p>{order.userName}</p>
+                      <p>{order.userName ?? order.userId}</p>
+                      {order.deliveryAddress ? (
+                        <p>{order.deliveryAddress}</p>
+                      ) : null}
                     </div>
                     <div>
                       <strong>{order.specialistName}</strong>
                       <p>{formatDate(order.createdAt)}</p>
+                      <p>{formatOrderStatusPurpose(order.status)}</p>
                     </div>
                     <div className="align-right">
                       <div className="editor-actions">
-                        <button type="button" className="secondary-button" onClick={() => void handleUpdateOrderStatus(order, "confirmed")}>
+                        <button
+                          type="button"
+                          className="secondary-button"
+                          onClick={() =>
+                            void handleUpdateOrderStatus(order, "confirmed")
+                          }
+                        >
                           Confirmar
                         </button>
-                        <button type="button" className="secondary-button" onClick={() => void handleUpdateOrderStatus(order, "preparing")}>
+                        <button
+                          type="button"
+                          className="secondary-button"
+                          onClick={() =>
+                            void handleUpdateOrderStatus(order, "preparing")
+                          }
+                        >
                           Preparar
                         </button>
-                        <button type="button" className="secondary-button" onClick={() => void handleUpdateOrderStatus(order, "shipped")}>
+                        <button
+                          type="button"
+                          className="secondary-button"
+                          onClick={() =>
+                            void handleUpdateOrderStatus(order, "shipped")
+                          }
+                        >
                           Enviar
+                        </button>
+                        <button
+                          type="button"
+                          className="secondary-button"
+                          onClick={() =>
+                            void handleUpdateOrderStatus(order, "delivered")
+                          }
+                        >
+                          Entregada
+                        </button>
+                        <button
+                          type="button"
+                          className="primary-button"
+                          onClick={() => void handleOpenOrderChat(order)}
+                        >
+                          Chat
                         </button>
                       </div>
                       <strong>{formatOrderStatusLabel(order.status)}</strong>
@@ -6437,14 +7375,23 @@ function App() {
                   <p className="eyebrow">Productos</p>
                   <h2>Administra catálogo, precios, stock y visibilidad.</h2>
                   <p className="hero-copy">
-                  Filtra, edita y archiva productos reales sin salir de la vista.
+                    Filtra, edita y archiva productos reales sin salir de la
+                    vista.
                   </p>
                 </div>
                 <div className="editor-actions">
-                  <button type="button" className="secondary-button" onClick={() => handleOpenProductDrawer()}>
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => handleOpenProductDrawer()}
+                  >
                     Nuevo producto
                   </button>
-                  <button type="button" className="secondary-button" onClick={() => setActiveSection("orders")}>
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => setActiveSection("orders")}
+                  >
                     Órdenes
                   </button>
                 </div>
@@ -6581,21 +7528,26 @@ function App() {
                   <strong>
                     {
                       products.filter(
-                        (product) => product.status !== "hidden" && product.status !== "archived",
+                        (product) =>
+                          product.status !== "hidden" &&
+                          product.status !== "archived",
                       ).length
                     }
                   </strong>
                 </div>
                 <div className="status-card">
                   <span>Destacados</span>
-                  <strong>{products.filter((product) => product.featured).length}</strong>
+                  <strong>
+                    {products.filter((product) => product.featured).length}
+                  </strong>
                 </div>
                 <div className="status-card">
                   <span>Sin stock</span>
                   <strong>
                     {
                       products.filter(
-                        (product) => product.stockQuantity <= 0 && !product.madeToOrder,
+                        (product) =>
+                          product.stockQuantity <= 0 && !product.madeToOrder,
                       ).length
                     }
                   </strong>
@@ -6605,7 +7557,8 @@ function App() {
               {visibleProducts.length > 0 ? (
                 <div className="product-grid">
                   {visibleProducts.map((product) => {
-                    const primaryImage = product.imageUrl || product.imageUrls?.[0] || "";
+                    const primaryImage =
+                      product.imageUrl || product.imageUrls?.[0] || "";
                     const resolvedPrimaryImage = resolveMediaUrl(primaryImage);
                     return (
                       <article key={product.id} className="product-card">
@@ -6634,14 +7587,24 @@ function App() {
                               </p>
                               <h3>{product.name}</h3>
                               <p className="product-card-meta">
-                                Actualizado {formatOptionalDate(product.updatedAt ?? product.createdAt)}
+                                Actualizado{" "}
+                                {formatOptionalDate(
+                                  product.updatedAt ?? product.createdAt,
+                                )}
                               </p>
                             </div>
-                            <span className="topbar-pill">{product.status}</span>
+                            <span className="topbar-pill">
+                              {product.status}
+                            </span>
                           </div>
 
                           <div className="product-card-pricing">
-                            <strong>{formatMoney(product.price.amount, product.price.currency)}</strong>
+                            <strong>
+                              {formatMoney(
+                                product.price.amount,
+                                product.price.currency,
+                              )}
+                            </strong>
                             <span>{product.stockLabel}</span>
                           </div>
 
@@ -6654,7 +7617,9 @@ function App() {
                             </span>
                             <span
                               className={`badge-pill ${
-                                product.featured ? "badge-pill-manual" : "badge-pill-rarity"
+                                product.featured
+                                  ? "badge-pill-manual"
+                                  : "badge-pill-rarity"
                               }`}
                             >
                               {product.featured ? "Destacado" : "Normal"}
@@ -6689,28 +7654,40 @@ function App() {
                             <button
                               type="button"
                               className="secondary-button"
-                              onClick={() => void handleToggleProductVisibility(product)}
+                              onClick={() =>
+                                void handleToggleProductVisibility(product)
+                              }
                             >
-                              {product.status === "hidden" ? "Mostrar" : "Ocultar"}
+                              {product.status === "hidden"
+                                ? "Mostrar"
+                                : "Ocultar"}
                             </button>
                             <button
                               type="button"
                               className="secondary-button"
-                              onClick={() => void handleToggleProductFeatured(product)}
+                              onClick={() =>
+                                void handleToggleProductFeatured(product)
+                              }
                             >
-                              {product.featured ? "Quitar destacado" : "Destacar"}
+                              {product.featured
+                                ? "Quitar destacado"
+                                : "Destacar"}
                             </button>
                             <button
                               type="button"
                               className="secondary-button"
-                              onClick={() => void handleAdjustProductPrice(product)}
+                              onClick={() =>
+                                void handleAdjustProductPrice(product)
+                              }
                             >
                               Precio
                             </button>
                             <button
                               type="button"
                               className="secondary-button"
-                              onClick={() => void handleAdjustProductStock(product)}
+                              onClick={() =>
+                                void handleAdjustProductStock(product)
+                              }
                             >
                               Stock
                             </button>
@@ -6730,7 +7707,9 @@ function App() {
               ) : (
                 <div className="empty-state">
                   <h3>No hay productos con esos filtros.</h3>
-                  <p>Ajusta los filtros o crea un producto nuevo para comenzar.</p>
+                  <p>
+                    Ajusta los filtros o crea un producto nuevo para comenzar.
+                  </p>
                   <button
                     type="button"
                     className="primary-button"
@@ -6745,145 +7724,163 @@ function App() {
 
           {activeSection === "courses" ? (
             isCourseDrawerOpen ? null : (
-            <section className="admin-panel admin-panel-wide">
-              <div className="panel-head badge-panel-head course-panel-head">
-                <div>
-                  <p className="eyebrow">Cursos</p>
-                  <h2>Biblioteca formativa</h2>
-                  <p className="hero-copy">
-                    Gestiona cursos, módulos, lecciones, biblioteca PDF y publicación desde un solo panel.
-                  </p>
+              <section className="admin-panel admin-panel-wide">
+                <div className="panel-head badge-panel-head course-panel-head">
+                  <div>
+                    <p className="eyebrow">Cursos</p>
+                    <h2>Biblioteca formativa</h2>
+                    <p className="hero-copy">
+                      Gestiona cursos, módulos, lecciones, biblioteca PDF y
+                      publicación desde un solo panel.
+                    </p>
+                  </div>
+                  <div className="course-panel-actions">
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() =>
+                        openCourseWorkspaceTab(courses[0]?.id ?? null, "data")
+                      }
+                      disabled={courses.length === 0}
+                    >
+                      Continuar edición
+                    </button>
+                    <button
+                      type="button"
+                      className="primary-button"
+                      onClick={() => openCourseWorkspaceTab(null, "data")}
+                    >
+                      Crear curso
+                    </button>
+                  </div>
                 </div>
-                <div className="course-panel-actions">
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    onClick={() =>
-                      openCourseWorkspaceTab(courses[0]?.id ?? null, "data")
-                    }
-                    disabled={courses.length === 0}
-                  >
-                    Continuar edición
-                  </button>
-                  <button
-                    type="button"
-                    className="primary-button"
-                    onClick={() => openCourseWorkspaceTab(null, "data")}
-                  >
-                    Crear curso
-                  </button>
+
+                <div className="course-stat-grid">
+                  <article className="course-stat-card">
+                    <span>Total</span>
+                    <strong>{courseStats.total}</strong>
+                    <p>Biblioteca completa</p>
+                  </article>
+                  <article className="course-stat-card">
+                    <span>Publicados</span>
+                    <strong>{courseStats.published}</strong>
+                    <p>Listos para consumo</p>
+                  </article>
+                  <article className="course-stat-card">
+                    <span>Borradores</span>
+                    <strong>{courseStats.draft}</strong>
+                    <p>En edición</p>
+                  </article>
+                  <article className="course-stat-card">
+                    <span>Archivados</span>
+                    <strong>{courseStats.archived}</strong>
+                    <p>Guardados fuera de la vista</p>
+                  </article>
                 </div>
-              </div>
 
-              <div className="course-stat-grid">
-                <article className="course-stat-card">
-                  <span>Total</span>
-                  <strong>{courseStats.total}</strong>
-                  <p>Biblioteca completa</p>
-                </article>
-                <article className="course-stat-card">
-                  <span>Publicados</span>
-                  <strong>{courseStats.published}</strong>
-                  <p>Listos para consumo</p>
-                </article>
-                <article className="course-stat-card">
-                  <span>Borradores</span>
-                  <strong>{courseStats.draft}</strong>
-                  <p>En edición</p>
-                </article>
-                <article className="course-stat-card">
-                  <span>Archivados</span>
-                  <strong>{courseStats.archived}</strong>
-                  <p>Guardados fuera de la vista</p>
-                </article>
-              </div>
-
-              <div className="course-grid">
-                {courses.slice(0, 12).map((course) => (
-                  <article key={course.id} className="course-card">
-                    <div className="course-card-head">
-                      <div>
-                        <p className="product-card-meta">{course.category || "Sin categoría"}</p>
-                        <h3>{course.title}</h3>
-                        <p className="course-card-copy">{course.subtitle}</p>
+                <div className="course-grid">
+                  {courses.slice(0, 12).map((course) => (
+                    <article key={course.id} className="course-card">
+                      <div className="course-card-head">
+                        <div>
+                          <p className="product-card-meta">
+                            {course.category || "Sin categoría"}
+                          </p>
+                          <h3>{course.title}</h3>
+                          <p className="course-card-copy">{course.subtitle}</p>
+                        </div>
+                        <span className="topbar-pill">
+                          {course.status === "published"
+                            ? "Publicado"
+                            : course.status === "archived"
+                              ? "Archivado"
+                              : "Borrador"}
+                        </span>
                       </div>
-                      <span className="topbar-pill">
-                        {course.status === "published"
-                          ? "Publicado"
-                          : course.status === "archived"
-                            ? "Archivado"
-                            : "Borrador"}
-                      </span>
-                    </div>
 
-                    <div className="course-card-metrics">
-                      <div className="course-mini-metric">
-                        <span>Módulos</span>
-                        <strong>{course.moduleCount}</strong>
+                      <div className="course-card-metrics">
+                        <div className="course-mini-metric">
+                          <span>Módulos</span>
+                          <strong>{course.moduleCount}</strong>
+                        </div>
+                        <div className="course-mini-metric">
+                          <span>Lecciones</span>
+                          <strong>{course.lessonCount}</strong>
+                        </div>
+                        <div className="course-mini-metric">
+                          <span>Progreso</span>
+                          <strong>{course.progressPercent}%</strong>
+                        </div>
                       </div>
-                      <div className="course-mini-metric">
-                        <span>Lecciones</span>
-                        <strong>{course.lessonCount}</strong>
-                      </div>
-                      <div className="course-mini-metric">
-                        <span>Progreso</span>
-                        <strong>{course.progressPercent}%</strong>
-                      </div>
-                    </div>
 
-                    <div className="badge-pill-row course-card-badges">
-                      <span className="badge-pill badge-pill-type">
-                        {course.premium ? "Premium" : "Libre"}
-                      </span>
-                      <span className="badge-pill badge-pill-rarity">
-                        {course.featured ? "Destacado" : "Normal"}
-                      </span>
-                    </div>
+                      <div className="badge-pill-row course-card-badges">
+                        <span className="badge-pill badge-pill-type">
+                          {course.premium ? "Premium" : "Libre"}
+                        </span>
+                        <span className="badge-pill badge-pill-rarity">
+                          {course.featured ? "Destacado" : "Normal"}
+                        </span>
+                      </div>
 
-                    <div className="course-card-actions">
-                      <button
-                        type="button"
-                        className="secondary-button"
-                        onClick={() => openCourseWorkspaceTab(course.id, "data")}
-                      >
-                        Editar
-                      </button>
+                      <div className="course-card-actions">
                         <button
                           type="button"
                           className="secondary-button"
-                          onClick={() => openCourseWorkspaceTab(course.id, "modules")}
+                          onClick={() =>
+                            openCourseWorkspaceTab(course.id, "data")
+                          }
+                        >
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          className="secondary-button"
+                          onClick={() =>
+                            openCourseWorkspaceTab(course.id, "modules")
+                          }
                         >
                           Módulos
                         </button>
                         <button
                           type="button"
                           className="secondary-button"
-                          onClick={() => openCourseWorkspaceTab(course.id, "library")}
+                          onClick={() =>
+                            openCourseWorkspaceTab(course.id, "library")
+                          }
                         >
                           Biblioteca
                         </button>
                         <button
                           type="button"
                           className="secondary-button"
-                          onClick={() => openCourseWorkspaceTab(course.id, "publication")}
+                          onClick={() =>
+                            openCourseWorkspaceTab(course.id, "publication")
+                          }
                         >
                           Publicación
                         </button>
-                    </div>
-                  </article>
-                ))}
-              </div>
-
-              {courses.length === 0 ? (
-                <div className="empty-state">
-                  <h3>No hay cursos todavía.</h3>
-                  <p>Crea un curso para empezar a organizar módulos, lecciones y biblioteca.</p>
-                  <button type="button" className="primary-button" onClick={() => openCourseWorkspaceTab(null, "data")}>
-                    Crear curso
-                  </button>
+                      </div>
+                    </article>
+                  ))}
                 </div>
-              ) : null}
-            </section>
+
+                {courses.length === 0 ? (
+                  <div className="empty-state">
+                    <h3>No hay cursos todavía.</h3>
+                    <p>
+                      Crea un curso para empezar a organizar módulos, lecciones
+                      y biblioteca.
+                    </p>
+                    <button
+                      type="button"
+                      className="primary-button"
+                      onClick={() => openCourseWorkspaceTab(null, "data")}
+                    >
+                      Crear curso
+                    </button>
+                  </div>
+                ) : null}
+              </section>
             )
           ) : null}
 
@@ -6895,7 +7892,8 @@ function App() {
                     <p className="eyebrow">Biblioteca</p>
                     <h2>Gestión simple de PDFs</h2>
                     <p className="hero-copy">
-                      Sube uno o varios PDFs, define una categoría clara y decide si el material queda libre o vinculado a un curso.
+                      Sube uno o varios PDFs, define una categoría clara y
+                      decide si el material queda libre o vinculado a un curso.
                     </p>
                   </div>
                   <div className="library-hero-actions">
@@ -6966,7 +7964,9 @@ function App() {
                             const file = event.target.files?.[0] ?? null;
                             setLibraryPdfFile(file);
                             if (file && !libraryPdfForm.title.trim()) {
-                              const prettyName = prettifyLibraryFileTitle(file.name);
+                              const prettyName = prettifyLibraryFileTitle(
+                                file.name,
+                              );
                               if (prettyName) {
                                 setLibraryPdfForm((current) => ({
                                   ...current,
@@ -6989,7 +7989,10 @@ function App() {
                         <input
                           value={libraryPdfForm.title}
                           onChange={(event) =>
-                            setLibraryPdfForm((current) => ({ ...current, title: event.target.value }))
+                            setLibraryPdfForm((current) => ({
+                              ...current,
+                              title: event.target.value,
+                            }))
                           }
                           placeholder="Nombre del PDF"
                         />
@@ -7005,7 +8008,9 @@ function App() {
                                 setLibraryPdfForm((current) => ({
                                   ...current,
                                   assignCategory: event.target.checked,
-                                  category: event.target.checked ? current.category : "",
+                                  category: event.target.checked
+                                    ? current.category
+                                    : "",
                                 }))
                               }
                             />
@@ -7018,7 +8023,10 @@ function App() {
                               list="library-category-suggestions"
                               value={libraryPdfForm.category}
                               onChange={(event) =>
-                                setLibraryPdfForm((current) => ({ ...current, category: event.target.value }))
+                                setLibraryPdfForm((current) => ({
+                                  ...current,
+                                  category: event.target.value,
+                                }))
                               }
                               placeholder="Ej. Tarot, Guías, Rituales"
                             />
@@ -7029,28 +8037,34 @@ function App() {
                             </datalist>
                             <div className="library-chip-row">
                               {libraryCategorySuggestions.length > 0 ? (
-                                libraryCategorySuggestions.slice(0, 6).map((category) => (
-                                  <button
-                                    key={category}
-                                    type="button"
-                                    className={`library-chip${libraryPdfForm.category.trim().toLowerCase() === category.toLowerCase() ? " library-chip-active" : ""}`}
-                                    onClick={() =>
-                                      setLibraryPdfForm((current) => ({
-                                        ...current,
-                                        category,
-                                      }))
-                                    }
-                                  >
-                                    {category}
-                                  </button>
-                                ))
+                                libraryCategorySuggestions
+                                  .slice(0, 6)
+                                  .map((category) => (
+                                    <button
+                                      key={category}
+                                      type="button"
+                                      className={`library-chip${libraryPdfForm.category.trim().toLowerCase() === category.toLowerCase() ? " library-chip-active" : ""}`}
+                                      onClick={() =>
+                                        setLibraryPdfForm((current) => ({
+                                          ...current,
+                                          category,
+                                        }))
+                                      }
+                                    >
+                                      {category}
+                                    </button>
+                                  ))
                               ) : (
-                                <span className="muted-copy">Sin categorías aún.</span>
+                                <span className="muted-copy">
+                                  Sin categorías aún.
+                                </span>
                               )}
                             </div>
                           </>
                         ) : (
-                          <p className="muted-copy">Se guardará como General.</p>
+                          <p className="muted-copy">
+                            Se guardará como General.
+                          </p>
                         )}
                       </label>
                       <div className="library-link-card form-wide">
@@ -7067,7 +8081,9 @@ function App() {
                                 setLibraryPdfForm((current) => ({
                                   ...current,
                                   linkToCourse: event.target.checked,
-                                  courseId: event.target.checked ? current.courseId : "",
+                                  courseId: event.target.checked
+                                    ? current.courseId
+                                    : "",
                                 }))
                               }
                             />
@@ -7078,7 +8094,10 @@ function App() {
                           <select
                             value={libraryPdfForm.courseId}
                             onChange={(event) =>
-                              setLibraryPdfForm((current) => ({ ...current, courseId: event.target.value }))
+                              setLibraryPdfForm((current) => ({
+                                ...current,
+                                courseId: event.target.value,
+                              }))
                             }
                           >
                             <option value="">Selecciona un curso</option>
@@ -7089,7 +8108,9 @@ function App() {
                             ))}
                           </select>
                         ) : (
-                          <p className="muted-copy">El PDF quedará suelto en la biblioteca.</p>
+                          <p className="muted-copy">
+                            El PDF quedará suelto en la biblioteca.
+                          </p>
                         )}
                       </div>
                       <label>
@@ -7099,7 +8120,8 @@ function App() {
                           onChange={(event) =>
                             setLibraryPdfForm((current) => ({
                               ...current,
-                              status: event.target.value as "draft" | "published",
+                              status: event.target.value as
+                                "draft" | "published",
                             }))
                           }
                         >
@@ -7108,7 +8130,10 @@ function App() {
                         </select>
                       </label>
                       <div className="editor-actions form-wide">
-                        <button type="submit" className="primary-button button-with-icon">
+                        <button
+                          type="submit"
+                          className="primary-button button-with-icon"
+                        >
                           <span className="button-icon" aria-hidden="true">
                             <ActionIcon name="upload" />
                           </span>
@@ -7128,7 +8153,9 @@ function App() {
                     </div>
                     <form
                       className="badge-form-grid badge-form-grid-compact"
-                      onSubmit={(event) => void handleSaveBulkLibraryPdfs(event)}
+                      onSubmit={(event) =>
+                        void handleSaveBulkLibraryPdfs(event)
+                      }
                     >
                       <label className="form-wide">
                         <span>Carpeta o PDFs</span>
@@ -7140,7 +8167,9 @@ function App() {
                           {...libraryFolderInputProps}
                           onChange={(event) => {
                             setLibraryBulkFiles(
-                              Array.from(event.target.files ?? []).filter((file) => isSupportedLibraryFile(file)),
+                              Array.from(event.target.files ?? []).filter(
+                                (file) => isSupportedLibraryFile(file),
+                              ),
                             );
                             event.currentTarget.value = "";
                           }}
@@ -7162,7 +8191,9 @@ function App() {
                                 setLibraryBulkForm((current) => ({
                                   ...current,
                                   assignCategory: event.target.checked,
-                                  category: event.target.checked ? current.category : "",
+                                  category: event.target.checked
+                                    ? current.category
+                                    : "",
                                 }))
                               }
                             />
@@ -7184,28 +8215,34 @@ function App() {
                             />
                             <div className="library-chip-row">
                               {libraryCategorySuggestions.length > 0 ? (
-                                libraryCategorySuggestions.slice(0, 6).map((category) => (
-                                  <button
-                                    key={category}
-                                    type="button"
-                                    className={`library-chip${libraryBulkForm.category.trim().toLowerCase() === category.toLowerCase() ? " library-chip-active" : ""}`}
-                                    onClick={() =>
-                                      setLibraryBulkForm((current) => ({
-                                        ...current,
-                                        category,
-                                      }))
-                                    }
-                                  >
-                                    {category}
-                                  </button>
-                                ))
+                                libraryCategorySuggestions
+                                  .slice(0, 6)
+                                  .map((category) => (
+                                    <button
+                                      key={category}
+                                      type="button"
+                                      className={`library-chip${libraryBulkForm.category.trim().toLowerCase() === category.toLowerCase() ? " library-chip-active" : ""}`}
+                                      onClick={() =>
+                                        setLibraryBulkForm((current) => ({
+                                          ...current,
+                                          category,
+                                        }))
+                                      }
+                                    >
+                                      {category}
+                                    </button>
+                                  ))
                               ) : (
-                                <span className="muted-copy">Sin categorías aún.</span>
+                                <span className="muted-copy">
+                                  Sin categorías aún.
+                                </span>
                               )}
                             </div>
                           </>
                         ) : (
-                          <p className="muted-copy">Se guardará como General.</p>
+                          <p className="muted-copy">
+                            Se guardará como General.
+                          </p>
                         )}
                       </label>
                       <div className="library-link-card form-wide">
@@ -7222,7 +8259,9 @@ function App() {
                                 setLibraryBulkForm((current) => ({
                                   ...current,
                                   linkToCourse: event.target.checked,
-                                  courseId: event.target.checked ? current.courseId : "",
+                                  courseId: event.target.checked
+                                    ? current.courseId
+                                    : "",
                                 }))
                               }
                             />
@@ -7247,7 +8286,9 @@ function App() {
                             ))}
                           </select>
                         ) : (
-                          <p className="muted-copy">Quedará libre en la biblioteca.</p>
+                          <p className="muted-copy">
+                            Quedará libre en la biblioteca.
+                          </p>
                         )}
                       </div>
                       <label>
@@ -7257,7 +8298,8 @@ function App() {
                           onChange={(event) =>
                             setLibraryBulkForm((current) => ({
                               ...current,
-                              status: event.target.value as "draft" | "published",
+                              status: event.target.value as
+                                "draft" | "published",
                             }))
                           }
                         >
@@ -7266,18 +8308,30 @@ function App() {
                         </select>
                       </label>
                       {libraryBulkFiles.length > 0 ? (
-                        <section className="library-bulk-preview form-wide" aria-live="polite">
+                        <section
+                          className="library-bulk-preview form-wide"
+                          aria-live="polite"
+                        >
                           <div>
                             <span>Listo para publicar</span>
-                            <strong>{buildBulkUploadSummary().count} PDF(s)</strong>
+                            <strong>
+                              {buildBulkUploadSummary().count} PDF(s)
+                            </strong>
                             <p>
-                              Categoría: {buildBulkUploadSummary().category} · Curso: {buildBulkUploadSummary().courseLabel}
+                              Categoría: {buildBulkUploadSummary().category} ·
+                              Curso: {buildBulkUploadSummary().courseLabel}
                             </p>
                           </div>
                           <div className="library-bulk-preview-pills">
-                            <span className="topbar-pill">{libraryBulkForm.status === "published" ? "Publicado" : "Borrador"}</span>
                             <span className="topbar-pill">
-                              {libraryBulkForm.linkToCourse ? "Con vínculo" : "Sin vínculo"}
+                              {libraryBulkForm.status === "published"
+                                ? "Publicado"
+                                : "Borrador"}
+                            </span>
+                            <span className="topbar-pill">
+                              {libraryBulkForm.linkToCourse
+                                ? "Con vínculo"
+                                : "Sin vínculo"}
                             </span>
                           </div>
                         </section>
@@ -7286,7 +8340,10 @@ function App() {
                         <button
                           type="button"
                           className="primary-button button-with-icon"
-                          disabled={libraryBulkUploading || libraryBulkFiles.length === 0}
+                          disabled={
+                            libraryBulkUploading ||
+                            libraryBulkFiles.length === 0
+                          }
                           onClick={() => void performBulkLibraryUpload()}
                         >
                           <span className="button-icon" aria-hidden="true">
@@ -7302,11 +8359,19 @@ function App() {
                         </button>
                       </div>
                       {libraryBulkUploading ? (
-                        <div className="library-upload-progress form-wide" aria-live="polite">
-                          <div className="library-upload-progress-bar" aria-hidden="true">
+                        <div
+                          className="library-upload-progress form-wide"
+                          aria-live="polite"
+                        >
+                          <div
+                            className="library-upload-progress-bar"
+                            aria-hidden="true"
+                          >
                             <div
                               className="library-upload-progress-fill"
-                              style={{ width: `${Math.max(8, Math.min(libraryBulkProgress, 100))}%` }}
+                              style={{
+                                width: `${Math.max(8, Math.min(libraryBulkProgress, 100))}%`,
+                              }}
                             />
                           </div>
                           <p className="muted-copy">
@@ -7315,7 +8380,8 @@ function App() {
                         </div>
                       ) : libraryBulkFiles.length > 0 ? (
                         <p className="muted-copy form-wide">
-                          Pulsa el botón para publicar {libraryBulkFiles.length} PDF(s) con la categoría seleccionada.
+                          Pulsa el botón para publicar {libraryBulkFiles.length}{" "}
+                          PDF(s) con la categoría seleccionada.
                         </p>
                       ) : null}
                     </form>
@@ -7331,7 +8397,9 @@ function App() {
                         Filtra por estado, categoría o busca por título o curso.
                       </p>
                     </div>
-                    <span className="topbar-pill">{libraryVisiblePdfs.length} visibles</span>
+                    <span className="topbar-pill">
+                      {libraryVisiblePdfs.length} visibles
+                    </span>
                   </div>
                   <div className="library-toolbar">
                     <input
@@ -7343,7 +8411,9 @@ function App() {
                     <select
                       className="library-search"
                       value={libraryCategoryFilter}
-                      onChange={(event) => setLibraryCategoryFilter(event.target.value)}
+                      onChange={(event) =>
+                        setLibraryCategoryFilter(event.target.value)
+                      }
                     >
                       <option value="all">Todas las categorías</option>
                       {libraryCategorySummaries.map((category) => (
@@ -7352,7 +8422,11 @@ function App() {
                         </option>
                       ))}
                     </select>
-                    <div className="library-filter-pills" role="tablist" aria-label="Filtros de biblioteca">
+                    <div
+                      className="library-filter-pills"
+                      role="tablist"
+                      aria-label="Filtros de biblioteca"
+                    >
                       {[
                         ["all", "Todo"],
                         ["free", "Libres"],
@@ -7365,7 +8439,9 @@ function App() {
                           role="tab"
                           aria-selected={libraryFilter === value}
                           className={`library-filter-pill${libraryFilter === value ? " library-filter-pill-active" : ""}`}
-                          onClick={() => setLibraryFilter(value as typeof libraryFilter)}
+                          onClick={() =>
+                            setLibraryFilter(value as typeof libraryFilter)
+                          }
                         >
                           {label}
                         </button>
@@ -7385,11 +8461,15 @@ function App() {
                               <span>{pdf.category || "Sin categoría"}</span>
                               <span>
                                 {pdf.courseId
-                                  ? courses.find((course) => course.id === pdf.courseId)?.title ?? pdf.courseId
+                                  ? (courses.find(
+                                      (course) => course.id === pdf.courseId,
+                                    )?.title ?? pdf.courseId)
                                   : "Sin curso"}
                               </span>
                               <span>{pdf.pageCount} páginas</span>
-                              <span className="topbar-pill">{pdf.status ?? "draft"}</span>
+                              <span className="topbar-pill">
+                                {pdf.status ?? "draft"}
+                              </span>
                             </div>
                           </div>
                           <div className="library-list-actions">
@@ -7407,7 +8487,9 @@ function App() {
                               type="button"
                               className="danger-button button-with-icon"
                               onClick={() => {
-                                if (window.confirm(`¿Eliminar "${pdf.title}"?`)) {
+                                if (
+                                  window.confirm(`¿Eliminar "${pdf.title}"?`)
+                                ) {
                                   void handleLibraryPdfAction(pdf.id, "delete");
                                 }
                               }}
@@ -7424,7 +8506,10 @@ function App() {
                   ) : (
                     <div className="empty-state">
                       <h3>No hay PDFs con ese filtro.</h3>
-                      <p>Prueba con otra búsqueda o sube un nuevo PDF desde la parte superior.</p>
+                      <p>
+                        Prueba con otra búsqueda o sube un nuevo PDF desde la
+                        parte superior.
+                      </p>
                     </div>
                   )}
                 </article>
@@ -7439,14 +8524,23 @@ function App() {
                   <p className="eyebrow">Usuarios</p>
                   <h2>Usuarios y accesos</h2>
                   <p className="hero-copy">
-                    Crea usuarios, filtra por rol y define qué partes del panel pueden ver.
+                    Crea usuarios, filtra por rol y define qué partes del panel
+                    pueden ver.
                   </p>
                 </div>
                 <div className="editor-actions">
-                  <button type="button" className="secondary-button" onClick={() => handleOpenUserDrawer()}>
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => handleOpenUserDrawer()}
+                  >
                     Nuevo usuario
                   </button>
-                  <button type="button" className="secondary-button" onClick={() => setActiveSection("community")}>
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() => setActiveSection("community")}
+                  >
                     Chat
                   </button>
                 </div>
@@ -7511,7 +8605,11 @@ function App() {
                         accountType: "",
                       })
                     }
-                    disabled={!userFilters.search && !userFilters.role && !userFilters.accountType}
+                    disabled={
+                      !userFilters.search &&
+                      !userFilters.role &&
+                      !userFilters.accountType
+                    }
                   >
                     Limpiar filtros
                   </button>
@@ -7540,7 +8638,8 @@ function App() {
               {filteredUsers.length > 0 ? (
                 <div className="user-grid">
                   {filteredUsers.map((user) => {
-                    const effectiveRoles = user.roles.length > 0 ? user.roles : [];
+                    const effectiveRoles =
+                      user.roles.length > 0 ? user.roles : [];
                     const accessSummary = getUserAccessSummary(user);
                     return (
                       <article key={user.id} className="user-card">
@@ -7548,22 +8647,31 @@ function App() {
                           <div>
                             <p className="product-card-meta">{user.planId}</p>
                             <h3>{user.fullName || user.id}</h3>
-                            <p className="muted-copy">{user.email || "sin email"}</p>
+                            <p className="muted-copy">
+                              {user.email || "sin email"}
+                            </p>
                           </div>
                           <span className="topbar-pill">
-                            {user.profileCompleted ? "Perfil listo" : "Pendiente"}
+                            {user.profileCompleted
+                              ? "Perfil listo"
+                              : "Pendiente"}
                           </span>
                         </div>
 
                         <div className="badge-pill-row user-role-row">
                           {effectiveRoles.length > 0 ? (
                             effectiveRoles.map((role) => (
-                              <span key={`${user.id}-${role}`} className="badge-pill badge-pill-type">
+                              <span
+                                key={`${user.id}-${role}`}
+                                className="badge-pill badge-pill-type"
+                              >
                                 {userRoleLabels[role as UserAccessPreset]}
                               </span>
                             ))
                           ) : (
-                            <span className="badge-pill badge-pill-rarity">{userRoleLabels.client}</span>
+                            <span className="badge-pill badge-pill-rarity">
+                              {userRoleLabels.client}
+                            </span>
                           )}
                         </div>
 
@@ -7593,8 +8701,15 @@ function App() {
               ) : (
                 <div className="empty-state">
                   <h3>No hay usuarios con esos filtros.</h3>
-                  <p>Crea un nuevo usuario o limpia los filtros para ver el listado completo.</p>
-                  <button type="button" className="primary-button" onClick={() => handleOpenUserDrawer()}>
+                  <p>
+                    Crea un nuevo usuario o limpia los filtros para ver el
+                    listado completo.
+                  </p>
+                  <button
+                    type="button"
+                    className="primary-button"
+                    onClick={() => handleOpenUserDrawer()}
+                  >
                     Crear usuario
                   </button>
                 </div>
@@ -7612,11 +8727,16 @@ function App() {
               </div>
               <div className="admin-chat-layout">
                 <section className="admin-chat-panel">
-                  <form className="chat-compose" onSubmit={handleSendCommunityReply}>
+                  <form
+                    className="chat-compose"
+                    onSubmit={handleSendCommunityReply}
+                  >
                     <textarea
                       className="chat-compose-textarea"
                       value={communityReply}
-                      onChange={(event) => setCommunityReply(event.target.value)}
+                      onChange={(event) =>
+                        setCommunityReply(event.target.value)
+                      }
                       placeholder="Mensaje"
                       rows={4}
                     />
@@ -7626,17 +8746,24 @@ function App() {
                       accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml"
                       className="admin-uploader-input"
                       onChange={(event) =>
-                        void handleCommunityReplyImageChange(event.target.files?.[0] ?? null)
+                        void handleCommunityReplyImageChange(
+                          event.target.files?.[0] ?? null,
+                        )
                       }
                     />
                     {communityReplyImageName || communityReplyImageUrl ? (
                       <div className="chat-compose-attachment">
                         {communityReplyImageUrl ? (
-                          <img src={communityReplyImageUrl} alt="Adjunto del chat" />
+                          <img
+                            src={communityReplyImageUrl}
+                            alt="Adjunto del chat"
+                          />
                         ) : (
                           <div className="chat-compose-attachment-placeholder">
                             <strong>{communityReplyImageName}</strong>
-                            <span>Subiendo imagen: {communityReplyImageProgress}%</span>
+                            <span>
+                              Subiendo imagen: {communityReplyImageProgress}%
+                            </span>
                           </div>
                         )}
                         <button
@@ -7657,8 +8784,14 @@ function App() {
                       </div>
                     ) : null}
                     {communityReplyImageUploading ? (
-                      <div className="library-upload-progress form-wide" aria-live="polite">
-                        <div className="library-upload-progress-bar" aria-hidden="true">
+                      <div
+                        className="library-upload-progress form-wide"
+                        aria-live="polite"
+                      >
+                        <div
+                          className="library-upload-progress-bar"
+                          aria-hidden="true"
+                        >
                           <span
                             className="library-upload-progress-fill"
                             style={{ width: `${communityReplyImageProgress}%` }}
@@ -7667,14 +8800,22 @@ function App() {
                       </div>
                     ) : null}
                     {communityReplyImageError ? (
-                      <p className="form-error form-wide">{communityReplyImageError}</p>
+                      <p className="form-error form-wide">
+                        {communityReplyImageError}
+                      </p>
                     ) : null}
-                    {communityReplyError ? <p className="form-error form-wide">{communityReplyError}</p> : null}
+                    {communityReplyError ? (
+                      <p className="form-error form-wide">
+                        {communityReplyError}
+                      </p>
+                    ) : null}
                     <div className="chat-compose-actions">
                       <button
                         type="button"
                         className="secondary-button button-with-icon"
-                        onClick={() => communityReplyImageInputRef.current?.click()}
+                        onClick={() =>
+                          communityReplyImageInputRef.current?.click()
+                        }
                         disabled={communityReplyImageUploading}
                       >
                         <span className="button-icon" aria-hidden="true">
@@ -7685,73 +8826,127 @@ function App() {
                       <button
                         type="submit"
                         className="primary-button"
-                        disabled={sendingCommunityReply || communityReplyImageUploading}
+                        disabled={
+                          sendingCommunityReply || communityReplyImageUploading
+                        }
                       >
                         {sendingCommunityReply ? "Enviando..." : "Publicar"}
                       </button>
                     </div>
                   </form>
                   <div className="chat-message-feed">
-                    {communityMessages.length > 0 ? (
-                      communityMessages.slice().reverse().map((message) => (
-                        <article key={message.id} className={`chat-message-card${message.authorRole === "guide" ? " chat-message-card-guide" : " chat-message-card-member"}`}>
-                          <div className="chat-message-head">
-                            <div className="chat-message-author">
-                              <div className="chat-message-avatar" aria-hidden="true">
-                                {message.authorAvatarUrl ? (
-                                  <img src={resolveMediaUrl(message.authorAvatarUrl)} alt="" />
-                                ) : (
-                                  <span>{getNameInitials(message.authorName)}</span>
-                                )}
-                              </div>
-                              <div className="chat-message-author-meta">
-                                <div className="chat-message-author-line">
-                                  <strong>{message.authorName}</strong>
-                                  {message.authorBadgeName ? (
-                                    <span className="chat-message-badge">
-                                      {message.authorBadgeIconUrl ? (
-                                        <img src={resolveMediaUrl(message.authorBadgeIconUrl)} alt="" />
+                    {communityMessages.length > 0
+                      ? communityMessages
+                          .slice()
+                          .reverse()
+                          .map((message) => (
+                            <article
+                              key={message.id}
+                              className={`chat-message-card${message.authorRole === "guide" ? " chat-message-card-guide" : " chat-message-card-member"}`}
+                            >
+                              <div className="chat-message-head">
+                                <div className="chat-message-author">
+                                  <div
+                                    className="chat-message-avatar"
+                                    aria-hidden="true"
+                                  >
+                                    {message.authorAvatarUrl ? (
+                                      <img
+                                        src={resolveMediaUrl(
+                                          message.authorAvatarUrl,
+                                        )}
+                                        alt=""
+                                      />
+                                    ) : (
+                                      <span>
+                                        {getNameInitials(message.authorName)}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="chat-message-author-meta">
+                                    <div className="chat-message-author-line">
+                                      <strong>{message.authorName}</strong>
+                                      {message.authorBadgeName ? (
+                                        <span className="chat-message-badge">
+                                          {message.authorBadgeIconUrl ? (
+                                            <img
+                                              src={resolveMediaUrl(
+                                                message.authorBadgeIconUrl,
+                                              )}
+                                              alt=""
+                                            />
+                                          ) : null}
+                                          <span>{message.authorBadgeName}</span>
+                                        </span>
                                       ) : null}
-                                      <span>{message.authorBadgeName}</span>
+                                    </div>
+                                    <span>
+                                      {getCommunityRoleLabel(
+                                        message.authorRole,
+                                      )}
                                     </span>
-                                  ) : null}
+                                  </div>
                                 </div>
-                                <span>{getCommunityRoleLabel(message.authorRole)}</span>
+                                <div className="chat-message-tools">
+                                  {message.imageUrl ? (
+                                    <button
+                                      type="button"
+                                      className="secondary-button chat-message-tool-button"
+                                      onClick={() =>
+                                        void handleModerateCommunityMessage(
+                                          message.id,
+                                          "delete-image",
+                                        )
+                                      }
+                                      disabled={
+                                        moderatingCommunityMessageId ===
+                                        message.id
+                                      }
+                                    >
+                                      {moderatingCommunityMessageId ===
+                                      message.id
+                                        ? "Procesando..."
+                                        : "Quitar imagen"}
+                                    </button>
+                                  ) : null}
+                                  <button
+                                    type="button"
+                                    className="danger-button chat-message-tool-button"
+                                    onClick={() =>
+                                      void handleModerateCommunityMessage(
+                                        message.id,
+                                        "delete-message",
+                                      )
+                                    }
+                                    disabled={
+                                      moderatingCommunityMessageId ===
+                                      message.id
+                                    }
+                                  >
+                                    {moderatingCommunityMessageId === message.id
+                                      ? "Procesando..."
+                                      : "Eliminar"}
+                                  </button>
+                                </div>
                               </div>
-                            </div>
-                            <div className="chat-message-tools">
                               {message.imageUrl ? (
-                                <button
-                                  type="button"
-                                  className="secondary-button chat-message-tool-button"
-                                  onClick={() => void handleModerateCommunityMessage(message.id, "delete-image")}
-                                  disabled={moderatingCommunityMessageId === message.id}
+                                <a
+                                  href={resolveMediaUrl(message.imageUrl)}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="chat-message-image-link"
                                 >
-                                  {moderatingCommunityMessageId === message.id ? "Procesando..." : "Quitar imagen"}
-                                </button>
+                                  <img
+                                    src={resolveMediaUrl(message.imageUrl)}
+                                    alt={message.body || "Adjunto del mensaje"}
+                                  />
+                                </a>
                               ) : null}
-                              <button
-                                type="button"
-                                className="danger-button chat-message-tool-button"
-                                onClick={() => void handleModerateCommunityMessage(message.id, "delete-message")}
-                                disabled={moderatingCommunityMessageId === message.id}
-                              >
-                                {moderatingCommunityMessageId === message.id ? "Procesando..." : "Eliminar"}
-                              </button>
-                            </div>
-                          </div>
-                          {message.imageUrl ? (
-                            <a href={resolveMediaUrl(message.imageUrl)} target="_blank" rel="noreferrer" className="chat-message-image-link">
-                              <img src={resolveMediaUrl(message.imageUrl)} alt={message.body || "Adjunto del mensaje"} />
-                            </a>
-                          ) : null}
-                          {message.body ? <p>{message.body}</p> : null}
-                          <small>{formatDate(message.createdAt)}</small>
-                        </article>
-                      ))
-                    ) : (
-                      null
-                    )}
+                              {message.body ? <p>{message.body}</p> : null}
+                              <small>{formatDate(message.createdAt)}</small>
+                            </article>
+                          ))
+                      : null}
                   </div>
                 </section>
                 <section className="admin-chat-panel">
@@ -7764,7 +8959,11 @@ function App() {
                         </div>
                         <div>
                           <strong>{thread.status}</strong>
-                          <p>{thread.lastMessageAt ? formatDate(thread.lastMessageAt) : "sin mensajes"}</p>
+                          <p>
+                            {thread.lastMessageAt
+                              ? formatDate(thread.lastMessageAt)
+                              : "sin mensajes"}
+                          </p>
                         </div>
                         <div className="align-right">
                           <p>{thread.lastMessagePreview || "sin contenido"}</p>
@@ -7784,36 +8983,39 @@ function App() {
                   <p className="eyebrow">Admin desarrollador</p>
                   <h2>Herramientas técnicas</h2>
                   <p className="hero-copy">
-                    Agrupa incidencias, insignias, auditoría, diagnóstico y configuración.
+                    Agrupa incidencias, insignias, auditoría, diagnóstico y
+                    configuración.
                   </p>
                 </div>
               </div>
               <div className="developer-tabs">
-                {(Object.entries(developerSectionLabels) as Array<[DeveloperSection, string]>).map(
-                  ([section, label]) => (
-                    <button
-                      key={section}
-                      type="button"
-                      className={
-                        developerSection === section
-                          ? "developer-tab-card developer-tab-card-active"
-                          : "developer-tab-card"
-                      }
-                      onClick={() => setDeveloperSection(section)}
-                    >
-                      <span className="developer-tab-icon" aria-hidden="true">
-                        <SidebarIcon name={section} />
-                      </span>
-                      <span className="developer-tab-copy">
-                        <strong>{label}</strong>
-                        <span>{developerSectionMeta[section].description}</span>
-                      </span>
-                      <span className="developer-tab-chevron" aria-hidden="true">
-                        →
-                      </span>
-                    </button>
-                  ),
-                )}
+                {(
+                  Object.entries(developerSectionLabels) as Array<
+                    [DeveloperSection, string]
+                  >
+                ).map(([section, label]) => (
+                  <button
+                    key={section}
+                    type="button"
+                    className={
+                      developerSection === section
+                        ? "developer-tab-card developer-tab-card-active"
+                        : "developer-tab-card"
+                    }
+                    onClick={() => setDeveloperSection(section)}
+                  >
+                    <span className="developer-tab-icon" aria-hidden="true">
+                      <SidebarIcon name={section} />
+                    </span>
+                    <span className="developer-tab-copy">
+                      <strong>{label}</strong>
+                      <span>{developerSectionMeta[section].description}</span>
+                    </span>
+                    <span className="developer-tab-chevron" aria-hidden="true">
+                      →
+                    </span>
+                  </button>
+                ))}
               </div>
             </section>
           ) : null}
@@ -7836,7 +9038,13 @@ function App() {
               <div className="hero-status">
                 <div className="status-card">
                   <span>Abiertas</span>
-                  <strong>{incidents.filter((incident) => incident.status !== "closed").length}</strong>
+                  <strong>
+                    {
+                      incidents.filter(
+                        (incident) => incident.status !== "closed",
+                      ).length
+                    }
+                  </strong>
                 </div>
                 <div className="status-card">
                   <span>Registradas</span>
@@ -7857,7 +9065,9 @@ function App() {
                     </article>
                   ))
                 ) : (
-                  <p className="diagnostic-empty">Sin incidencias cargadas todavía.</p>
+                  <p className="diagnostic-empty">
+                    Sin incidencias cargadas todavía.
+                  </p>
                 )}
               </div>
             </section>
@@ -7870,25 +9080,44 @@ function App() {
                   <p className="eyebrow">Insignias</p>
                   <h2>Trabaja una ruta a la vez</h2>
                   <p className="hero-copy">
-                    Elige una ruta, revisa sus 5 escalones y abre el editor solo cuando haga falta.
+                    Elige una ruta, revisa sus 5 escalones y abre el editor solo
+                    cuando haga falta.
                   </p>
                 </div>
-                <button type="button" className="secondary-button" onClick={() => handleCreateBadge(selectedRoute.pathId)}>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => handleCreateBadge(selectedRoute.pathId)}
+                >
                   Crear insignia
                 </button>
               </div>
 
-              {badgeError ? <p className="badge-feedback badge-feedback-error">{badgeError}</p> : null}
-              {badgeMessage ? <p className="badge-feedback badge-feedback-success">{badgeMessage}</p> : null}
+              {badgeError ? (
+                <p className="badge-feedback badge-feedback-error">
+                  {badgeError}
+                </p>
+              ) : null}
+              {badgeMessage ? (
+                <p className="badge-feedback badge-feedback-success">
+                  {badgeMessage}
+                </p>
+              ) : null}
 
               <div className="route-selector">
                 {groupedBadges.map((route) => {
-                  const activeCount = route.items.filter((badge) => badge.isActive).length;
+                  const activeCount = route.items.filter(
+                    (badge) => badge.isActive,
+                  ).length;
                   return (
                     <button
                       key={route.pathId}
                       type="button"
-                      className={selectedRouteId === route.pathId ? "route-chip route-chip-active" : "route-chip"}
+                      className={
+                        selectedRouteId === route.pathId
+                          ? "route-chip route-chip-active"
+                          : "route-chip"
+                      }
                       onClick={() => handleSelectRoute(route.pathId)}
                     >
                       <strong>{route.title}</strong>
@@ -7901,23 +9130,42 @@ function App() {
               {selectedRoute ? (
                 <article
                   className={`badge-route-card ${selectedRoute.accentClass} ${
-                    selectedRoute.category === "SECRET" ? "badge-route-secret" : ""
+                    selectedRoute.category === "SECRET"
+                      ? "badge-route-secret"
+                      : ""
                   }`}
                 >
                   <div className="badge-route-head">
                     <div>
-                      <p className="badge-route-title">{selectedRoute.category}</p>
+                      <p className="badge-route-title">
+                        {selectedRoute.category}
+                      </p>
                       <h3>{selectedRoute.title}</h3>
-                      <p className="badge-route-copy">{selectedRoute.description}</p>
+                      <p className="badge-route-copy">
+                        {selectedRoute.description}
+                      </p>
                     </div>
                     <div className="badge-route-meta">
-                      <span>{selectedRoute.items.filter((badge) => badge.isActive).length} activos</span>
+                      <span>
+                        {
+                          selectedRoute.items.filter((badge) => badge.isActive)
+                            .length
+                        }{" "}
+                        activos
+                      </span>
                       <span>{selectedRoute.items.length} badges</span>
                     </div>
                   </div>
 
-                  <div className="badge-route-progress" aria-label={`Progreso ${selectedRoute.title}`}>
-                    <span style={{ width: `${getRouteProgressPercent(selectedRoute.items)}%` }} />
+                  <div
+                    className="badge-route-progress"
+                    aria-label={`Progreso ${selectedRoute.title}`}
+                  >
+                    <span
+                      style={{
+                        width: `${getRouteProgressPercent(selectedRoute.items)}%`,
+                      }}
+                    />
                   </div>
 
                   <div className="badge-track">
@@ -7934,7 +9182,10 @@ function App() {
                             if (badge) {
                               handleSelectBadge(badge);
                             } else {
-                              handleCreateBadge(selectedRoute.pathId, stepIndex);
+                              handleCreateBadge(
+                                selectedRoute.pathId,
+                                stepIndex,
+                              );
                             }
                           }}
                           role="button"
@@ -7942,7 +9193,11 @@ function App() {
                         >
                           <span className="badge-step-index">{stepIndex}</span>
                           <strong>{badge?.name ?? "Vacío"}</strong>
-                          <p>{badge ? `${badge.rarity} · ${badge.type}` : "Crea un nuevo escalón."}</p>
+                          <p>
+                            {badge
+                              ? `${badge.rarity} · ${badge.type}`
+                              : "Crea un nuevo escalón."}
+                          </p>
                         </div>
                       );
                     })}
@@ -7954,13 +9209,17 @@ function App() {
                         <article
                           key={badge.id}
                           className={`badge-card ${badge.isActive ? "badge-card-active" : "badge-card-disabled"} ${
-                            selectedBadgeId === badge.id ? "badge-card-selected" : ""
+                            selectedBadgeId === badge.id
+                              ? "badge-card-selected"
+                              : ""
                           }`}
                         >
                           <div className="badge-card-top">
                             <div>
                               <p className="badge-card-path">
-                                Ruta {selectedRoute.pathOrder} · Escalón {badge.stepIndex} · {badgeCategoryLabels[badge.category]}
+                                Ruta {selectedRoute.pathOrder} · Escalón{" "}
+                                {badge.stepIndex} ·{" "}
+                                {badgeCategoryLabels[badge.category]}
                               </p>
                               <h4>{badge.name}</h4>
                             </div>
@@ -7970,23 +9229,37 @@ function App() {
                               >
                                 {badge.rarity}
                               </span>
-                              <span className="badge-pill badge-pill-type">{badge.type}</span>
+                              <span className="badge-pill badge-pill-type">
+                                {badge.type}
+                              </span>
                               {badge.category === "SECRET" ? (
-                                <span className="badge-pill badge-pill-secret">SECRET</span>
+                                <span className="badge-pill badge-pill-secret">
+                                  SECRET
+                                </span>
                               ) : null}
                               {badge.type === "MANUAL" ? (
-                                <span className="badge-pill badge-pill-manual">MANUAL</span>
+                                <span className="badge-pill badge-pill-manual">
+                                  MANUAL
+                                </span>
                               ) : null}
                             </div>
                           </div>
 
-                          <p className="badge-card-description">{badge.description}</p>
+                          <p className="badge-card-description">
+                            {badge.description}
+                          </p>
 
                           <div className="badge-card-actions">
-                            <button type="button" onClick={() => handleSelectBadge(badge)}>
+                            <button
+                              type="button"
+                              onClick={() => handleSelectBadge(badge)}
+                            >
                               Editar
                             </button>
-                            <button type="button" onClick={() => handleViewBadgeHistory(badge)}>
+                            <button
+                              type="button"
+                              onClick={() => handleViewBadgeHistory(badge)}
+                            >
                               Historial
                             </button>
                             <button
@@ -8005,7 +9278,12 @@ function App() {
                         >
                           <p>Escalón {index + 1}</p>
                           <strong>Sin badge</strong>
-                          <button type="button" onClick={() => handleCreateBadge(selectedRoute.pathId, index + 1)}>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleCreateBadge(selectedRoute.pathId, index + 1)
+                            }
+                          >
                             Crear aquí
                           </button>
                         </article>
@@ -8017,7 +9295,8 @@ function App() {
             </section>
           ) : null}
 
-          {activeSection === "developer" && developerSection === "diagnostics" ? (
+          {activeSection === "developer" &&
+          developerSection === "diagnostics" ? (
             <section className="admin-panel admin-panel-wide badge-diagnostics-panel">
               <div className="panel-head badge-panel-head">
                 <div>
@@ -8025,23 +9304,33 @@ function App() {
                   <h2>Estado general y problemas detectados</h2>
                 </div>
                 <div className="diagnostics-summary">
-                  <span className="diagnostic-pill diagnostic-pill-error">Errores {diagnosticsSummary.error}</span>
+                  <span className="diagnostic-pill diagnostic-pill-error">
+                    Errores {diagnosticsSummary.error}
+                  </span>
                   <span className="diagnostic-pill diagnostic-pill-warning">
                     Alertas {diagnosticsSummary.warning}
                   </span>
-                  <span className="diagnostic-pill diagnostic-pill-info">Info {diagnosticsSummary.info}</span>
+                  <span className="diagnostic-pill diagnostic-pill-info">
+                    Info {diagnosticsSummary.info}
+                  </span>
                 </div>
               </div>
 
               <div className="badge-route-health">
                 {groupedBadges.map((route) => {
-                  const activeCount = route.items.filter((badge) => badge.isActive).length;
+                  const activeCount = route.items.filter(
+                    (badge) => badge.isActive,
+                  ).length;
                   return (
                     <article key={route.pathId} className="badge-health-card">
                       <h3>{route.category}</h3>
                       <p>{route.pathId}</p>
                       <strong>{activeCount}/5 activos</strong>
-                      <span>{activeCount === 5 ? "Ruta completa" : "Ruta incompleta"}</span>
+                      <span>
+                        {activeCount === 5
+                          ? "Ruta completa"
+                          : "Ruta incompleta"}
+                      </span>
                     </article>
                   );
                 })}
@@ -8057,12 +9346,15 @@ function App() {
                       <span>{issue.severity.toUpperCase()}</span>
                       <p>{issue.message}</p>
                       <small>
-                        {issue.pathId ?? "sin path"} {issue.badgeId ? `· ${issue.badgeId}` : ""}
+                        {issue.pathId ?? "sin path"}{" "}
+                        {issue.badgeId ? `· ${issue.badgeId}` : ""}
                       </small>
                     </article>
                   ))
                 ) : (
-                  <p className="diagnostic-empty">Sin inconsistencias detectadas.</p>
+                  <p className="diagnostic-empty">
+                    Sin inconsistencias detectadas.
+                  </p>
                 )}
               </div>
             </section>
@@ -8092,7 +9384,11 @@ function App() {
                 </button>
               </div>
 
-              {auditError ? <p className="badge-feedback badge-feedback-error">{auditError}</p> : null}
+              {auditError ? (
+                <p className="badge-feedback badge-feedback-error">
+                  {auditError}
+                </p>
+              ) : null}
 
               <div className="audit-filters">
                 <label>
@@ -8143,8 +9439,8 @@ function App() {
                         action: event.target.value,
                       }))
                     }
-                    >
-                      <option value="">Todas</option>
+                  >
+                    <option value="">Todas</option>
                     {[
                       ["CREATED", "Creada"],
                       ["UPDATED", "Actualizada"],
@@ -8216,8 +9512,9 @@ function App() {
                         <p>
                           {entry.badgeName ?? entry.badgeId}
                           <span>
-                            {badgePathMeta.find((path) => path.pathId === entry.pathId)?.title ??
-                              "sin ruta"}
+                            {badgePathMeta.find(
+                              (path) => path.pathId === entry.pathId,
+                            )?.title ?? "sin ruta"}
                           </span>
                         </p>
                         <span>{entry.action}</span>
@@ -8243,7 +9540,9 @@ function App() {
                       </article>
                     ))
                   ) : (
-                    <p className="diagnostic-empty">Sin cambios para estos filtros.</p>
+                    <p className="diagnostic-empty">
+                      Sin cambios para estos filtros.
+                    </p>
                   )}
                 </div>
               </div>
@@ -8261,12 +9560,16 @@ function App() {
                   <span>Usuario</span>
                   <strong>Cuenta activa</strong>
                   <p>{adminUser?.email ?? "Sin email"}</p>
-              <button type="button" className="secondary-button button-with-icon" onClick={() => void handleLogout()}>
-                <span className="button-icon" aria-hidden="true">
-                  <ActionIcon name="logout" />
-                </span>
-                Cerrar sesión
-              </button>
+                  <button
+                    type="button"
+                    className="secondary-button button-with-icon"
+                    onClick={() => void handleLogout()}
+                  >
+                    <span className="button-icon" aria-hidden="true">
+                      <ActionIcon name="logout" />
+                    </span>
+                    Cerrar sesión
+                  </button>
                 </div>
               </article>
 
@@ -8282,25 +9585,35 @@ function App() {
                   </div>
                   <div className="status-card">
                     <span>Base de datos</span>
-                    <strong>{health?.dependencies.database.status ?? "..."}</strong>
+                    <strong>
+                      {health?.dependencies.database.status ?? "..."}
+                    </strong>
                   </div>
                   <div className="status-card">
                     <span>Redis</span>
-                    <strong>{health?.dependencies.redis.status ?? "..."}</strong>
+                    <strong>
+                      {health?.dependencies.redis.status ?? "..."}
+                    </strong>
                   </div>
                   <div className="status-card">
                     <span>Almacenamiento</span>
-                    <strong>{health?.dependencies.storage.status ?? "..."}</strong>
+                    <strong>
+                      {health?.dependencies.storage.status ?? "..."}
+                    </strong>
                   </div>
                 </div>
               </article>
             </section>
           ) : null}
+        </div>
       </div>
-    </div>
 
       {isSpecialistDrawerOpen ? (
-        <div className="badge-editor-backdrop" onClick={handleCloseSpecialistDrawer} role="presentation">
+        <div
+          className="badge-editor-backdrop"
+          onClick={handleCloseSpecialistDrawer}
+          role="presentation"
+        >
           <aside
             className="badge-editor-drawer admin-drawer-wide"
             onClick={(event) => event.stopPropagation()}
@@ -8315,10 +9628,15 @@ function App() {
                   {selectedSpecialistDetail?.name ?? "Detalle operativo"}
                 </h2>
                 <p className="badge-editor-copy">
-                  Perfil, servicios, disponibilidad, reservas, métricas e historial.
+                  Perfil, servicios, disponibilidad, reservas, métricas e
+                  historial.
                 </p>
               </div>
-              <button type="button" className="secondary-button" onClick={handleCloseSpecialistDrawer}>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={handleCloseSpecialistDrawer}
+              >
                 Cerrar
               </button>
             </div>
@@ -8336,9 +9654,13 @@ function App() {
                   key={value}
                   type="button"
                   className={
-                    specialistDetailTab === value ? "route-chip route-chip-active" : "route-chip"
+                    specialistDetailTab === value
+                      ? "route-chip route-chip-active"
+                      : "route-chip"
                   }
-                  onClick={() => setSpecialistDetailTab(value as SpecialistDetailTab)}
+                  onClick={() =>
+                    setSpecialistDetailTab(value as SpecialistDetailTab)
+                  }
                 >
                   <strong>{label}</strong>
                 </button>
@@ -8346,7 +9668,9 @@ function App() {
             </div>
 
             {specialistDrawerError ? (
-              <p className="badge-feedback badge-feedback-error">{specialistDrawerError}</p>
+              <p className="badge-feedback badge-feedback-error">
+                {specialistDrawerError}
+              </p>
             ) : null}
 
             {specialistDrawerLoading ? (
@@ -8431,7 +9755,9 @@ function App() {
                         }))
                       }
                     />
-                    <span>{specialistProfileDraft.isActive ? "Activo" : "Inactivo"}</span>
+                    <span>
+                      {specialistProfileDraft.isActive ? "Activo" : "Inactivo"}
+                    </span>
                   </label>
                   <label className="switch-row">
                     <input
@@ -8444,10 +9770,16 @@ function App() {
                         }))
                       }
                     />
-                    <span>{specialistProfileDraft.isVisible ? "Visible" : "Oculto"}</span>
+                    <span>
+                      {specialistProfileDraft.isVisible ? "Visible" : "Oculto"}
+                    </span>
                   </label>
                   <div className="align-right">
-                    <button type="button" className="secondary-button" onClick={() => void handleSaveSpecialistProfile()}>
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => void handleSaveSpecialistProfile()}
+                    >
                       Guardar cambios
                     </button>
                   </div>
@@ -8548,7 +9880,9 @@ function App() {
                         }))
                       }
                     />
-                    <span>{newServiceDraft.isActive ? "Activo" : "Inactivo"}</span>
+                    <span>
+                      {newServiceDraft.isActive ? "Activo" : "Inactivo"}
+                    </span>
                   </label>
                   <label className="switch-row">
                     <input
@@ -8561,10 +9895,16 @@ function App() {
                         }))
                       }
                     />
-                    <span>{newServiceDraft.isVisible ? "Visible" : "Oculto"}</span>
+                    <span>
+                      {newServiceDraft.isVisible ? "Visible" : "Oculto"}
+                    </span>
                   </label>
                   <div className="align-right">
-                    <button type="button" className="secondary-button" onClick={() => void handleCreateSpecialistService()}>
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => void handleCreateSpecialistService()}
+                    >
                       Crear servicio
                     </button>
                   </div>
@@ -8583,7 +9923,11 @@ function App() {
                         <input
                           value={draft?.name ?? service.name}
                           onChange={(event) =>
-                            updateSpecialistServiceDraft(service.id, "name", event.target.value)
+                            updateSpecialistServiceDraft(
+                              service.id,
+                              "name",
+                              event.target.value,
+                            )
                           }
                         />
                       </label>
@@ -8592,7 +9936,11 @@ function App() {
                         <input
                           value={draft?.category ?? service.category}
                           onChange={(event) =>
-                            updateSpecialistServiceDraft(service.id, "category", event.target.value)
+                            updateSpecialistServiceDraft(
+                              service.id,
+                              "category",
+                              event.target.value,
+                            )
                           }
                         />
                       </label>
@@ -8601,7 +9949,11 @@ function App() {
                         <input
                           value={draft?.description ?? service.description}
                           onChange={(event) =>
-                            updateSpecialistServiceDraft(service.id, "description", event.target.value)
+                            updateSpecialistServiceDraft(
+                              service.id,
+                              "description",
+                              event.target.value,
+                            )
                           }
                         />
                       </label>
@@ -8610,9 +9962,15 @@ function App() {
                         <input
                           type="number"
                           step="0.01"
-                          value={draft?.priceAmount ?? String(service.price.amount)}
+                          value={
+                            draft?.priceAmount ?? String(service.price.amount)
+                          }
                           onChange={(event) =>
-                            updateSpecialistServiceDraft(service.id, "priceAmount", event.target.value)
+                            updateSpecialistServiceDraft(
+                              service.id,
+                              "priceAmount",
+                              event.target.value,
+                            )
                           }
                         />
                       </label>
@@ -8621,7 +9979,11 @@ function App() {
                         <input
                           value={draft?.priceCurrency ?? service.price.currency}
                           onChange={(event) =>
-                            updateSpecialistServiceDraft(service.id, "priceCurrency", event.target.value)
+                            updateSpecialistServiceDraft(
+                              service.id,
+                              "priceCurrency",
+                              event.target.value,
+                            )
                           }
                         />
                       </label>
@@ -8629,9 +9991,16 @@ function App() {
                         <span>Duración</span>
                         <input
                           type="number"
-                          value={draft?.durationMinutes ?? String(service.durationMinutes)}
+                          value={
+                            draft?.durationMinutes ??
+                            String(service.durationMinutes)
+                          }
                           onChange={(event) =>
-                            updateSpecialistServiceDraft(service.id, "durationMinutes", event.target.value)
+                            updateSpecialistServiceDraft(
+                              service.id,
+                              "durationMinutes",
+                              event.target.value,
+                            )
                           }
                         />
                       </label>
@@ -8640,26 +10009,46 @@ function App() {
                           type="checkbox"
                           checked={draft?.isActive ?? service.isActive ?? true}
                           onChange={(event) =>
-                            updateSpecialistServiceDraft(service.id, "isActive", event.target.checked)
+                            updateSpecialistServiceDraft(
+                              service.id,
+                              "isActive",
+                              event.target.checked,
+                            )
                           }
                         />
-                        <span>{(draft?.isActive ?? service.isActive ?? true) ? "Activo" : "Inactivo"}</span>
+                        <span>
+                          {(draft?.isActive ?? service.isActive ?? true)
+                            ? "Activo"
+                            : "Inactivo"}
+                        </span>
                       </label>
                       <label className="switch-row">
                         <input
                           type="checkbox"
-                          checked={draft?.isVisible ?? service.isVisible ?? true}
+                          checked={
+                            draft?.isVisible ?? service.isVisible ?? true
+                          }
                           onChange={(event) =>
-                            updateSpecialistServiceDraft(service.id, "isVisible", event.target.checked)
+                            updateSpecialistServiceDraft(
+                              service.id,
+                              "isVisible",
+                              event.target.checked,
+                            )
                           }
                         />
-                        <span>{(draft?.isVisible ?? service.isVisible ?? true) ? "Visible" : "Oculto"}</span>
+                        <span>
+                          {(draft?.isVisible ?? service.isVisible ?? true)
+                            ? "Visible"
+                            : "Oculto"}
+                        </span>
                       </label>
                       <div className="align-right">
                         <button
                           type="button"
                           className="secondary-button"
-                          onClick={() => void handleSaveSpecialistService(service)}
+                          onClick={() =>
+                            void handleSaveSpecialistService(service)
+                          }
                         >
                           Guardar
                         </button>
@@ -8670,9 +10059,152 @@ function App() {
               </div>
             ) : null}
 
-            {!specialistDrawerLoading && specialistDetailTab === "availability" ? (
+            {!specialistDrawerLoading &&
+            specialistDetailTab === "availability" ? (
               <div className="table-list">
+                <article className="service-editor-card availability-weekly-card">
+                  <div className="availability-card-head form-wide">
+                    <div>
+                      <span>Horario semanal</span>
+                      <strong>Configura días y rangos de atención</strong>
+                    </div>
+                    <p>
+                      La app móvil mostrará horarios disponibles según estos
+                      rangos y la duración del servicio.
+                    </p>
+                  </div>
+                  <label>
+                    <span>Desde</span>
+                    <input
+                      type="date"
+                      value={availabilityDraft.weeklyStartDate}
+                      onChange={(event) =>
+                        setAvailabilityDraft((current) => ({
+                          ...current,
+                          weeklyStartDate: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+                  <label>
+                    <span>Hasta</span>
+                    <input
+                      type="date"
+                      value={availabilityDraft.weeklyEndDate}
+                      onChange={(event) =>
+                        setAvailabilityDraft((current) => ({
+                          ...current,
+                          weeklyEndDate: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+                  <label>
+                    <span>Hora inicio</span>
+                    <input
+                      type="time"
+                      value={availabilityDraft.weeklyStartTime}
+                      onChange={(event) =>
+                        setAvailabilityDraft((current) => ({
+                          ...current,
+                          weeklyStartTime: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+                  <label>
+                    <span>Hora fin</span>
+                    <input
+                      type="time"
+                      value={availabilityDraft.weeklyEndTime}
+                      onChange={(event) =>
+                        setAvailabilityDraft((current) => ({
+                          ...current,
+                          weeklyEndTime: event.target.value,
+                        }))
+                      }
+                    />
+                  </label>
+                  <label>
+                    <span>Modo</span>
+                    <select
+                      value={availabilityDraft.mode}
+                      onChange={(event) =>
+                        setAvailabilityDraft((current) => ({
+                          ...current,
+                          mode: event.target.value,
+                        }))
+                      }
+                    >
+                      {["chat", "video", "audio"].map((mode) => (
+                        <option key={mode} value={mode}>
+                          {formatModeLabel(mode)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="switch-row">
+                    <input
+                      type="checkbox"
+                      checked={availabilityDraft.isAvailable}
+                      onChange={(event) =>
+                        setAvailabilityDraft((current) => ({
+                          ...current,
+                          isAvailable: event.target.checked,
+                        }))
+                      }
+                    />
+                    <span>Disponible</span>
+                  </label>
+                  <div className="availability-weekdays form-wide">
+                    {availabilityWeekdayOptions.map((day) => {
+                      const selected =
+                        availabilityDraft.weeklyWeekdays.includes(day.value);
+                      return (
+                        <button
+                          key={day.value}
+                          type="button"
+                          className={`weekday-toggle ${selected ? "is-selected" : ""}`}
+                          onClick={() =>
+                            setAvailabilityDraft((current) => {
+                              const nextWeekdays =
+                                current.weeklyWeekdays.includes(day.value)
+                                  ? current.weeklyWeekdays.filter(
+                                      (value) => value !== day.value,
+                                    )
+                                  : [...current.weeklyWeekdays, day.value];
+                              return {
+                                ...current,
+                                weeklyWeekdays: nextWeekdays.sort(
+                                  (left, right) => Number(left) - Number(right),
+                                ),
+                              };
+                            })
+                          }
+                        >
+                          {day.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div className="align-right form-wide">
+                    <button
+                      type="button"
+                      className="primary-button"
+                      onClick={() => void handleCreateWeeklyAvailability()}
+                    >
+                      Generar horarios
+                    </button>
+                  </div>
+                </article>
+
                 <article className="service-editor-card availability-create-card">
+                  <div className="availability-card-head form-wide">
+                    <div>
+                      <span>Bloque puntual</span>
+                      <strong>Crear una disponibilidad específica</strong>
+                    </div>
+                  </div>
                   <label>
                     <span>Inicio</span>
                     <input
@@ -8731,7 +10263,11 @@ function App() {
                     <span>Disponible</span>
                   </label>
                   <div className="align-right">
-                    <button type="button" className="secondary-button" onClick={() => void handleCreateAvailability()}>
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => void handleCreateAvailability()}
+                    >
                       Guardar bloque
                     </button>
                   </div>
@@ -8751,7 +10287,9 @@ function App() {
                                 item.id === slot.id
                                   ? {
                                       ...item,
-                                      startsAt: fromDateTimeLocalValue(event.target.value),
+                                      startsAt: fromDateTimeLocalValue(
+                                        event.target.value,
+                                      ),
                                     }
                                   : item,
                               ),
@@ -8772,7 +10310,9 @@ function App() {
                                 item.id === slot.id
                                   ? {
                                       ...item,
-                                      endsAt: fromDateTimeLocalValue(event.target.value),
+                                      endsAt: fromDateTimeLocalValue(
+                                        event.target.value,
+                                      ),
                                     }
                                   : item,
                               ),
@@ -8858,10 +10398,16 @@ function App() {
                       <p>{formatModeLabel(booking.mode)}</p>
                     </div>
                     <div className="align-right">
-                      <button type="button" className="secondary-button" onClick={() => handleOpenBookingDrawer(booking)}>
+                      <button
+                        type="button"
+                        className="secondary-button"
+                        onClick={() => handleOpenBookingDrawer(booking)}
+                      >
                         Editar
                       </button>
-                      <span className="topbar-pill">{formatBookingStatusLabel(booking.status)}</span>
+                      <span className="topbar-pill">
+                        {formatBookingStatusLabel(booking.status)}
+                      </span>
                     </div>
                   </article>
                 ))}
@@ -8902,11 +10448,15 @@ function App() {
                       <p>{entry.payload.fieldChanged ?? entry.entityType}</p>
                     </div>
                     <div>
-                      <strong>{entry.payload.changedBy ?? entry.actorId}</strong>
+                      <strong>
+                        {entry.payload.changedBy ?? entry.actorId}
+                      </strong>
                       <p>{formatDate(entry.createdAt)}</p>
                     </div>
                     <div className="align-right">
-                      <span className="topbar-pill">{entry.payload.source ?? "admin"}</span>
+                      <span className="topbar-pill">
+                        {entry.payload.source ?? "admin"}
+                      </span>
                     </div>
                   </article>
                 ))}
@@ -8917,7 +10467,11 @@ function App() {
       ) : null}
 
       {isProductDrawerOpen ? (
-        <div className="badge-editor-backdrop" onClick={handleCloseProductDrawer} role="presentation">
+        <div
+          className="badge-editor-backdrop"
+          onClick={handleCloseProductDrawer}
+          role="presentation"
+        >
           <aside
             className="badge-editor-drawer admin-drawer-wide"
             onClick={(event) => event.stopPropagation()}
@@ -8929,30 +10483,41 @@ function App() {
               <div>
                 <p className="eyebrow">Tienda</p>
                 <h2 id="product-drawer-title">
-                  {selectedProduct ? `Editar ${selectedProduct.name}` : "Nuevo producto"}
+                  {selectedProduct
+                    ? `Editar ${selectedProduct.name}`
+                    : "Nuevo producto"}
                 </h2>
                 <p className="badge-editor-copy">
                   Gestiona fotos, precio, stock y estado desde un solo panel.
                 </p>
               </div>
-              <button type="button" className="secondary-button" onClick={handleCloseProductDrawer}>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={handleCloseProductDrawer}
+              >
                 Cerrar
               </button>
             </div>
 
-            <form className="badge-editor-form" onSubmit={(event) => void handleSaveProduct(event)}>
-                <div className="badge-preview">
-                  <article className="badge-preview-card">
-                    <div className="badge-preview-icon">
-                      {hasRenderableMediaUrl(productForm.imageUrl) ? (
-                        <img
-                          src={resolveMediaUrl(productForm.imageUrl)}
-                          alt={productForm.name || "Producto"}
-                          className="badge-preview-image"
-                        />
+            <form
+              className="badge-editor-form"
+              onSubmit={(event) => void handleSaveProduct(event)}
+            >
+              <div className="badge-preview">
+                <article className="badge-preview-card">
+                  <div className="badge-preview-icon">
+                    {hasRenderableMediaUrl(productForm.imageUrl) ? (
+                      <img
+                        src={resolveMediaUrl(productForm.imageUrl)}
+                        alt={productForm.name || "Producto"}
+                        className="badge-preview-image"
+                      />
                     ) : (
                       <span className="badge-preview-fallback">
-                        {productForm.name ? productForm.name.slice(0, 2).toUpperCase() : "PR"}
+                        {productForm.name
+                          ? productForm.name.slice(0, 2).toUpperCase()
+                          : "PR"}
                       </span>
                     )}
                   </div>
@@ -8965,7 +10530,10 @@ function App() {
                         productForm.priceCurrency || "USD",
                       )}
                     </strong>
-                    <p>{productForm.shortDescription || "Agrega una descripción breve."}</p>
+                    <p>
+                      {productForm.shortDescription ||
+                        "Agrega una descripción breve."}
+                    </p>
                   </div>
                 </article>
               </div>
@@ -8976,7 +10544,10 @@ function App() {
                   <input
                     value={productForm.name}
                     onChange={(event) =>
-                      setProductForm((current) => ({ ...current, name: event.target.value }))
+                      setProductForm((current) => ({
+                        ...current,
+                        name: event.target.value,
+                      }))
                     }
                   />
                 </label>
@@ -8985,7 +10556,10 @@ function App() {
                   <input
                     value={productForm.category}
                     onChange={(event) =>
-                      setProductForm((current) => ({ ...current, category: event.target.value }))
+                      setProductForm((current) => ({
+                        ...current,
+                        category: event.target.value,
+                      }))
                     }
                   />
                 </label>
@@ -8994,7 +10568,10 @@ function App() {
                   <select
                     value={productForm.specialistId}
                     onChange={(event) =>
-                      setProductForm((current) => ({ ...current, specialistId: event.target.value }))
+                      setProductForm((current) => ({
+                        ...current,
+                        specialistId: event.target.value,
+                      }))
                     }
                   >
                     <option value="">Selecciona</option>
@@ -9049,7 +10626,10 @@ function App() {
                   <select
                     value={productForm.status}
                     onChange={(event) =>
-                      setProductForm((current) => ({ ...current, status: event.target.value }))
+                      setProductForm((current) => ({
+                        ...current,
+                        status: event.target.value,
+                      }))
                     }
                   >
                     {["active", "draft", "hidden", "archived"].map((status) => (
@@ -9064,7 +10644,10 @@ function App() {
                   <input
                     value={productForm.sku}
                     onChange={(event) =>
-                      setProductForm((current) => ({ ...current, sku: event.target.value }))
+                      setProductForm((current) => ({
+                        ...current,
+                        sku: event.target.value,
+                      }))
                     }
                   />
                 </label>
@@ -9106,10 +10689,16 @@ function App() {
                     entityType="shop_product"
                     entityId={selectedProductId ?? undefined}
                     onUploaded={(asset) =>
-                      setProductForm((current) => ({ ...current, imageUrl: asset.publicUrl }))
+                      setProductForm((current) => ({
+                        ...current,
+                        imageUrl: asset.publicUrl,
+                      }))
                     }
                     onClear={() =>
-                      setProductForm((current) => ({ ...current, imageUrl: "" }))
+                      setProductForm((current) => ({
+                        ...current,
+                        imageUrl: "",
+                      }))
                     }
                   />
                 </div>
@@ -9118,7 +10707,10 @@ function App() {
                   <input
                     value={productForm.imageUrl}
                     onChange={(event) =>
-                      setProductForm((current) => ({ ...current, imageUrl: event.target.value }))
+                      setProductForm((current) => ({
+                        ...current,
+                        imageUrl: event.target.value,
+                      }))
                     }
                     placeholder="https://..."
                   />
@@ -9130,7 +10722,12 @@ function App() {
                     description="Agrega imágenes adicionales al producto."
                     accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml"
                     mode="image"
-                    value={productForm.imageUrls.split(",").map((item) => item.trim()).filter(Boolean)[0] ?? ""}
+                    value={
+                      productForm.imageUrls
+                        .split(",")
+                        .map((item) => item.trim())
+                        .filter(Boolean)[0] ?? ""
+                    }
                     category="product"
                     entityType="shop_product"
                     entityId={selectedProductId ?? undefined}
@@ -9174,7 +10771,10 @@ function App() {
                   <input
                     value={productForm.artwork}
                     onChange={(event) =>
-                      setProductForm((current) => ({ ...current, artwork: event.target.value }))
+                      setProductForm((current) => ({
+                        ...current,
+                        artwork: event.target.value,
+                      }))
                     }
                   />
                 </label>
@@ -9183,7 +10783,10 @@ function App() {
                   <input
                     value={productForm.badge}
                     onChange={(event) =>
-                      setProductForm((current) => ({ ...current, badge: event.target.value }))
+                      setProductForm((current) => ({
+                        ...current,
+                        badge: event.target.value,
+                      }))
                     }
                   />
                 </label>
@@ -9192,7 +10795,10 @@ function App() {
                   <input
                     value={productForm.tags}
                     onChange={(event) =>
-                      setProductForm((current) => ({ ...current, tags: event.target.value }))
+                      setProductForm((current) => ({
+                        ...current,
+                        tags: event.target.value,
+                      }))
                     }
                     placeholder="ritual, premium, kit"
                   />
@@ -9239,7 +10845,11 @@ function App() {
       ) : null}
 
       {isBookingDrawerOpen ? (
-        <div className="badge-editor-backdrop" onClick={handleCloseBookingDrawer} role="presentation">
+        <div
+          className="badge-editor-backdrop"
+          onClick={handleCloseBookingDrawer}
+          role="presentation"
+        >
           <aside
             className="badge-editor-drawer admin-drawer-wide"
             onClick={(event) => event.stopPropagation()}
@@ -9251,25 +10861,37 @@ function App() {
               <div>
                 <p className="eyebrow">Agenda</p>
                 <h2 id="booking-drawer-title">
-                  {selectedBooking ? `Editar ${selectedBooking.serviceName}` : "Nueva reunión"}
+                  {selectedBooking
+                    ? `Editar ${selectedBooking.serviceName}`
+                    : "Nueva reunión"}
                 </h2>
                 <p className="badge-editor-copy">
                   Crea o ajusta citas, estados y horarios sin salir de la vista.
                 </p>
               </div>
-              <button type="button" className="secondary-button" onClick={handleCloseBookingDrawer}>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={handleCloseBookingDrawer}
+              >
                 Cerrar
               </button>
             </div>
 
-            <form className="badge-editor-form" onSubmit={(event) => void handleSaveBooking(event)}>
+            <form
+              className="badge-editor-form"
+              onSubmit={(event) => void handleSaveBooking(event)}
+            >
               <div className="badge-form-grid badge-form-grid-compact">
                 <label>
                   <span>Usuario</span>
                   <select
                     value={bookingForm.userId}
                     onChange={(event) =>
-                      setBookingForm((current) => ({ ...current, userId: event.target.value }))
+                      setBookingForm((current) => ({
+                        ...current,
+                        userId: event.target.value,
+                      }))
                     }
                   >
                     <option value="">Selecciona</option>
@@ -9287,8 +10909,11 @@ function App() {
                     onChange={(event) => {
                       const nextSpecialistId = event.target.value;
                       const nextSpecialist =
-                        specialists.find((item) => item.id === nextSpecialistId) ?? null;
-                      const nextServiceId = nextSpecialist?.services[0]?.id ?? "";
+                        specialists.find(
+                          (item) => item.id === nextSpecialistId,
+                        ) ?? null;
+                      const nextServiceId =
+                        nextSpecialist?.services[0]?.id ?? "";
                       setBookingForm((current) => ({
                         ...current,
                         specialistId: nextSpecialistId,
@@ -9309,7 +10934,10 @@ function App() {
                   <select
                     value={bookingForm.serviceId}
                     onChange={(event) =>
-                      setBookingForm((current) => ({ ...current, serviceId: event.target.value }))
+                      setBookingForm((current) => ({
+                        ...current,
+                        serviceId: event.target.value,
+                      }))
                     }
                   >
                     <option value="">Selecciona</option>
@@ -9338,7 +10966,10 @@ function App() {
                   <select
                     value={bookingForm.mode}
                     onChange={(event) =>
-                      setBookingForm((current) => ({ ...current, mode: event.target.value }))
+                      setBookingForm((current) => ({
+                        ...current,
+                        mode: event.target.value,
+                      }))
                     }
                   >
                     {["chat", "audio", "video"].map((mode) => (
@@ -9353,16 +10984,23 @@ function App() {
                   <select
                     value={bookingForm.status}
                     onChange={(event) =>
-                      setBookingForm((current) => ({ ...current, status: event.target.value }))
+                      setBookingForm((current) => ({
+                        ...current,
+                        status: event.target.value,
+                      }))
                     }
                   >
-                    {["pending_payment", "confirmed", "in_progress", "completed", "cancelled"].map(
-                      (status) => (
-                        <option key={status} value={status}>
-                          {status}
-                        </option>
-                      ),
-                    )}
+                    {[
+                      "pending_payment",
+                      "confirmed",
+                      "in_progress",
+                      "completed",
+                      "cancelled",
+                    ].map((status) => (
+                      <option key={status} value={status}>
+                        {status}
+                      </option>
+                    ))}
                   </select>
                 </label>
                 <label className="form-wide">
@@ -9371,7 +11009,10 @@ function App() {
                     rows={3}
                     value={bookingForm.notes}
                     onChange={(event) =>
-                      setBookingForm((current) => ({ ...current, notes: event.target.value }))
+                      setBookingForm((current) => ({
+                        ...current,
+                        notes: event.target.value,
+                      }))
                     }
                   />
                 </label>
@@ -9380,7 +11021,9 @@ function App() {
               <div className="badge-preview-meta">
                 <div>
                   <span>Servicio seleccionado</span>
-                  <strong>{selectedBookingService?.name ?? "Sin servicio"}</strong>
+                  <strong>
+                    {selectedBookingService?.name ?? "Sin servicio"}
+                  </strong>
                 </div>
                 <div>
                   <span>Duración</span>
@@ -9414,7 +11057,11 @@ function App() {
       ) : null}
 
       {isUserDrawerOpen ? (
-        <div className="badge-editor-backdrop" onClick={handleCloseUserDrawer} role="presentation">
+        <div
+          className="badge-editor-backdrop"
+          onClick={handleCloseUserDrawer}
+          role="presentation"
+        >
           <aside
             className="badge-editor-drawer admin-drawer-wide"
             onClick={(event) => event.stopPropagation()}
@@ -9429,25 +11076,42 @@ function App() {
                   {selectedUserId ? "Editar usuario" : "Nuevo usuario"}
                 </h2>
                 <p className="badge-editor-copy">
-                  Define datos básicos, plan y roles para controlar qué puede ver cada usuario.
+                  Define datos básicos, plan y roles para controlar qué puede
+                  ver cada usuario.
                 </p>
               </div>
-              <button type="button" className="secondary-button" onClick={handleCloseUserDrawer}>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={handleCloseUserDrawer}
+              >
                 Cerrar
               </button>
             </div>
 
-            {userError ? <p className="badge-feedback badge-feedback-error">{userError}</p> : null}
-            {userMessage ? <p className="badge-feedback badge-feedback-success">{userMessage}</p> : null}
+            {userError ? (
+              <p className="badge-feedback badge-feedback-error">{userError}</p>
+            ) : null}
+            {userMessage ? (
+              <p className="badge-feedback badge-feedback-success">
+                {userMessage}
+              </p>
+            ) : null}
 
-            <form className="badge-editor-form" onSubmit={(event) => void handleSaveUser(event)}>
+            <form
+              className="badge-editor-form"
+              onSubmit={(event) => void handleSaveUser(event)}
+            >
               <div className="badge-form-grid badge-form-grid-compact">
                 <label>
                   <span>Nombre</span>
                   <input
                     value={userForm.firstName}
                     onChange={(event) =>
-                      setUserForm((current) => ({ ...current, firstName: event.target.value }))
+                      setUserForm((current) => ({
+                        ...current,
+                        firstName: event.target.value,
+                      }))
                     }
                     placeholder="Nombre"
                   />
@@ -9457,7 +11121,10 @@ function App() {
                   <input
                     value={userForm.lastName}
                     onChange={(event) =>
-                      setUserForm((current) => ({ ...current, lastName: event.target.value }))
+                      setUserForm((current) => ({
+                        ...current,
+                        lastName: event.target.value,
+                      }))
                     }
                     placeholder="Apellido"
                   />
@@ -9467,7 +11134,10 @@ function App() {
                   <input
                     value={userForm.nickname}
                     onChange={(event) =>
-                      setUserForm((current) => ({ ...current, nickname: event.target.value }))
+                      setUserForm((current) => ({
+                        ...current,
+                        nickname: event.target.value,
+                      }))
                     }
                     placeholder="Alias"
                   />
@@ -9478,7 +11148,10 @@ function App() {
                     type="email"
                     value={userForm.email}
                     onChange={(event) =>
-                      setUserForm((current) => ({ ...current, email: event.target.value }))
+                      setUserForm((current) => ({
+                        ...current,
+                        email: event.target.value,
+                      }))
                     }
                     placeholder="correo@dominio.com"
                   />
@@ -9488,7 +11161,10 @@ function App() {
                   <input
                     value={userForm.phoneNumber}
                     onChange={(event) =>
-                      setUserForm((current) => ({ ...current, phoneNumber: event.target.value }))
+                      setUserForm((current) => ({
+                        ...current,
+                        phoneNumber: event.target.value,
+                      }))
                     }
                     placeholder="+598..."
                   />
@@ -9498,7 +11174,10 @@ function App() {
                   <select
                     value={userForm.planId}
                     onChange={(event) =>
-                      setUserForm((current) => ({ ...current, planId: event.target.value }))
+                      setUserForm((current) => ({
+                        ...current,
+                        planId: event.target.value,
+                      }))
                     }
                   >
                     <option value="free">free</option>
@@ -9513,8 +11192,12 @@ function App() {
                     onChange={(event) =>
                       setUserForm((current) => ({
                         ...current,
-                        accountType: event.target.value as "client" | "specialist",
-                        specialistAccess: event.target.value === "specialist" ? true : current.specialistAccess,
+                        accountType: event.target.value as
+                          "client" | "specialist",
+                        specialistAccess:
+                          event.target.value === "specialist"
+                            ? true
+                            : current.specialistAccess,
                       }))
                     }
                   >
@@ -9530,7 +11213,9 @@ function App() {
                       setUserForm((current) => ({
                         ...current,
                         specialistAccess: event.target.checked,
-                        accountType: event.target.checked ? "specialist" : current.accountType,
+                        accountType: event.target.checked
+                          ? "specialist"
+                          : current.accountType,
                       }))
                     }
                   />
@@ -9541,7 +11226,10 @@ function App() {
                     type="checkbox"
                     checked={userForm.adminAccess}
                     onChange={(event) =>
-                      setUserForm((current) => ({ ...current, adminAccess: event.target.checked }))
+                      setUserForm((current) => ({
+                        ...current,
+                        adminAccess: event.target.checked,
+                      }))
                     }
                   />
                   <span>Acceso admin</span>
@@ -9551,7 +11239,10 @@ function App() {
                     type="checkbox"
                     checked={userForm.profileCompleted}
                     onChange={(event) =>
-                      setUserForm((current) => ({ ...current, profileCompleted: event.target.checked }))
+                      setUserForm((current) => ({
+                        ...current,
+                        profileCompleted: event.target.checked,
+                      }))
                     }
                   />
                   <span>Perfil completo</span>
@@ -9581,8 +11272,12 @@ function App() {
                       profileCompleted: userForm.profileCompleted,
                       createdAt: "",
                       roles: [
-                        ...(userForm.adminAccess ? (["admin"] as Array<"admin" | "specialist">) : []),
-                        ...(userForm.specialistAccess ? (["specialist"] as Array<"admin" | "specialist">) : []),
+                        ...(userForm.adminAccess
+                          ? (["admin"] as Array<"admin" | "specialist">)
+                          : []),
+                        ...(userForm.specialistAccess
+                          ? (["specialist"] as Array<"admin" | "specialist">)
+                          : []),
                       ],
                       accountType: userForm.accountType,
                       access: [],
@@ -9591,13 +11286,23 @@ function App() {
                 </div>
                 <div>
                   <span>Perfil</span>
-                  <strong>{userForm.profileCompleted ? "Completo" : "Pendiente"}</strong>
+                  <strong>
+                    {userForm.profileCompleted ? "Completo" : "Pendiente"}
+                  </strong>
                 </div>
               </div>
 
               <div className="editor-actions">
-                <button type="submit" className="primary-button" disabled={savingUserId !== null}>
-                  {savingUserId ? "Guardando..." : selectedUserId ? "Actualizar usuario" : "Crear usuario"}
+                <button
+                  type="submit"
+                  className="primary-button"
+                  disabled={savingUserId !== null}
+                >
+                  {savingUserId
+                    ? "Guardando..."
+                    : selectedUserId
+                      ? "Actualizar usuario"
+                      : "Crear usuario"}
                 </button>
                 <button type="button" onClick={handleCloseUserDrawer}>
                   Cancelar
@@ -9613,7 +11318,9 @@ function App() {
           <div className="course-workspace-shell">
             <div className="audit-detail-head course-drawer-head">
               <div>
-                <p className="eyebrow">{courseDrawerTab === "library" ? "Biblioteca" : "Cursos"}</p>
+                <p className="eyebrow">
+                  {courseDrawerTab === "library" ? "Biblioteca" : "Cursos"}
+                </p>
                 <h2 id="course-drawer-title">
                   {courseDrawerTab === "library"
                     ? selectedLibraryPdfId
@@ -9644,7 +11351,11 @@ function App() {
                 >
                   Nuevo curso
                 </button>
-                <button type="button" className="secondary-button" onClick={handleCloseCourseDrawer}>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={handleCloseCourseDrawer}
+                >
                   Cerrar
                 </button>
               </div>
@@ -9654,8 +11365,12 @@ function App() {
               <aside className="course-drawer-sidebar">
                 <div className="course-drawer-summary">
                   <div>
-                    <span className="course-drawer-kicker">Vista del curso</span>
-                    <strong>{selectedCourse?.title ?? "Nuevo curso sin nombre"}</strong>
+                    <span className="course-drawer-kicker">
+                      Vista del curso
+                    </span>
+                    <strong>
+                      {selectedCourse?.title ?? "Nuevo curso sin nombre"}
+                    </strong>
                     <p>
                       {selectedCourse
                         ? selectedCourse.subtitle || "Sin subtítulo todavía"
@@ -9696,7 +11411,9 @@ function App() {
                           ? "course-drawer-nav-item course-drawer-nav-item-active"
                           : "course-drawer-nav-item"
                       }
-                      onClick={() => handleSelectCourseDrawerTab(value as CourseWorkspaceTab)}
+                      onClick={() =>
+                        handleSelectCourseDrawerTab(value as CourseWorkspaceTab)
+                      }
                     >
                       <strong>{label}</strong>
                       <span>{hint}</span>
@@ -9707,17 +11424,29 @@ function App() {
                 <div className="course-drawer-note">
                   <span>Atajo</span>
                   <p>
-                    Usa la pestaña activa para editar una sola capa del curso sin perder el contexto del resto.
+                    Usa la pestaña activa para editar una sola capa del curso
+                    sin perder el contexto del resto.
                   </p>
                 </div>
               </aside>
 
               <section className="course-drawer-main">
-                {courseError ? <p className="badge-feedback badge-feedback-error">{courseError}</p> : null}
-                {courseMessage ? <p className="badge-feedback badge-feedback-success">{courseMessage}</p> : null}
+                {courseError ? (
+                  <p className="badge-feedback badge-feedback-error">
+                    {courseError}
+                  </p>
+                ) : null}
+                {courseMessage ? (
+                  <p className="badge-feedback badge-feedback-success">
+                    {courseMessage}
+                  </p>
+                ) : null}
 
                 {courseDrawerTab === "data" ? (
-                  <form className="badge-editor-form course-editor-form" onSubmit={(event) => void handleSaveCourse(event)}>
+                  <form
+                    className="badge-editor-form course-editor-form"
+                    onSubmit={(event) => void handleSaveCourse(event)}
+                  >
                     <div className="course-editor-grid">
                       <section className="course-editor-card">
                         <div className="course-editor-card-head">
@@ -9732,7 +11461,10 @@ function App() {
                             <input
                               value={courseForm.title}
                               onChange={(event) =>
-                                setCourseForm((current) => ({ ...current, title: event.target.value }))
+                                setCourseForm((current) => ({
+                                  ...current,
+                                  title: event.target.value,
+                                }))
                               }
                             />
                           </label>
@@ -9741,7 +11473,10 @@ function App() {
                             <input
                               value={courseForm.subtitle}
                               onChange={(event) =>
-                                setCourseForm((current) => ({ ...current, subtitle: event.target.value }))
+                                setCourseForm((current) => ({
+                                  ...current,
+                                  subtitle: event.target.value,
+                                }))
                               }
                             />
                           </label>
@@ -9750,7 +11485,10 @@ function App() {
                             <input
                               value={courseForm.category}
                               onChange={(event) =>
-                                setCourseForm((current) => ({ ...current, category: event.target.value }))
+                                setCourseForm((current) => ({
+                                  ...current,
+                                  category: event.target.value,
+                                }))
                               }
                             />
                           </label>
@@ -9759,7 +11497,10 @@ function App() {
                             <input
                               value={courseForm.level}
                               onChange={(event) =>
-                                setCourseForm((current) => ({ ...current, level: event.target.value }))
+                                setCourseForm((current) => ({
+                                  ...current,
+                                  level: event.target.value,
+                                }))
                               }
                             />
                           </label>
@@ -9770,7 +11511,10 @@ function App() {
                               step="0.1"
                               value={courseForm.estimatedHours}
                               onChange={(event) =>
-                                setCourseForm((current) => ({ ...current, estimatedHours: event.target.value }))
+                                setCourseForm((current) => ({
+                                  ...current,
+                                  estimatedHours: event.target.value,
+                                }))
                               }
                             />
                           </label>
@@ -9780,7 +11524,10 @@ function App() {
                               type="number"
                               value={courseForm.progressPercent}
                               onChange={(event) =>
-                                setCourseForm((current) => ({ ...current, progressPercent: event.target.value }))
+                                setCourseForm((current) => ({
+                                  ...current,
+                                  progressPercent: event.target.value,
+                                }))
                               }
                             />
                           </label>
@@ -9801,7 +11548,10 @@ function App() {
                               rows={2}
                               value={courseForm.hook}
                               onChange={(event) =>
-                                setCourseForm((current) => ({ ...current, hook: event.target.value }))
+                                setCourseForm((current) => ({
+                                  ...current,
+                                  hook: event.target.value,
+                                }))
                               }
                             />
                           </label>
@@ -9811,7 +11561,10 @@ function App() {
                               rows={4}
                               value={courseForm.description}
                               onChange={(event) =>
-                                setCourseForm((current) => ({ ...current, description: event.target.value }))
+                                setCourseForm((current) => ({
+                                  ...current,
+                                  description: event.target.value,
+                                }))
                               }
                             />
                           </label>
@@ -9821,7 +11574,10 @@ function App() {
                               rows={4}
                               value={courseForm.outcomes}
                               onChange={(event) =>
-                                setCourseForm((current) => ({ ...current, outcomes: event.target.value }))
+                                setCourseForm((current) => ({
+                                  ...current,
+                                  outcomes: event.target.value,
+                                }))
                               }
                               placeholder="Un objetivo por línea"
                             />
@@ -9847,10 +11603,16 @@ function App() {
                           entityType="course"
                           entityId={selectedCourseId ?? undefined}
                           onUploaded={(asset) =>
-                            setCourseForm((current) => ({ ...current, coverImageUrl: asset.publicUrl }))
+                            setCourseForm((current) => ({
+                              ...current,
+                              coverImageUrl: asset.publicUrl,
+                            }))
                           }
                           onClear={() =>
-                            setCourseForm((current) => ({ ...current, coverImageUrl: "" }))
+                            setCourseForm((current) => ({
+                              ...current,
+                              coverImageUrl: "",
+                            }))
                           }
                         />
                         <label className="form-wide">
@@ -9858,7 +11620,10 @@ function App() {
                           <input
                             value={courseForm.coverImageUrl}
                             onChange={(event) =>
-                              setCourseForm((current) => ({ ...current, coverImageUrl: event.target.value }))
+                              setCourseForm((current) => ({
+                                ...current,
+                                coverImageUrl: event.target.value,
+                              }))
                             }
                             placeholder="https://..."
                           />
@@ -9869,7 +11634,10 @@ function App() {
                             <select
                               value={courseForm.status}
                               onChange={(event) =>
-                                setCourseForm((current) => ({ ...current, status: event.target.value }))
+                                setCourseForm((current) => ({
+                                  ...current,
+                                  status: event.target.value,
+                                }))
                               }
                             >
                               <option value="draft">Borrador</option>
@@ -9882,7 +11650,10 @@ function App() {
                               type="checkbox"
                               checked={courseForm.premium}
                               onChange={(event) =>
-                                setCourseForm((current) => ({ ...current, premium: event.target.checked }))
+                                setCourseForm((current) => ({
+                                  ...current,
+                                  premium: event.target.checked,
+                                }))
                               }
                             />
                             <span>Premium</span>
@@ -9892,7 +11663,10 @@ function App() {
                               type="checkbox"
                               checked={courseForm.featured}
                               onChange={(event) =>
-                                setCourseForm((current) => ({ ...current, featured: event.target.checked }))
+                                setCourseForm((current) => ({
+                                  ...current,
+                                  featured: event.target.checked,
+                                }))
                               }
                             />
                             <span>Destacado</span>
@@ -9902,7 +11676,10 @@ function App() {
                               type="checkbox"
                               checked={courseForm.removable}
                               onChange={(event) =>
-                                setCourseForm((current) => ({ ...current, removable: event.target.checked }))
+                                setCourseForm((current) => ({
+                                  ...current,
+                                  removable: event.target.checked,
+                                }))
                               }
                             />
                             <span>Eliminable</span>
@@ -9912,7 +11689,11 @@ function App() {
                     </div>
 
                     <div className="editor-actions course-editor-actions">
-                      <button type="submit" className="primary-button" disabled={savingCourseId !== null}>
+                      <button
+                        type="submit"
+                        className="primary-button"
+                        disabled={savingCourseId !== null}
+                      >
                         {savingCourseId ? "Guardando..." : "Guardar curso"}
                       </button>
                       <button type="button" onClick={handleCloseCourseDrawer}>
@@ -9928,8 +11709,14 @@ function App() {
                       <div className="panel-head">
                         <div>
                           <p className="eyebrow">Módulos</p>
-                          <h3>{selectedCourseModuleId ? "Editar módulo" : "Nuevo módulo"}</h3>
-                          <p>{selectedCourse?.title ?? "Selecciona un curso"}</p>
+                          <h3>
+                            {selectedCourseModuleId
+                              ? "Editar módulo"
+                              : "Nuevo módulo"}
+                          </h3>
+                          <p>
+                            {selectedCourse?.title ?? "Selecciona un curso"}
+                          </p>
                         </div>
                         <button
                           type="button"
@@ -9949,13 +11736,19 @@ function App() {
                           Nuevo
                         </button>
                       </div>
-                      <form className="badge-form-grid badge-form-grid-compact" onSubmit={(event) => void handleSaveCourseModule(event)}>
+                      <form
+                        className="badge-form-grid badge-form-grid-compact"
+                        onSubmit={(event) => void handleSaveCourseModule(event)}
+                      >
                         <label className="form-wide">
                           <span>Título</span>
                           <input
                             value={courseModuleForm.title}
                             onChange={(event) =>
-                              setCourseModuleForm((current) => ({ ...current, title: event.target.value }))
+                              setCourseModuleForm((current) => ({
+                                ...current,
+                                title: event.target.value,
+                              }))
                             }
                           />
                         </label>
@@ -9965,7 +11758,10 @@ function App() {
                             rows={2}
                             value={courseModuleForm.summary}
                             onChange={(event) =>
-                              setCourseModuleForm((current) => ({ ...current, summary: event.target.value }))
+                              setCourseModuleForm((current) => ({
+                                ...current,
+                                summary: event.target.value,
+                              }))
                             }
                           />
                         </label>
@@ -9976,7 +11772,10 @@ function App() {
                               type="number"
                               value={courseModuleForm.durationMinutes}
                               onChange={(event) =>
-                                setCourseModuleForm((current) => ({ ...current, durationMinutes: event.target.value }))
+                                setCourseModuleForm((current) => ({
+                                  ...current,
+                                  durationMinutes: event.target.value,
+                                }))
                               }
                             />
                           </label>
@@ -9986,7 +11785,10 @@ function App() {
                               type="number"
                               value={courseModuleForm.order}
                               onChange={(event) =>
-                                setCourseModuleForm((current) => ({ ...current, order: event.target.value }))
+                                setCourseModuleForm((current) => ({
+                                  ...current,
+                                  order: event.target.value,
+                                }))
                               }
                             />
                           </label>
@@ -9995,7 +11797,10 @@ function App() {
                             <select
                               value={courseModuleForm.status}
                               onChange={(event) =>
-                                setCourseModuleForm((current) => ({ ...current, status: event.target.value }))
+                                setCourseModuleForm((current) => ({
+                                  ...current,
+                                  status: event.target.value,
+                                }))
                               }
                             >
                               <option value="draft">Borrador</option>
@@ -10009,14 +11814,21 @@ function App() {
                             type="checkbox"
                             checked={courseModuleForm.isActive}
                             onChange={(event) =>
-                              setCourseModuleForm((current) => ({ ...current, isActive: event.target.checked }))
+                              setCourseModuleForm((current) => ({
+                                ...current,
+                                isActive: event.target.checked,
+                              }))
                             }
                           />
-                          <span>{courseModuleForm.isActive ? "Activo" : "Inactivo"}</span>
+                          <span>
+                            {courseModuleForm.isActive ? "Activo" : "Inactivo"}
+                          </span>
                         </label>
                         <div className="editor-actions form-wide">
                           <button type="submit" className="primary-button">
-                            {selectedCourseModuleId ? "Guardar módulo" : "Crear módulo"}
+                            {selectedCourseModuleId
+                              ? "Guardar módulo"
+                              : "Crear módulo"}
                           </button>
                         </div>
                       </form>
@@ -10032,14 +11844,19 @@ function App() {
                       {selectedCourseModules.length > 0 ? (
                         <div className="course-item-list">
                           {selectedCourseModules.map((module) => (
-                            <article key={module.id} className="course-item-row">
+                            <article
+                              key={module.id}
+                              className="course-item-row"
+                            >
                               <div>
                                 <strong>{module.title}</strong>
                                 <p>{module.summary}</p>
                               </div>
                               <div className="course-item-meta">
                                 <span>{module.lessons.length} lecciones</span>
-                                <strong className="topbar-pill">{module.status ?? "draft"}</strong>
+                                <strong className="topbar-pill">
+                                  {module.status ?? "draft"}
+                                </strong>
                                 <button
                                   type="button"
                                   className="secondary-button"
@@ -10048,7 +11865,9 @@ function App() {
                                     setCourseModuleForm({
                                       title: module.title,
                                       summary: module.summary,
-                                      durationMinutes: String(module.durationMinutes),
+                                      durationMinutes: String(
+                                        module.durationMinutes,
+                                      ),
                                       order: String(module.order ?? 1),
                                       status: module.status ?? "draft",
                                       isActive: module.isActive ?? true,
@@ -10065,736 +11884,931 @@ function App() {
                       ) : (
                         <div className="empty-state">
                           <h3>No hay módulos todavía.</h3>
-                          <p>Agrega el primer módulo para empezar a estructurar el curso.</p>
+                          <p>
+                            Agrega el primer módulo para empezar a estructurar
+                            el curso.
+                          </p>
                         </div>
                       )}
                     </article>
                   </div>
                 ) : null}
 
-            {courseDrawerTab === "lessons" ? (
-              <div className="course-subview-grid">
-                <article className="course-subview-card">
-                  <div className="panel-head">
-                    <div>
-                      <strong>{selectedCourseLessonId ? "Editar lección" : "Nueva lección"}</strong>
-                      <p>{selectedCourse?.title ?? "Selecciona un curso"}</p>
-                    </div>
-                    <button
-                      type="button"
-                      className="secondary-button"
-                      onClick={() => {
-                        setSelectedCourseLessonId(null);
-                        setCourseLessonForm({
-                          title: "",
-                          format: "video",
-                          durationMinutes: "",
-                          prompt: "",
-                          content: "",
-                          resourceUrl: "",
-                          order: "",
-                          status: "draft",
-                          isActive: true,
-                        });
-                      }}
-                    >
-                      Nueva
-                    </button>
-                  </div>
-                  <label>
-                    <span>Módulo</span>
-                    <select
-                      value={selectedCourseModuleId ?? ""}
-                      onChange={(event) => setSelectedCourseModuleId(event.target.value || null)}
-                    >
-                      <option value="">Selecciona</option>
-                      {selectedCourseModules.map((module) => (
-                        <option key={module.id} value={module.id}>
-                          {module.title}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <form className="badge-form-grid badge-form-grid-compact" onSubmit={(event) => void handleSaveCourseLesson(event)}>
-                    <label className="form-wide">
-                      <span>Título</span>
-                      <input
-                        value={courseLessonForm.title}
-                        onChange={(event) =>
-                          setCourseLessonForm((current) => ({ ...current, title: event.target.value }))
-                        }
-                      />
-                    </label>
-                    <label>
-                      <span>Formato</span>
-                      <input
-                        value={courseLessonForm.format}
-                        onChange={(event) =>
-                          setCourseLessonForm((current) => ({ ...current, format: event.target.value }))
-                        }
-                      />
-                    </label>
-                    <label>
-                      <span>Duración</span>
-                      <input
-                        type="number"
-                        value={courseLessonForm.durationMinutes}
-                        onChange={(event) =>
-                          setCourseLessonForm((current) => ({ ...current, durationMinutes: event.target.value }))
-                        }
-                      />
-                    </label>
-                    <label>
-                      <span>Orden</span>
-                      <input
-                        type="number"
-                        value={courseLessonForm.order}
-                        onChange={(event) =>
-                          setCourseLessonForm((current) => ({ ...current, order: event.target.value }))
-                        }
-                      />
-                    </label>
-                    <label className="form-wide">
-                      <span>Prompt</span>
-                      <textarea
-                        rows={3}
-                        value={courseLessonForm.prompt}
-                        onChange={(event) =>
-                          setCourseLessonForm((current) => ({ ...current, prompt: event.target.value }))
-                        }
-                      />
-                    </label>
-                    <label className="form-wide">
-                      <span>Contenido</span>
-                      <textarea
-                        rows={4}
-                        value={courseLessonForm.content}
-                        onChange={(event) =>
-                          setCourseLessonForm((current) => ({ ...current, content: event.target.value }))
-                        }
-                      />
-                    </label>
-                    <label className="form-wide">
-                      <span>Recurso</span>
-                      <input
-                        value={courseLessonForm.resourceUrl}
-                        onChange={(event) =>
-                          setCourseLessonForm((current) => ({ ...current, resourceUrl: event.target.value }))
-                        }
-                      />
-                    </label>
-                    <div className="form-wide">
-                      <AdminFileUploader
-                        apiBaseUrl={apiBaseUrl}
-                        label="Archivo de la lección"
-                        description="PDF, imagen o exportación de Canva."
-                        accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml,application/pdf"
-                        mode="general"
-                        value={courseLessonForm.resourceUrl}
-                        category="lesson"
-                        entityType="course_lesson"
-                        entityId={selectedCourseLessonId ?? undefined}
-                        onUploaded={(asset) =>
-                          setCourseLessonForm((current) => ({ ...current, resourceUrl: asset.publicUrl }))
-                        }
-                        onClear={() =>
-                          setCourseLessonForm((current) => ({ ...current, resourceUrl: "" }))
-                        }
-                      />
-                    </div>
-                    <label>
-                      <span>Estado</span>
-                      <select
-                        value={courseLessonForm.status}
-                        onChange={(event) =>
-                          setCourseLessonForm((current) => ({ ...current, status: event.target.value }))
-                        }
-                      >
-                        <option value="draft">Borrador</option>
-                        <option value="published">Publicado</option>
-                        <option value="archived">Archivado</option>
-                      </select>
-                    </label>
-                    <label className="switch-row">
-                      <input
-                        type="checkbox"
-                        checked={courseLessonForm.isActive}
-                        onChange={(event) =>
-                          setCourseLessonForm((current) => ({ ...current, isActive: event.target.checked }))
-                        }
-                      />
-                      <span>{courseLessonForm.isActive ? "Activo" : "Inactivo"}</span>
-                    </label>
-                    <div className="editor-actions form-wide">
-                      <button type="submit" className="primary-button">
-                        {selectedCourseLessonId ? "Guardar lección" : "Crear lección"}
-                      </button>
-                    </div>
-                  </form>
-                </article>
-
-                <article className="course-subview-card course-subview-list-card">
-                  <div className="panel-head">
-                    <div>
-                      <p className="eyebrow">Lista</p>
-                      <h3>{selectedCourseLessons.length} lecciones</h3>
-                    </div>
-                  </div>
-                  {selectedCourseLessons.length > 0 ? (
-                    <div className="course-item-list">
-                      {selectedCourseLessons.map((lesson) => (
-                        <article key={lesson.id} className="course-item-row">
-                          <div>
-                            <strong>{lesson.title}</strong>
-                            <p>{lesson.prompt || lesson.content}</p>
-                          </div>
-                          <div className="course-item-meta">
-                            <span>{lesson.format}</span>
-                            <strong>{lesson.durationMinutes} min</strong>
-                            <span className="topbar-pill">{lesson.status ?? "draft"}</span>
-                            <button
-                              type="button"
-                              className="secondary-button"
-                              onClick={() => {
-                                setSelectedCourseLessonId(lesson.id);
-                          setCourseLessonForm({
-                            title: lesson.title,
-                            format: lesson.format,
-                            durationMinutes: String(lesson.durationMinutes),
-                                  prompt: lesson.prompt,
-                                  content: lesson.content ?? "",
-                                  resourceUrl: lesson.resourceUrl ?? "",
-                                  order: String(lesson.order ?? 1),
-                            status: lesson.status ?? "draft",
-                            isActive: lesson.isActive ?? true,
-                          });
-                          handleSelectCourseDrawerTab("lessons");
-                        }}
-                      >
-                        Editar
-                            </button>
-                          </div>
-                        </article>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="empty-state">
-                      <h3>No hay lecciones todavía.</h3>
-                      <p>Selecciona un módulo y agrega la primera lección para completar la ruta.</p>
-                    </div>
-                  )}
-                </article>
-              </div>
-            ) : null}
-
-            {courseDrawerTab === "resources" ? (
-              <div className="course-subview-grid">
-                <article className="course-subview-card">
-                  <div className="panel-head">
-                    <div>
-                      <strong>Recurso</strong>
-                      <p>{selectedCourse?.title ?? "Selecciona un curso"}</p>
-                    </div>
-                    <button
-                      type="button"
-                      className="secondary-button"
-                      onClick={() => {
-                        setSelectedCourseResourceId(null);
-                        setCourseResourceForm({
-                          title: "",
-                          kind: "link",
-                          description: "",
-                          url: "",
-                          status: "draft",
-                          isActive: true,
-                        });
-                      }}
-                    >
-                      Nuevo
-                    </button>
-                  </div>
-                  <form className="badge-form-grid badge-form-grid-compact" onSubmit={(event) => void handleSaveCourseResource(event)}>
-                    <label className="form-wide">
-                      <span>Título</span>
-                      <input
-                        value={courseResourceForm.title}
-                        onChange={(event) =>
-                          setCourseResourceForm((current) => ({ ...current, title: event.target.value }))
-                        }
-                      />
-                    </label>
-                    <label>
-                      <span>Tipo</span>
-                      <input
-                        value={courseResourceForm.kind}
-                        onChange={(event) =>
-                          setCourseResourceForm((current) => ({ ...current, kind: event.target.value }))
-                        }
-                      />
-                    </label>
-                    <label className="form-wide">
-                      <span>Descripción</span>
-                      <textarea
-                        rows={3}
-                        value={courseResourceForm.description}
-                        onChange={(event) =>
-                          setCourseResourceForm((current) => ({ ...current, description: event.target.value }))
-                        }
-                      />
-                    </label>
-                    <label className="form-wide">
-                      <span>URL</span>
-                      <input
-                        value={courseResourceForm.url}
-                        onChange={(event) =>
-                          setCourseResourceForm((current) => ({ ...current, url: event.target.value }))
-                        }
-                      />
-                    </label>
-                    <div className="form-wide">
-                      <AdminFileUploader
-                        apiBaseUrl={apiBaseUrl}
-                        label="Recurso descargable"
-                        description="Sube un PDF o imagen para asociarlo al curso."
-                        accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml,application/pdf"
-                        mode="general"
-                        value={courseResourceForm.url}
-                        category="course"
-                        entityType="course_resource"
-                        entityId={selectedCourseResourceId ?? undefined}
-                        onUploaded={(asset) =>
-                          setCourseResourceForm((current) => ({ ...current, url: asset.publicUrl }))
-                        }
-                        onClear={() =>
-                          setCourseResourceForm((current) => ({ ...current, url: "" }))
-                        }
-                      />
-                    </div>
-                    <div className="editor-actions form-wide">
-                      <button type="submit" className="primary-button">Guardar recurso</button>
-                    </div>
-                  </form>
-                </article>
-
-                <article className="course-subview-card course-subview-list-card">
-                  <div className="panel-head">
-                    <div>
-                      <p className="eyebrow">Lista</p>
-                      <h3>{selectedCourseResources.length} recursos</h3>
-                    </div>
-                  </div>
-                  {selectedCourseResources.length > 0 ? (
-                    <div className="course-item-list">
-                      {selectedCourseResources.map((resource) => (
-                        <article key={resource.id} className="course-item-row">
-                          <div>
-                            <strong>{resource.title}</strong>
-                            <p>{resource.description}</p>
-                          </div>
-                          <div className="course-item-meta">
-                            <span>{resource.kind}</span>
-                            <strong className="topbar-pill">{resource.status ?? "draft"}</strong>
-                            <button
-                              type="button"
-                              className="secondary-button"
-                              onClick={() => {
-                                setSelectedCourseResourceId(resource.id);
-                                setCourseResourceForm({
-                                  title: resource.title,
-                                  kind: resource.kind,
-                                  description: resource.description,
-                                  url: resource.url,
-                                  status: resource.status ?? "draft",
-                                  isActive: resource.isActive ?? true,
-                                });
-                                handleSelectCourseDrawerTab("resources");
-                              }}
-                            >
-                              Editar
-                            </button>
-                          </div>
-                        </article>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="empty-state">
-                      <h3>No hay recursos todavía.</h3>
-                      <p>Agrega PDFs, enlaces o materiales extra para complementar el curso.</p>
-                    </div>
-                  )}
-                </article>
-              </div>
-            ) : null}
-
-            {courseDrawerTab === "library" ? (
-              <>
-                {libraryBulkNotice ? (
-                  <section className={`library-notice library-notice-${libraryBulkNotice.tone}`}>
-                    <div className="library-notice-icon" aria-hidden="true">
-                      <ActionIcon
-                        name={
-                          libraryBulkNotice.tone === "success"
-                            ? "success"
-                            : libraryBulkNotice.tone === "warning"
-                              ? "warning"
-                              : libraryBulkNotice.tone === "info"
-                                ? "info"
-                                : "close"
-                        }
-                      />
-                    </div>
-                    <div className="library-notice-copy">
-                      <strong>{libraryBulkNotice.title}</strong>
-                      <p>{libraryBulkNotice.message}</p>
-                      {libraryBulkNotice.details && libraryBulkNotice.details.length > 0 ? (
-                        <ul>
-                          {libraryBulkNotice.details.map((detail) => (
-                            <li key={detail}>{detail}</li>
-                          ))}
-                        </ul>
-                      ) : null}
-                    </div>
-                    <button
-                      type="button"
-                      className="secondary-button library-notice-close"
-                      onClick={() => setLibraryBulkNotice(null)}
-                    >
-                      <span className="button-icon" aria-hidden="true">
-                        <ActionIcon name="close" />
-                      </span>
-                    </button>
-                  </section>
-                ) : null}
-
-              <div className="course-subview-grid">
-                <article className="course-subview-card">
-                  <div className="panel-head">
-                    <div>
-                      <strong>{selectedLibraryPdfId ? "Editar PDF" : "Nuevo PDF"}</strong>
-                      <p>Biblioteca formativa</p>
-                    </div>
-                    <button
-                      type="button"
-                      className="secondary-button"
-                      onClick={() => {
-                        resetLibraryPdfDraft(null);
-                      }}
-                    >
-                      Nuevo
-                    </button>
-                  </div>
-                  <p className="muted-copy">
-                    Este editor sirve para ajustar un PDF ya cargado o crear uno nuevo con vínculo opcional a un curso.
-                  </p>
-                  <form className="badge-form-grid badge-form-grid-compact" onSubmit={(event) => void handleSaveLibraryPdf(event)}>
-                    <label className="form-wide">
-                      <span>Título</span>
-                      <input
-                        value={libraryPdfForm.title}
-                        onChange={(event) =>
-                          setLibraryPdfForm((current) => ({ ...current, title: event.target.value }))
-                        }
-                        />
-                      </label>
-                      <label className="form-wide">
-                        <span>Archivo PDF, DOC o DOCX</span>
-                        <input
-                          type="file"
-                          accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                          onChange={(event) => {
-                            const file = event.target.files?.[0] ?? null;
-                            setLibraryPdfFile(file);
-                            if (file && !libraryPdfForm.title.trim()) {
-                              const prettyName = prettifyLibraryFileTitle(file.name);
-                              if (prettyName) {
-                                setLibraryPdfForm((current) => ({
-                                  ...current,
-                                  title: prettyName,
-                              }));
-                            }
-                          }
-                        }}
-                      />
-                      <p className="muted-copy" style={{ marginTop: 8 }}>
-                        {libraryPdfFile
-                          ? `Seleccionado: ${libraryPdfFile.name}`
-                          : libraryPdfForm.fileUrl
-                            ? "Archivo actual cargado"
-                            : "Selecciona un PDF, DOC o DOCX para subirlo al servidor."}
-                      </p>
-                    </label>
-                    <label className="form-wide">
-                      <div className="library-toggle-row">
-                        <span>Categoría</span>
-                        <label className="switch-row compact">
-                          <input
-                            type="checkbox"
-                            checked={libraryPdfForm.assignCategory}
-                            onChange={(event) =>
-                              setLibraryPdfForm((current) => ({
-                                ...current,
-                                assignCategory: event.target.checked,
-                                category: event.target.checked ? current.category : "",
-                              }))
-                            }
-                          />
-                          <span>Asignar</span>
-                        </label>
-                      </div>
-                      {libraryPdfForm.assignCategory ? (
-                        <>
-                          <input
-                            list="library-category-suggestions"
-                            value={libraryPdfForm.category}
-                            onChange={(event) =>
-                              setLibraryPdfForm((current) => ({ ...current, category: event.target.value }))
-                            }
-                            placeholder="Ej. Guías, Tarot, Ritual"
-                          />
-                          <datalist id="library-category-suggestions">
-                            {libraryCategorySuggestions.map((category) => (
-                              <option key={category} value={category} />
-                            ))}
-                          </datalist>
-                        </>
-                      ) : (
-                        <p className="muted-copy">Se guardará como General.</p>
-                      )}
-                    </label>
-                    <div className="library-link-card form-wide">
-                      <div className="library-link-card-head">
+                {courseDrawerTab === "lessons" ? (
+                  <div className="course-subview-grid">
+                    <article className="course-subview-card">
+                      <div className="panel-head">
                         <div>
-                          <span className="course-drawer-kicker">Relación con curso</span>
-                          <strong>Vinculación opcional</strong>
+                          <strong>
+                            {selectedCourseLessonId
+                              ? "Editar lección"
+                              : "Nueva lección"}
+                          </strong>
+                          <p>
+                            {selectedCourse?.title ?? "Selecciona un curso"}
+                          </p>
                         </div>
-                        <label className="switch-row">
-                          <input
-                            type="checkbox"
-                            checked={libraryPdfForm.linkToCourse}
-                            onChange={(event) =>
-                              setLibraryPdfForm((current) => ({
-                                ...current,
-                                linkToCourse: event.target.checked,
-                                courseId: event.target.checked ? current.courseId : "",
-                              }))
-                            }
-                          />
-                          <span>Vincular a un curso</span>
-                        </label>
+                        <button
+                          type="button"
+                          className="secondary-button"
+                          onClick={() => {
+                            setSelectedCourseLessonId(null);
+                            setCourseLessonForm({
+                              title: "",
+                              format: "video",
+                              durationMinutes: "",
+                              prompt: "",
+                              content: "",
+                              resourceUrl: "",
+                              order: "",
+                              status: "draft",
+                              isActive: true,
+                            });
+                          }}
+                        >
+                          Nueva
+                        </button>
                       </div>
-                      <p className="muted-copy">
-                        La categoría organiza la app móvil. El vínculo a curso solo agrega contexto editorial.
-                      </p>
-                      {libraryPdfForm.linkToCourse ? (
+                      <label>
+                        <span>Módulo</span>
                         <select
-                          value={libraryPdfForm.courseId}
+                          value={selectedCourseModuleId ?? ""}
                           onChange={(event) =>
-                            setLibraryPdfForm((current) => ({ ...current, courseId: event.target.value }))
+                            setSelectedCourseModuleId(
+                              event.target.value || null,
+                            )
                           }
                         >
-                          <option value="">Selecciona un curso</option>
-                          {courses.map((course) => (
-                            <option key={course.id} value={course.id}>
-                              {course.title}
+                          <option value="">Selecciona</option>
+                          {selectedCourseModules.map((module) => (
+                            <option key={module.id} value={module.id}>
+                              {module.title}
                             </option>
                           ))}
                         </select>
+                      </label>
+                      <form
+                        className="badge-form-grid badge-form-grid-compact"
+                        onSubmit={(event) => void handleSaveCourseLesson(event)}
+                      >
+                        <label className="form-wide">
+                          <span>Título</span>
+                          <input
+                            value={courseLessonForm.title}
+                            onChange={(event) =>
+                              setCourseLessonForm((current) => ({
+                                ...current,
+                                title: event.target.value,
+                              }))
+                            }
+                          />
+                        </label>
+                        <label>
+                          <span>Formato</span>
+                          <input
+                            value={courseLessonForm.format}
+                            onChange={(event) =>
+                              setCourseLessonForm((current) => ({
+                                ...current,
+                                format: event.target.value,
+                              }))
+                            }
+                          />
+                        </label>
+                        <label>
+                          <span>Duración</span>
+                          <input
+                            type="number"
+                            value={courseLessonForm.durationMinutes}
+                            onChange={(event) =>
+                              setCourseLessonForm((current) => ({
+                                ...current,
+                                durationMinutes: event.target.value,
+                              }))
+                            }
+                          />
+                        </label>
+                        <label>
+                          <span>Orden</span>
+                          <input
+                            type="number"
+                            value={courseLessonForm.order}
+                            onChange={(event) =>
+                              setCourseLessonForm((current) => ({
+                                ...current,
+                                order: event.target.value,
+                              }))
+                            }
+                          />
+                        </label>
+                        <label className="form-wide">
+                          <span>Prompt</span>
+                          <textarea
+                            rows={3}
+                            value={courseLessonForm.prompt}
+                            onChange={(event) =>
+                              setCourseLessonForm((current) => ({
+                                ...current,
+                                prompt: event.target.value,
+                              }))
+                            }
+                          />
+                        </label>
+                        <label className="form-wide">
+                          <span>Contenido</span>
+                          <textarea
+                            rows={4}
+                            value={courseLessonForm.content}
+                            onChange={(event) =>
+                              setCourseLessonForm((current) => ({
+                                ...current,
+                                content: event.target.value,
+                              }))
+                            }
+                          />
+                        </label>
+                        <label className="form-wide">
+                          <span>Recurso</span>
+                          <input
+                            value={courseLessonForm.resourceUrl}
+                            onChange={(event) =>
+                              setCourseLessonForm((current) => ({
+                                ...current,
+                                resourceUrl: event.target.value,
+                              }))
+                            }
+                          />
+                        </label>
+                        <div className="form-wide">
+                          <AdminFileUploader
+                            apiBaseUrl={apiBaseUrl}
+                            label="Archivo de la lección"
+                            description="PDF, imagen o exportación de Canva."
+                            accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml,application/pdf"
+                            mode="general"
+                            value={courseLessonForm.resourceUrl}
+                            category="lesson"
+                            entityType="course_lesson"
+                            entityId={selectedCourseLessonId ?? undefined}
+                            onUploaded={(asset) =>
+                              setCourseLessonForm((current) => ({
+                                ...current,
+                                resourceUrl: asset.publicUrl,
+                              }))
+                            }
+                            onClear={() =>
+                              setCourseLessonForm((current) => ({
+                                ...current,
+                                resourceUrl: "",
+                              }))
+                            }
+                          />
+                        </div>
+                        <label>
+                          <span>Estado</span>
+                          <select
+                            value={courseLessonForm.status}
+                            onChange={(event) =>
+                              setCourseLessonForm((current) => ({
+                                ...current,
+                                status: event.target.value,
+                              }))
+                            }
+                          >
+                            <option value="draft">Borrador</option>
+                            <option value="published">Publicado</option>
+                            <option value="archived">Archivado</option>
+                          </select>
+                        </label>
+                        <label className="switch-row">
+                          <input
+                            type="checkbox"
+                            checked={courseLessonForm.isActive}
+                            onChange={(event) =>
+                              setCourseLessonForm((current) => ({
+                                ...current,
+                                isActive: event.target.checked,
+                              }))
+                            }
+                          />
+                          <span>
+                            {courseLessonForm.isActive ? "Activo" : "Inactivo"}
+                          </span>
+                        </label>
+                        <div className="editor-actions form-wide">
+                          <button type="submit" className="primary-button">
+                            {selectedCourseLessonId
+                              ? "Guardar lección"
+                              : "Crear lección"}
+                          </button>
+                        </div>
+                      </form>
+                    </article>
+
+                    <article className="course-subview-card course-subview-list-card">
+                      <div className="panel-head">
+                        <div>
+                          <p className="eyebrow">Lista</p>
+                          <h3>{selectedCourseLessons.length} lecciones</h3>
+                        </div>
+                      </div>
+                      {selectedCourseLessons.length > 0 ? (
+                        <div className="course-item-list">
+                          {selectedCourseLessons.map((lesson) => (
+                            <article
+                              key={lesson.id}
+                              className="course-item-row"
+                            >
+                              <div>
+                                <strong>{lesson.title}</strong>
+                                <p>{lesson.prompt || lesson.content}</p>
+                              </div>
+                              <div className="course-item-meta">
+                                <span>{lesson.format}</span>
+                                <strong>{lesson.durationMinutes} min</strong>
+                                <span className="topbar-pill">
+                                  {lesson.status ?? "draft"}
+                                </span>
+                                <button
+                                  type="button"
+                                  className="secondary-button"
+                                  onClick={() => {
+                                    setSelectedCourseLessonId(lesson.id);
+                                    setCourseLessonForm({
+                                      title: lesson.title,
+                                      format: lesson.format,
+                                      durationMinutes: String(
+                                        lesson.durationMinutes,
+                                      ),
+                                      prompt: lesson.prompt,
+                                      content: lesson.content ?? "",
+                                      resourceUrl: lesson.resourceUrl ?? "",
+                                      order: String(lesson.order ?? 1),
+                                      status: lesson.status ?? "draft",
+                                      isActive: lesson.isActive ?? true,
+                                    });
+                                    handleSelectCourseDrawerTab("lessons");
+                                  }}
+                                >
+                                  Editar
+                                </button>
+                              </div>
+                            </article>
+                          ))}
+                        </div>
                       ) : (
-                        <div className="library-link-preview">
-                          <span className="topbar-pill">Sin vínculo</span>
+                        <div className="empty-state">
+                          <h3>No hay lecciones todavía.</h3>
                           <p>
-                            {selectedLibraryCourse
-                              ? `Si activas la vinculación se asociará con ${selectedLibraryCourse.title}.`
-                              : "No estará asociado a ningún curso."}
+                            Selecciona un módulo y agrega la primera lección
+                            para completar la ruta.
                           </p>
                         </div>
                       )}
-                    </div>
-                    <label>
-                      <span>Estado</span>
-                      <select
-                        value={libraryPdfForm.status}
-                        onChange={(event) =>
-                          setLibraryPdfForm((current) => ({
-                            ...current,
-                            status: event.target.value as "draft" | "published",
-                          }))
-                        }
-                      >
-                        <option value="published">Publicado</option>
-                        <option value="draft">Borrador</option>
-                      </select>
-                    </label>
-                    <div className="editor-actions form-wide">
-                      <button type="submit" className="primary-button">Guardar PDF</button>
-                    </div>
-                  </form>
-                </article>
-
-                <article className="course-subview-card course-subview-list-card">
-                  <div className="panel-head">
-                    <div>
-                      <p className="eyebrow">Lista</p>
-                      <h3>{libraryPdfs.length} PDFs</h3>
-                    </div>
+                    </article>
                   </div>
-                  {libraryPdfs.length > 0 ? (
-                    <div className="library-list">
-                      {libraryPdfs.map((pdf) => (
-                        <article key={pdf.id} className="library-list-row">
-                          <div className="library-list-main">
-                            <div className="library-list-title">
-                              <strong>{pdf.title}</strong>
-                              <p>{pdf.description || "Sin descripción"}</p>
-                            </div>
-                            <div className="library-list-meta">
-                              <span>{pdf.category}</span>
-                              <span>{pdf.courseId ? pdf.courseId : "Sin vínculo"}</span>
-                              <span>{pdf.pageCount} páginas</span>
-                              <span className="topbar-pill">{pdf.status ?? "draft"}</span>
-                            </div>
-                          </div>
-                          <div className="library-list-actions">
-                            <button
-                              type="button"
-                              className="secondary-button"
-                              onClick={() => openLibraryPdfEditor(pdf)}
-                            >
-                              Editar
-                            </button>
-                            <button
-                              type="button"
-                              className="secondary-button"
-                              onClick={() => {
-                                if (window.confirm(`¿Eliminar "${pdf.title}"?`)) {
-                                  void handleLibraryPdfAction(pdf.id, "delete");
-                                }
-                              }}
-                            >
-                              Eliminar
-                            </button>
-                          </div>
-                        </article>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="empty-state">
-                      <h3>No hay PDFs todavía.</h3>
-                      <p>Sube material de apoyo para que la biblioteca quede ordenada por curso.</p>
-                    </div>
-                  )}
-                </article>
-              </div>
-
-              </>
-            ) : null}
-
-            {courseDrawerTab === "publication" ? (
-              <section className="course-publication-grid">
-                <article className="course-subview-card">
-                  <div className="panel-head">
-                    <div>
-                      <p className="eyebrow">Publicación</p>
-                      <h3>Estado actual</h3>
-                    </div>
-                  </div>
-                  <div className="metric-card">
-                    <span>{selectedCourse?.title ?? "Selecciona un curso"}</span>
-                    <strong>{selectedCourse?.status ?? "draft"}</strong>
-                    <p>
-                      {selectedCourse?.status === "published"
-                        ? "Visible para alumnos"
-                        : selectedCourse?.status === "archived"
-                          ? "Archivado"
-                          : "Aún en edición"}
-                    </p>
-                  </div>
-                </article>
-                <article className="course-subview-card">
-                  <div className="panel-head">
-                    <div>
-                      <p className="eyebrow">Acciones</p>
-                      <h3>Control de publicación</h3>
-                    </div>
-                  </div>
-                  <div className="course-publication-actions">
-                    <button type="button" className="primary-button button-with-icon" onClick={() => void handlePublishCourse("publish")}>
-                      <span className="button-icon" aria-hidden="true">
-                        <ActionIcon name="publish" />
-                      </span>
-                      <span>Publicar</span>
-                    </button>
-                    <button type="button" className="secondary-button button-with-icon" onClick={() => void handlePublishCourse("unpublish")}>
-                      <span className="button-icon" aria-hidden="true">
-                        <ActionIcon name="refresh" />
-                      </span>
-                      <span>Volver a borrador</span>
-                    </button>
-                    <button type="button" className="danger-button button-with-icon" onClick={() => void handlePublishCourse("archive")}>
-                      <span className="button-icon" aria-hidden="true">
-                        <ActionIcon name="archive" />
-                      </span>
-                      <span>Archivar</span>
-                    </button>
-                  </div>
-                </article>
-              </section>
-            ) : null}
-
-            {courseDrawerTab === "history" ? (
-              <section className="course-audit-panel">
-                <div className="panel-head">
-                  <div>
-                    <p className="eyebrow">Historial</p>
-                    <h3>Cambios registrados</h3>
-                  </div>
-                </div>
-
-                {courseAuditError ? (
-                  <p className="badge-feedback badge-feedback-error">{courseAuditError}</p>
                 ) : null}
 
-                {courseAuditEntries.length > 0 ? (
-                  <div className="audit-table">
-                    <div className="audit-table-head audit-table-row">
-                      <span>Fecha</span>
-                      <span>Acción</span>
-                      <span>Elemento</span>
-                      <span>Campo</span>
-                      <span>Antes</span>
-                      <span>Después</span>
-                      <span>Origen</span>
-                      <span />
-                    </div>
-                    {courseAuditEntries.map((entry) => (
-                      <article key={entry.id} className="audit-table-row">
-                        <span>{formatDate(entry.changedAt)}</span>
-                        <span>{getCourseAuditActionLabel(entry.action, entry.fieldChanged)}</span>
-                        <span>{getCourseAuditElementLabel(entry)}</span>
-                        <span>{formatAuditFieldLabel(entry.fieldChanged)}</span>
-                        <span>{summarizeAuditValue(entry.previousValue)}</span>
-                        <span>{summarizeAuditValue(entry.newValue)}</span>
-                        <span>{entry.changedBy}</span>
-                        <span className="align-right">
+                {courseDrawerTab === "resources" ? (
+                  <div className="course-subview-grid">
+                    <article className="course-subview-card">
+                      <div className="panel-head">
+                        <div>
+                          <strong>Recurso</strong>
+                          <p>
+                            {selectedCourse?.title ?? "Selecciona un curso"}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          className="secondary-button"
+                          onClick={() => {
+                            setSelectedCourseResourceId(null);
+                            setCourseResourceForm({
+                              title: "",
+                              kind: "link",
+                              description: "",
+                              url: "",
+                              status: "draft",
+                              isActive: true,
+                            });
+                          }}
+                        >
+                          Nuevo
+                        </button>
+                      </div>
+                      <form
+                        className="badge-form-grid badge-form-grid-compact"
+                        onSubmit={(event) =>
+                          void handleSaveCourseResource(event)
+                        }
+                      >
+                        <label className="form-wide">
+                          <span>Título</span>
+                          <input
+                            value={courseResourceForm.title}
+                            onChange={(event) =>
+                              setCourseResourceForm((current) => ({
+                                ...current,
+                                title: event.target.value,
+                              }))
+                            }
+                          />
+                        </label>
+                        <label>
+                          <span>Tipo</span>
+                          <select
+                            value={courseResourceForm.kind}
+                            onChange={(event) =>
+                              setCourseResourceForm((current) => ({
+                                ...current,
+                                kind: event.target.value,
+                              }))
+                            }
+                          >
+                            <option value="pdf">PDF</option>
+                            <option value="canva">Canva</option>
+                            <option value="file">Archivo</option>
+                            <option value="image">Imagen</option>
+                            <option value="link">Enlace</option>
+                          </select>
+                        </label>
+                        <label className="form-wide">
+                          <span>Descripción</span>
+                          <textarea
+                            rows={3}
+                            value={courseResourceForm.description}
+                            onChange={(event) =>
+                              setCourseResourceForm((current) => ({
+                                ...current,
+                                description: event.target.value,
+                              }))
+                            }
+                          />
+                        </label>
+                        <label className="form-wide">
+                          <span>Archivo o enlace Canva</span>
+                          <input
+                            placeholder="Pega el enlace Canva/PDF o sube un archivo abajo"
+                            value={courseResourceForm.url}
+                            onChange={(event) =>
+                              setCourseResourceForm((current) => ({
+                                ...current,
+                                url: event.target.value,
+                              }))
+                            }
+                          />
+                        </label>
+                        <div className="form-wide">
+                          <AdminFileUploader
+                            apiBaseUrl={apiBaseUrl}
+                            label="Recurso descargable"
+                            description="Sube PDF, DOC, DOCX o imagen; para Canva pega el enlace compartido."
+                            accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                            mode="general"
+                            value={courseResourceForm.url}
+                            category="course"
+                            entityType="course_resource"
+                            entityId={selectedCourseResourceId ?? undefined}
+                            onUploaded={(asset) =>
+                              setCourseResourceForm((current) => ({
+                                ...current,
+                                kind:
+                                  asset.mimeType === "application/pdf"
+                                    ? "pdf"
+                                    : asset.mimeType.startsWith("image/")
+                                      ? "image"
+                                      : "file",
+                                url: asset.publicUrl,
+                              }))
+                            }
+                            onClear={() =>
+                              setCourseResourceForm((current) => ({
+                                ...current,
+                                url: "",
+                              }))
+                            }
+                          />
+                        </div>
+                        <div className="editor-actions form-wide">
+                          <button type="submit" className="primary-button">
+                            Guardar recurso
+                          </button>
+                        </div>
+                      </form>
+                    </article>
+
+                    <article className="course-subview-card course-subview-list-card">
+                      <div className="panel-head">
+                        <div>
+                          <p className="eyebrow">Lista</p>
+                          <h3>{selectedCourseResources.length} recursos</h3>
+                        </div>
+                      </div>
+                      {selectedCourseResources.length > 0 ? (
+                        <div className="course-item-list">
+                          {selectedCourseResources.map((resource) => (
+                            <article
+                              key={resource.id}
+                              className="course-item-row"
+                            >
+                              <div>
+                                <strong>{resource.title}</strong>
+                                <p>{resource.description}</p>
+                              </div>
+                              <div className="course-item-meta">
+                                <span>{resource.kind}</span>
+                                <strong className="topbar-pill">
+                                  {resource.status ?? "draft"}
+                                </strong>
+                                <button
+                                  type="button"
+                                  className="secondary-button"
+                                  onClick={() => {
+                                    setSelectedCourseResourceId(resource.id);
+                                    setCourseResourceForm({
+                                      title: resource.title,
+                                      kind: resource.kind,
+                                      description: resource.description,
+                                      url: resource.url,
+                                      status: resource.status ?? "draft",
+                                      isActive: resource.isActive ?? true,
+                                    });
+                                    handleSelectCourseDrawerTab("resources");
+                                  }}
+                                >
+                                  Editar
+                                </button>
+                              </div>
+                            </article>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="empty-state">
+                          <h3>No hay recursos todavía.</h3>
+                          <p>
+                            Agrega PDFs, enlaces o materiales extra para
+                            complementar el curso.
+                          </p>
+                        </div>
+                      )}
+                    </article>
+                  </div>
+                ) : null}
+
+                {courseDrawerTab === "library" ? (
+                  <>
+                    {libraryBulkNotice ? (
+                      <section
+                        className={`library-notice library-notice-${libraryBulkNotice.tone}`}
+                      >
+                        <div className="library-notice-icon" aria-hidden="true">
+                          <ActionIcon
+                            name={
+                              libraryBulkNotice.tone === "success"
+                                ? "success"
+                                : libraryBulkNotice.tone === "warning"
+                                  ? "warning"
+                                  : libraryBulkNotice.tone === "info"
+                                    ? "info"
+                                    : "close"
+                            }
+                          />
+                        </div>
+                        <div className="library-notice-copy">
+                          <strong>{libraryBulkNotice.title}</strong>
+                          <p>{libraryBulkNotice.message}</p>
+                          {libraryBulkNotice.details &&
+                          libraryBulkNotice.details.length > 0 ? (
+                            <ul>
+                              {libraryBulkNotice.details.map((detail) => (
+                                <li key={detail}>{detail}</li>
+                              ))}
+                            </ul>
+                          ) : null}
+                        </div>
+                        <button
+                          type="button"
+                          className="secondary-button library-notice-close"
+                          onClick={() => setLibraryBulkNotice(null)}
+                        >
+                          <span className="button-icon" aria-hidden="true">
+                            <ActionIcon name="close" />
+                          </span>
+                        </button>
+                      </section>
+                    ) : null}
+
+                    <div className="course-subview-grid">
+                      <article className="course-subview-card">
+                        <div className="panel-head">
+                          <div>
+                            <strong>
+                              {selectedLibraryPdfId
+                                ? "Editar PDF"
+                                : "Nuevo PDF"}
+                            </strong>
+                            <p>Biblioteca formativa</p>
+                          </div>
                           <button
                             type="button"
-                            className="secondary-button audit-detail-button"
-                            onClick={() => handleOpenAuditEntry(entry)}
+                            className="secondary-button"
+                            onClick={() => {
+                              resetLibraryPdfDraft(null);
+                            }}
                           >
-                            Ver detalle
+                            Nuevo
                           </button>
-                        </span>
+                        </div>
+                        <p className="muted-copy">
+                          Este editor sirve para ajustar un PDF ya cargado o
+                          crear uno nuevo con vínculo opcional a un curso.
+                        </p>
+                        <form
+                          className="badge-form-grid badge-form-grid-compact"
+                          onSubmit={(event) => void handleSaveLibraryPdf(event)}
+                        >
+                          <label className="form-wide">
+                            <span>Título</span>
+                            <input
+                              value={libraryPdfForm.title}
+                              onChange={(event) =>
+                                setLibraryPdfForm((current) => ({
+                                  ...current,
+                                  title: event.target.value,
+                                }))
+                              }
+                            />
+                          </label>
+                          <label className="form-wide">
+                            <span>Archivo PDF, DOC o DOCX</span>
+                            <input
+                              type="file"
+                              accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                              onChange={(event) => {
+                                const file = event.target.files?.[0] ?? null;
+                                setLibraryPdfFile(file);
+                                if (file && !libraryPdfForm.title.trim()) {
+                                  const prettyName = prettifyLibraryFileTitle(
+                                    file.name,
+                                  );
+                                  if (prettyName) {
+                                    setLibraryPdfForm((current) => ({
+                                      ...current,
+                                      title: prettyName,
+                                    }));
+                                  }
+                                }
+                              }}
+                            />
+                            <p className="muted-copy" style={{ marginTop: 8 }}>
+                              {libraryPdfFile
+                                ? `Seleccionado: ${libraryPdfFile.name}`
+                                : libraryPdfForm.fileUrl
+                                  ? "Archivo actual cargado"
+                                  : "Selecciona un PDF, DOC o DOCX para subirlo al servidor."}
+                            </p>
+                          </label>
+                          <label className="form-wide">
+                            <div className="library-toggle-row">
+                              <span>Categoría</span>
+                              <label className="switch-row compact">
+                                <input
+                                  type="checkbox"
+                                  checked={libraryPdfForm.assignCategory}
+                                  onChange={(event) =>
+                                    setLibraryPdfForm((current) => ({
+                                      ...current,
+                                      assignCategory: event.target.checked,
+                                      category: event.target.checked
+                                        ? current.category
+                                        : "",
+                                    }))
+                                  }
+                                />
+                                <span>Asignar</span>
+                              </label>
+                            </div>
+                            {libraryPdfForm.assignCategory ? (
+                              <>
+                                <input
+                                  list="library-category-suggestions"
+                                  value={libraryPdfForm.category}
+                                  onChange={(event) =>
+                                    setLibraryPdfForm((current) => ({
+                                      ...current,
+                                      category: event.target.value,
+                                    }))
+                                  }
+                                  placeholder="Ej. Guías, Tarot, Ritual"
+                                />
+                                <datalist id="library-category-suggestions">
+                                  {libraryCategorySuggestions.map(
+                                    (category) => (
+                                      <option key={category} value={category} />
+                                    ),
+                                  )}
+                                </datalist>
+                              </>
+                            ) : (
+                              <p className="muted-copy">
+                                Se guardará como General.
+                              </p>
+                            )}
+                          </label>
+                          <div className="library-link-card form-wide">
+                            <div className="library-link-card-head">
+                              <div>
+                                <span className="course-drawer-kicker">
+                                  Relación con curso
+                                </span>
+                                <strong>Vinculación opcional</strong>
+                              </div>
+                              <label className="switch-row">
+                                <input
+                                  type="checkbox"
+                                  checked={libraryPdfForm.linkToCourse}
+                                  onChange={(event) =>
+                                    setLibraryPdfForm((current) => ({
+                                      ...current,
+                                      linkToCourse: event.target.checked,
+                                      courseId: event.target.checked
+                                        ? current.courseId
+                                        : "",
+                                    }))
+                                  }
+                                />
+                                <span>Vincular a un curso</span>
+                              </label>
+                            </div>
+                            <p className="muted-copy">
+                              La categoría organiza la app móvil. El vínculo a
+                              curso solo agrega contexto editorial.
+                            </p>
+                            {libraryPdfForm.linkToCourse ? (
+                              <select
+                                value={libraryPdfForm.courseId}
+                                onChange={(event) =>
+                                  setLibraryPdfForm((current) => ({
+                                    ...current,
+                                    courseId: event.target.value,
+                                  }))
+                                }
+                              >
+                                <option value="">Selecciona un curso</option>
+                                {courses.map((course) => (
+                                  <option key={course.id} value={course.id}>
+                                    {course.title}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <div className="library-link-preview">
+                                <span className="topbar-pill">Sin vínculo</span>
+                                <p>
+                                  {selectedLibraryCourse
+                                    ? `Si activas la vinculación se asociará con ${selectedLibraryCourse.title}.`
+                                    : "No estará asociado a ningún curso."}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                          <label>
+                            <span>Estado</span>
+                            <select
+                              value={libraryPdfForm.status}
+                              onChange={(event) =>
+                                setLibraryPdfForm((current) => ({
+                                  ...current,
+                                  status: event.target.value as
+                                    "draft" | "published",
+                                }))
+                              }
+                            >
+                              <option value="published">Publicado</option>
+                              <option value="draft">Borrador</option>
+                            </select>
+                          </label>
+                          <div className="editor-actions form-wide">
+                            <button type="submit" className="primary-button">
+                              Guardar PDF
+                            </button>
+                          </div>
+                        </form>
                       </article>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="empty-state">
-                    <h3>No hay cambios registrados todavía.</h3>
-                    <p>Los cambios de curso, módulos, lecciones, PDFs y recursos aparecerán aquí.</p>
-                  </div>
-                )}
-              </section>
-            ) : null}
+
+                      <article className="course-subview-card course-subview-list-card">
+                        <div className="panel-head">
+                          <div>
+                            <p className="eyebrow">Lista</p>
+                            <h3>{libraryPdfs.length} PDFs</h3>
+                          </div>
+                        </div>
+                        {libraryPdfs.length > 0 ? (
+                          <div className="library-list">
+                            {libraryPdfs.map((pdf) => (
+                              <article
+                                key={pdf.id}
+                                className="library-list-row"
+                              >
+                                <div className="library-list-main">
+                                  <div className="library-list-title">
+                                    <strong>{pdf.title}</strong>
+                                    <p>
+                                      {pdf.description || "Sin descripción"}
+                                    </p>
+                                  </div>
+                                  <div className="library-list-meta">
+                                    <span>{pdf.category}</span>
+                                    <span>
+                                      {pdf.courseId
+                                        ? pdf.courseId
+                                        : "Sin vínculo"}
+                                    </span>
+                                    <span>{pdf.pageCount} páginas</span>
+                                    <span className="topbar-pill">
+                                      {pdf.status ?? "draft"}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div className="library-list-actions">
+                                  <button
+                                    type="button"
+                                    className="secondary-button"
+                                    onClick={() => openLibraryPdfEditor(pdf)}
+                                  >
+                                    Editar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="secondary-button"
+                                    onClick={() => {
+                                      if (
+                                        window.confirm(
+                                          `¿Eliminar "${pdf.title}"?`,
+                                        )
+                                      ) {
+                                        void handleLibraryPdfAction(
+                                          pdf.id,
+                                          "delete",
+                                        );
+                                      }
+                                    }}
+                                  >
+                                    Eliminar
+                                  </button>
+                                </div>
+                              </article>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="empty-state">
+                            <h3>No hay PDFs todavía.</h3>
+                            <p>
+                              Sube material de apoyo para que la biblioteca
+                              quede ordenada por curso.
+                            </p>
+                          </div>
+                        )}
+                      </article>
+                    </div>
+                  </>
+                ) : null}
+
+                {courseDrawerTab === "publication" ? (
+                  <section className="course-publication-grid">
+                    <article className="course-subview-card">
+                      <div className="panel-head">
+                        <div>
+                          <p className="eyebrow">Publicación</p>
+                          <h3>Estado actual</h3>
+                        </div>
+                      </div>
+                      <div className="metric-card">
+                        <span>
+                          {selectedCourse?.title ?? "Selecciona un curso"}
+                        </span>
+                        <strong>{selectedCourse?.status ?? "draft"}</strong>
+                        <p>
+                          {selectedCourse?.status === "published"
+                            ? "Visible para alumnos"
+                            : selectedCourse?.status === "archived"
+                              ? "Archivado"
+                              : "Aún en edición"}
+                        </p>
+                      </div>
+                    </article>
+                    <article className="course-subview-card">
+                      <div className="panel-head">
+                        <div>
+                          <p className="eyebrow">Acciones</p>
+                          <h3>Control de publicación</h3>
+                        </div>
+                      </div>
+                      <div className="course-publication-actions">
+                        <button
+                          type="button"
+                          className="primary-button button-with-icon"
+                          onClick={() => void handlePublishCourse("publish")}
+                        >
+                          <span className="button-icon" aria-hidden="true">
+                            <ActionIcon name="publish" />
+                          </span>
+                          <span>Publicar</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="secondary-button button-with-icon"
+                          onClick={() => void handlePublishCourse("unpublish")}
+                        >
+                          <span className="button-icon" aria-hidden="true">
+                            <ActionIcon name="refresh" />
+                          </span>
+                          <span>Volver a borrador</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="danger-button button-with-icon"
+                          onClick={() => void handlePublishCourse("archive")}
+                        >
+                          <span className="button-icon" aria-hidden="true">
+                            <ActionIcon name="archive" />
+                          </span>
+                          <span>Archivar</span>
+                        </button>
+                      </div>
+                    </article>
+                  </section>
+                ) : null}
+
+                {courseDrawerTab === "history" ? (
+                  <section className="course-audit-panel">
+                    <div className="panel-head">
+                      <div>
+                        <p className="eyebrow">Historial</p>
+                        <h3>Cambios registrados</h3>
+                      </div>
+                    </div>
+
+                    {courseAuditError ? (
+                      <p className="badge-feedback badge-feedback-error">
+                        {courseAuditError}
+                      </p>
+                    ) : null}
+
+                    {courseAuditEntries.length > 0 ? (
+                      <div className="audit-table">
+                        <div className="audit-table-head audit-table-row">
+                          <span>Fecha</span>
+                          <span>Acción</span>
+                          <span>Elemento</span>
+                          <span>Campo</span>
+                          <span>Antes</span>
+                          <span>Después</span>
+                          <span>Origen</span>
+                          <span />
+                        </div>
+                        {courseAuditEntries.map((entry) => (
+                          <article key={entry.id} className="audit-table-row">
+                            <span>{formatDate(entry.changedAt)}</span>
+                            <span>
+                              {getCourseAuditActionLabel(
+                                entry.action,
+                                entry.fieldChanged,
+                              )}
+                            </span>
+                            <span>{getCourseAuditElementLabel(entry)}</span>
+                            <span>
+                              {formatAuditFieldLabel(entry.fieldChanged)}
+                            </span>
+                            <span>
+                              {summarizeAuditValue(entry.previousValue)}
+                            </span>
+                            <span>{summarizeAuditValue(entry.newValue)}</span>
+                            <span>{entry.changedBy}</span>
+                            <span className="align-right">
+                              <button
+                                type="button"
+                                className="secondary-button audit-detail-button"
+                                onClick={() => handleOpenAuditEntry(entry)}
+                              >
+                                Ver detalle
+                              </button>
+                            </span>
+                          </article>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="empty-state">
+                        <h3>No hay cambios registrados todavía.</h3>
+                        <p>
+                          Los cambios de curso, módulos, lecciones, PDFs y
+                          recursos aparecerán aquí.
+                        </p>
+                      </div>
+                    )}
+                  </section>
+                ) : null}
               </section>
             </div>
           </div>
@@ -10802,7 +12816,11 @@ function App() {
       ) : null}
 
       {isBadgeEditorOpen ? (
-        <div className="badge-editor-backdrop" onClick={handleCloseBadgeEditor} role="presentation">
+        <div
+          className="badge-editor-backdrop"
+          onClick={handleCloseBadgeEditor}
+          role="presentation"
+        >
           <aside
             className="badge-editor-drawer"
             onClick={(event) => event.stopPropagation()}
@@ -10814,13 +12832,20 @@ function App() {
               <div>
                 <p className="eyebrow">Editor de insignia</p>
                 <h2 id="badge-editor-title">
-                  {selectedBadge ? `Editar ${selectedBadge.name}` : "Nueva insignia"}
+                  {selectedBadge
+                    ? `Editar ${selectedBadge.name}`
+                    : "Nueva insignia"}
                 </h2>
                 <p className="badge-editor-copy">
-                  La progresión depende de la ruta y del escalón. La rareza solo cambia la apariencia.
+                  La progresión depende de la ruta y del escalón. La rareza solo
+                  cambia la apariencia.
                 </p>
               </div>
-              <button type="button" className="secondary-button" onClick={handleCloseBadgeEditor}>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={handleCloseBadgeEditor}
+              >
                 Cerrar
               </button>
             </div>
@@ -10828,14 +12853,22 @@ function App() {
             <div className="editor-mode-switch">
               <button
                 type="button"
-                className={editorMode === "edit" ? "secondary-button active" : "secondary-button"}
+                className={
+                  editorMode === "edit"
+                    ? "secondary-button active"
+                    : "secondary-button"
+                }
                 onClick={() => setEditorMode("edit")}
               >
                 Editar
               </button>
               <button
                 type="button"
-                className={editorMode === "preview" ? "secondary-button active" : "secondary-button"}
+                className={
+                  editorMode === "preview"
+                    ? "secondary-button active"
+                    : "secondary-button"
+                }
                 onClick={() => setEditorMode("preview")}
               >
                 Preview
@@ -10853,9 +12886,10 @@ function App() {
 
             {occupiedActiveBadge ? (
               <p className="badge-feedback badge-feedback-error">
-                El escalón {currentStepIndex} de {currentPathMeta.pathId} ya tiene un badge activo:
-                {` ${occupiedActiveBadge.name}`}. Puedes guardar la nueva insignia en estado
-                inactivo, pero no activa.
+                El escalón {currentStepIndex} de {currentPathMeta.pathId} ya
+                tiene un badge activo:
+                {` ${occupiedActiveBadge.name}`}. Puedes guardar la nueva
+                insignia en estado inactivo, pero no activa.
               </p>
             ) : null}
 
@@ -10881,7 +12915,9 @@ function App() {
                           : "Bloqueada"}
                     </p>
                     <h3>{previewState.displayName}</h3>
-                    <p className="badge-preview-copy">{previewState.displayDescription}</p>
+                    <p className="badge-preview-copy">
+                      {previewState.displayDescription}
+                    </p>
                   </div>
                   <div className="badge-pill-row">
                     <span
@@ -10889,28 +12925,41 @@ function App() {
                     >
                       {badgeForm.rarity}
                     </span>
-                    <span className="badge-pill badge-pill-type">{badgeForm.type}</span>
+                    <span className="badge-pill badge-pill-type">
+                      {badgeForm.type}
+                    </span>
                     {badgeForm.isConditionHidden ? (
-                      <span className="badge-pill badge-pill-secret">SECRET</span>
+                      <span className="badge-pill badge-pill-secret">
+                        SECRET
+                      </span>
                     ) : null}
                   </div>
                 </article>
                 <div className="badge-preview-meta">
-                <div>
-                  <span>Título del escalón</span>
-                  <strong>{badgeForm.stepTitle || getBadgeStepTitle(currentStepIndex)}</strong>
-                </div>
-                <div>
-                  <span>Descripción del escalón</span>
-                  <strong>{badgeForm.stepDescription || currentPathMeta.description}</strong>
-                </div>
-                <div>
-                  <span>Motivo de bloqueo</span>
-                  <strong>{badgeForm.lockedReason || "Sin bloqueo definido"}</strong>
-                </div>
+                  <div>
+                    <span>Título del escalón</span>
+                    <strong>
+                      {badgeForm.stepTitle ||
+                        getBadgeStepTitle(currentStepIndex)}
+                    </strong>
+                  </div>
+                  <div>
+                    <span>Descripción del escalón</span>
+                    <strong>
+                      {badgeForm.stepDescription || currentPathMeta.description}
+                    </strong>
+                  </div>
+                  <div>
+                    <span>Motivo de bloqueo</span>
+                    <strong>
+                      {badgeForm.lockedReason || "Sin bloqueo definido"}
+                    </strong>
+                  </div>
                   <div>
                     <span>Siguiente badge</span>
-                    <strong>{previewState.nextBadgeName ?? "No hay siguiente escalón"}</strong>
+                    <strong>
+                      {previewState.nextBadgeName ?? "No hay siguiente escalón"}
+                    </strong>
                   </div>
                 </div>
               </section>
@@ -10923,7 +12972,9 @@ function App() {
                   <span>Nombre</span>
                   <input
                     value={badgeForm.name}
-                    onChange={(event) => updateBadgeForm("name", event.target.value)}
+                    onChange={(event) =>
+                      updateBadgeForm("name", event.target.value)
+                    }
                   />
                 </label>
                 <label>
@@ -10931,7 +12982,10 @@ function App() {
                   <select
                     value={badgeForm.category}
                     onChange={(event) =>
-                      updateBadgeForm("category", event.target.value as BadgeCategory)
+                      updateBadgeForm(
+                        "category",
+                        event.target.value as BadgeCategory,
+                      )
                     }
                   >
                     {Object.keys(badgeCategoryLabels).map((category) => (
@@ -10945,7 +12999,9 @@ function App() {
                   <span>Descripción</span>
                   <textarea
                     value={badgeForm.description}
-                    onChange={(event) => updateBadgeForm("description", event.target.value)}
+                    onChange={(event) =>
+                      updateBadgeForm("description", event.target.value)
+                    }
                     rows={3}
                   />
                 </label>
@@ -10954,23 +13010,36 @@ function App() {
                   <select
                     value={badgeForm.rarity}
                     onChange={(event) =>
-                      updateBadgeForm("rarity", event.target.value as BadgeRarity)
+                      updateBadgeForm(
+                        "rarity",
+                        event.target.value as BadgeRarity,
+                      )
                     }
                   >
-                    {["COMMON", "RARE", "EPIC", "LEGENDARY", "MYTHIC"].map((rarity) => (
-                      <option key={rarity} value={rarity}>
-                        {rarity}
-                      </option>
-                    ))}
+                    {["COMMON", "RARE", "EPIC", "LEGENDARY", "MYTHIC"].map(
+                      (rarity) => (
+                        <option key={rarity} value={rarity}>
+                          {rarity}
+                        </option>
+                      ),
+                    )}
                   </select>
                 </label>
                 <label>
                   <span>Tipo</span>
                   <select
                     value={badgeForm.type}
-                    onChange={(event) => updateBadgeForm("type", event.target.value as BadgeType)}
+                    onChange={(event) =>
+                      updateBadgeForm("type", event.target.value as BadgeType)
+                    }
                   >
-                    {["AUTOMATIC", "MANUAL", "SECRET", "TEMPORARY", "EVOLVING"].map((type) => (
+                    {[
+                      "AUTOMATIC",
+                      "MANUAL",
+                      "SECRET",
+                      "TEMPORARY",
+                      "EVOLVING",
+                    ].map((type) => (
                       <option key={type} value={type}>
                         {type}
                       </option>
@@ -10981,7 +13050,9 @@ function App() {
                   <input
                     type="checkbox"
                     checked={badgeForm.isActive}
-                    onChange={(event) => updateBadgeForm("isActive", event.target.checked)}
+                    onChange={(event) =>
+                      updateBadgeForm("isActive", event.target.checked)
+                    }
                   />
                   <span>active/enabled</span>
                 </label>
@@ -11023,7 +13094,9 @@ function App() {
                   <input
                     type="number"
                     value={badgeForm.pathOrder}
-                    onChange={(event) => updateBadgeForm("pathOrder", event.target.value)}
+                    onChange={(event) =>
+                      updateBadgeForm("pathOrder", event.target.value)
+                    }
                   />
                 </label>
                 <label>
@@ -11054,14 +13127,18 @@ function App() {
                   <span>stepTitle</span>
                   <input
                     value={badgeForm.stepTitle}
-                    onChange={(event) => updateBadgeForm("stepTitle", event.target.value)}
+                    onChange={(event) =>
+                      updateBadgeForm("stepTitle", event.target.value)
+                    }
                   />
                 </label>
                 <label className="form-wide">
                   <span>stepDescription</span>
                   <textarea
                     value={badgeForm.stepDescription}
-                    onChange={(event) => updateBadgeForm("stepDescription", event.target.value)}
+                    onChange={(event) =>
+                      updateBadgeForm("stepDescription", event.target.value)
+                    }
                     rows={2}
                   />
                 </label>
@@ -11070,7 +13147,10 @@ function App() {
                   <textarea
                     value={badgeForm.prerequisiteBadgeIds}
                     onChange={(event) =>
-                      updateBadgeForm("prerequisiteBadgeIds", event.target.value)
+                      updateBadgeForm(
+                        "prerequisiteBadgeIds",
+                        event.target.value,
+                      )
                     }
                     rows={2}
                     placeholder="badge-a, badge-b"
@@ -11080,7 +13160,9 @@ function App() {
                   <span>lockedReason</span>
                   <textarea
                     value={badgeForm.lockedReason}
-                    onChange={(event) => updateBadgeForm("lockedReason", event.target.value)}
+                    onChange={(event) =>
+                      updateBadgeForm("lockedReason", event.target.value)
+                    }
                     rows={2}
                   />
                 </label>
@@ -11129,7 +13211,11 @@ function App() {
                             ...current,
                             rules: current.rules.map((item) =>
                               item.id === rule.id
-                                ? { ...item, operator: event.target.value as BadgeRuleOperator }
+                                ? {
+                                    ...item,
+                                    operator: event.target
+                                      .value as BadgeRuleOperator,
+                                  }
                                 : item,
                             ),
                           }))
@@ -11147,7 +13233,9 @@ function App() {
                           setBadgeForm((current) => ({
                             ...current,
                             rules: current.rules.map((item) =>
-                              item.id === rule.id ? { ...item, value: event.target.value } : item,
+                              item.id === rule.id
+                                ? { ...item, value: event.target.value }
+                                : item,
                             ),
                           }))
                         }
@@ -11176,7 +13264,9 @@ function App() {
                         onClick={() =>
                           setBadgeForm((current) => ({
                             ...current,
-                            rules: current.rules.filter((item) => item.id !== rule.id),
+                            rules: current.rules.filter(
+                              (item) => item.id !== rule.id,
+                            ),
                           }))
                         }
                       >
@@ -11195,14 +13285,18 @@ function App() {
                   <span>iconUrl</span>
                   <input
                     value={badgeForm.iconUrl}
-                    onChange={(event) => updateBadgeForm("iconUrl", event.target.value)}
+                    onChange={(event) =>
+                      updateBadgeForm("iconUrl", event.target.value)
+                    }
                     placeholder="/assets/badges/..."
                   />
                 </label>
                 <div className="badge-preview-meta form-wide">
                   <div>
                     <span>Vista previa</span>
-                    <strong>{previewState.hidden ? "Ícono oculto" : "Ícono visible"}</strong>
+                    <strong>
+                      {previewState.hidden ? "Ícono oculto" : "Ícono visible"}
+                    </strong>
                   </div>
                   <div>
                     <span>Fallback</span>
@@ -11219,7 +13313,9 @@ function App() {
                   <input
                     type="checkbox"
                     checked={badgeForm.isPathVisible}
-                    onChange={(event) => updateBadgeForm("isPathVisible", event.target.checked)}
+                    onChange={(event) =>
+                      updateBadgeForm("isPathVisible", event.target.checked)
+                    }
                   />
                   <span>isPathVisible</span>
                 </label>
@@ -11237,7 +13333,9 @@ function App() {
                   <input
                     type="checkbox"
                     checked={badgeForm.isSecret}
-                    onChange={(event) => updateBadgeForm("isSecret", event.target.checked)}
+                    onChange={(event) =>
+                      updateBadgeForm("isSecret", event.target.checked)
+                    }
                   />
                   <span>isSecret</span>
                 </label>
@@ -11289,7 +13387,10 @@ function App() {
               <button
                 type="button"
                 className="primary-button"
-                disabled={savingBadgeId === (selectedBadgeId ?? "new") || saveBlockedByActiveConflict}
+                disabled={
+                  savingBadgeId === (selectedBadgeId ?? "new") ||
+                  saveBlockedByActiveConflict
+                }
                 onClick={() => void persistBadge()}
               >
                 {saveBlockedByActiveConflict
@@ -11298,7 +13399,10 @@ function App() {
                     ? "Guardando..."
                     : "Guardar cambios"}
               </button>
-              <button type="button" onClick={() => handleCreateBadge(badgeForm.pathId)}>
+              <button
+                type="button"
+                onClick={() => handleCreateBadge(badgeForm.pathId)}
+              >
                 Limpiar editor
               </button>
             </div>
@@ -11341,15 +13445,25 @@ function App() {
                   {formatDate(selectedAuditEntry.changedAt)}
                 </p>
               </div>
-              <button type="button" className="secondary-button" onClick={handleCloseAuditEntry}>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={handleCloseAuditEntry}
+              >
                 Cerrar
               </button>
             </div>
 
             <div className="audit-detail-meta">
               <div>
-                <span>{selectedAuditEntry.courseId ? "courseId" : "badgeId"}</span>
-                <strong>{selectedAuditEntry.courseId ?? selectedAuditEntry.badgeId ?? "—"}</strong>
+                <span>
+                  {selectedAuditEntry.courseId ? "courseId" : "badgeId"}
+                </span>
+                <strong>
+                  {selectedAuditEntry.courseId ??
+                    selectedAuditEntry.badgeId ??
+                    "—"}
+                </strong>
               </div>
               <div>
                 <span>{selectedAuditEntry.courseId ? "Curso" : "Badge"}</span>
@@ -11364,8 +13478,10 @@ function App() {
                 <span>{selectedAuditEntry.courseId ? "Elemento" : "Ruta"}</span>
                 <strong>
                   {selectedAuditEntry.courseId
-                    ? selectedAuditEntry.elementLabel ?? selectedAuditEntry.entityType ?? "Curso"
-                    : selectedAuditEntry.pathId ?? "sin ruta"}
+                    ? (selectedAuditEntry.elementLabel ??
+                      selectedAuditEntry.entityType ??
+                      "Curso")
+                    : (selectedAuditEntry.pathId ?? "sin ruta")}
                 </strong>
               </div>
               <div>
@@ -11406,8 +13522,12 @@ function App() {
             {selectedAuditNeedsComparison ? (
               <section className="audit-detail-comparison">
                 <div className="audit-detail-section-head">
-                  <h3>{getAuditChangeLabel(selectedAuditEntry.fieldChanged)}</h3>
-                  {selectedAuditPath ? <span>{selectedAuditPath.title}</span> : null}
+                  <h3>
+                    {getAuditChangeLabel(selectedAuditEntry.fieldChanged)}
+                  </h3>
+                  {selectedAuditPath ? (
+                    <span>{selectedAuditPath.title}</span>
+                  ) : null}
                 </div>
                 <div className="audit-detail-grid">
                   <article>
@@ -11429,7 +13549,9 @@ function App() {
                   <span>JSON formateado</span>
                 ) : null}
               </div>
-              <pre className="audit-detail-code">{selectedAuditPreviousValue}</pre>
+              <pre className="audit-detail-code">
+                {selectedAuditPreviousValue}
+              </pre>
             </section>
 
             <section className="audit-detail-section">
@@ -11441,6 +13563,156 @@ function App() {
               </div>
               <pre className="audit-detail-code">{selectedAuditNewValue}</pre>
             </section>
+          </aside>
+        </div>
+      ) : null}
+
+      {orderChatOrder ? (
+        <div
+          className="audit-detail-backdrop"
+          onClick={() => {
+            setOrderChatOrder(null);
+            setOrderChat(null);
+            setOrderChatError(null);
+            setOrderChatReply("");
+          }}
+          role="presentation"
+        >
+          <aside
+            className="audit-detail-drawer order-chat-drawer"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="order-chat-title"
+          >
+            <div className="audit-detail-head">
+              <div>
+                <p className="eyebrow">Chat de orden</p>
+                <h2 id="order-chat-title">{orderChatOrder.orderCode}</h2>
+                <p className="audit-detail-copy">
+                  {orderChatOrder.userName ?? orderChatOrder.userId} ·{" "}
+                  {formatOrderStatusLabel(orderChatOrder.status)}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => {
+                  setOrderChatOrder(null);
+                  setOrderChat(null);
+                  setOrderChatError(null);
+                  setOrderChatReply("");
+                }}
+              >
+                Cerrar
+              </button>
+            </div>
+
+            <div className="order-chat-summary">
+              <div>
+                <span>Entrega</span>
+                <strong>
+                  {orderChatOrder.deliveryAddress || "Pendiente de confirmar"}
+                </strong>
+              </div>
+              <div>
+                <span>Total</span>
+                <strong>
+                  {formatMoney(
+                    orderChatOrder.total.amount,
+                    orderChatOrder.total.currency || "USD",
+                  )}
+                </strong>
+              </div>
+              <div>
+                <span>Especialista</span>
+                <strong>{orderChatOrder.specialistName}</strong>
+              </div>
+            </div>
+
+            {orderChatLoading ? (
+              <p className="muted-copy">Cargando conversación...</p>
+            ) : null}
+            {orderChatError ? (
+              <p className="form-error">{orderChatError}</p>
+            ) : null}
+
+            <div className="chat-message-feed order-chat-feed">
+              {orderChat?.messages.length ? (
+                orderChat.messages.map((message) => (
+                  <article
+                    key={message.id}
+                    className={`chat-message-card${
+                      message.authorType === "user"
+                        ? " chat-message-card-member"
+                        : " chat-message-card-guide"
+                    }`}
+                  >
+                    <div className="chat-message-head">
+                      <div className="chat-message-author">
+                        <div className="chat-message-avatar" aria-hidden="true">
+                          <span>
+                            {message.authorType === "user"
+                              ? getNameInitials(
+                                  orderChatOrder.userName ?? "Cliente",
+                                )
+                              : "LR"}
+                          </span>
+                        </div>
+                        <div className="chat-message-author-meta">
+                          <div className="chat-message-author-line">
+                            <strong>
+                              {message.authorType === "user"
+                                ? (orderChatOrder.userName ?? "Cliente")
+                                : message.authorType === "system"
+                                  ? "Sistema"
+                                  : "Especialista"}
+                            </strong>
+                          </div>
+                          <span>{formatDate(message.createdAt)}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <p>{message.body}</p>
+                  </article>
+                ))
+              ) : (
+                <div className="empty-state order-chat-empty">
+                  <h3>Sin mensajes todavía.</h3>
+                  <p>
+                    Escribe el primer mensaje para coordinar pago y entrega con
+                    el cliente.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <form
+              className="chat-compose order-chat-compose"
+              onSubmit={handleSendOrderChatReply}
+            >
+              <textarea
+                className="chat-compose-textarea"
+                value={orderChatReply}
+                onChange={(event) => setOrderChatReply(event.target.value)}
+                placeholder="Escribe detalles de pago, entrega o recojo"
+                rows={4}
+              />
+              <div className="chat-compose-actions">
+                <span className="muted-copy">
+                  El cliente verá este mensaje como aviso dentro de su pedido.
+                </span>
+                <button
+                  type="submit"
+                  className="primary-button"
+                  disabled={
+                    sendingOrderChatReply || orderChatReply.trim().length === 0
+                  }
+                >
+                  {sendingOrderChatReply ? "Enviando..." : "Enviar mensaje"}
+                </button>
+              </div>
+            </form>
           </aside>
         </div>
       ) : null}
@@ -11462,28 +13734,39 @@ function App() {
               <div>
                 <p className="eyebrow">Admin desarrollador</p>
                 <h2 id="developer-access-title">Acceso protegido</h2>
-                <p className="hero-copy">Ingresa la contraseña para abrir las herramientas técnicas.</p>
+                <p className="hero-copy">
+                  Ingresa la contraseña para abrir las herramientas técnicas.
+                </p>
               </div>
             </div>
-            <form className="auth-entry-card" onSubmit={(event) => void handleDeveloperPasscodeSubmit(event)}>
-                <label>
-                  <span>Contraseña</span>
-                  <input
-                    type="password"
-                    inputMode="numeric"
-                    maxLength={4}
-                    pattern="[0-9]{4}"
-                    value={developerPasscode}
-                    onChange={(event) =>
-                      setDeveloperPasscode(event.target.value.replace(/\D/g, "").slice(0, 4))
-                    }
-                    placeholder="1111"
-                    autoComplete="current-password"
-                    autoFocus
-                  />
+            <form
+              className="auth-entry-card"
+              onSubmit={(event) => void handleDeveloperPasscodeSubmit(event)}
+            >
+              <label>
+                <span>Contraseña</span>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={4}
+                  pattern="[0-9]{4}"
+                  value={developerPasscode}
+                  onChange={(event) =>
+                    setDeveloperPasscode(
+                      event.target.value.replace(/\D/g, "").slice(0, 4),
+                    )
+                  }
+                  placeholder="1111"
+                  autoComplete="current-password"
+                  autoFocus
+                />
               </label>
               <div className="editor-actions">
-                <button type="button" className="secondary-button" onClick={() => setDeveloperAccessModalOpen(false)}>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => setDeveloperAccessModalOpen(false)}
+                >
                   Cancelar
                 </button>
                 <button type="submit" className="primary-button">
@@ -11491,7 +13774,9 @@ function App() {
                 </button>
               </div>
               {developerPasscodeError ? (
-                <p className="badge-feedback badge-feedback-error">{developerPasscodeError}</p>
+                <p className="badge-feedback badge-feedback-error">
+                  {developerPasscodeError}
+                </p>
               ) : null}
             </form>
           </section>

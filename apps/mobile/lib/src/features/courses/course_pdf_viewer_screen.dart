@@ -1,8 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/i18n/app_i18n.dart';
 import '../../core/theme/app_palette.dart';
 import '../../models/app_models.dart';
+
+Future<void> _openCourseResource(BuildContext context, String value) async {
+  final uri = Uri.tryParse(value.trim());
+  if (uri == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('No se pudo abrir el recurso.')),
+    );
+    return;
+  }
+
+  final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+  if (!opened && context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('No se pudo abrir el recurso.')),
+    );
+  }
+}
 
 class CoursePdfViewerScreen extends StatelessWidget {
   const CoursePdfViewerScreen({
@@ -246,6 +264,29 @@ class CoursePdfViewerScreen extends StatelessWidget {
                                               height: 1.45,
                                             ),
                                       ),
+                                      if (lessonEntry.value.resourceUrl
+                                              ?.trim()
+                                              .isNotEmpty ??
+                                          false) ...[
+                                        const SizedBox(height: 12),
+                                        Align(
+                                          alignment: Alignment.centerLeft,
+                                          child: FilledButton.icon(
+                                            onPressed: () =>
+                                                _openCourseResource(
+                                              context,
+                                              lessonEntry.value.resourceUrl!,
+                                            ),
+                                            icon: const Icon(
+                                              Icons.open_in_new_rounded,
+                                              size: 18,
+                                            ),
+                                            label: Text(
+                                              l10n.ts('Abrir recurso'),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ],
                                   ),
                                 ),

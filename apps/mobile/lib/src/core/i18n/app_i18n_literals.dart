@@ -1380,19 +1380,15 @@ const literalEnglishFallbackValues = <String, String>{
   "Activa tu motor natal": "Activate your natal engine",
   "Activa: {move}": "Activate: {move}",
   "Activar": "Activate",
-  "Activar vista especialista": "Activate specialist view",
   "Actual": "Current",
   "Actualizado con tu carta y el cielo del momento":
       "Updated with your chart and the current sky",
-  "Administrar como especialista": "Manage as a specialist",
   "Agenda una sesión dentro de tu panel":
       "Schedule a session inside your panel",
   "Agendar cita": "Schedule booking",
   "Agendar consulta": "Schedule consultation",
   "Alineación del nombre y del mapa": "Name and chart alignment",
   "Alma": "Soul",
-  "Antes de activar la vista especialista necesitamos tus datos base completos. Así podrás administrar cursos, productos, citas, precios y comunidad con una cuenta identificada.":
-      "Before activating specialist view we need your basic data completed. This lets you manage courses, products, bookings, prices, and community with an identified account.",
   "Antes de administrar necesitamos nombre, nacimiento, ciudad, país, zona horaria y coordenadas.":
       "Before managing, we need name, birth data, city, country, time zone, and coordinates.",
   "Apellido": "Last name",
@@ -1490,6 +1486,7 @@ const literalEnglishFallbackValues = <String, String>{
   "Diagnóstico listo para compartir.": "Diagnosis ready to share.",
   "Dom": "Sun",
   "Dominantes de la carta": "Chart dominants",
+  "Día": "Day",
   "Día = Noche": "Day = Night",
   "Día personal": "Personal day",
   "Día ≠ Noche": "Day ≠ Night",
@@ -1558,6 +1555,7 @@ const literalEnglishFallbackValues = <String, String>{
   "Gratis": "Free",
   "Guardar perfil y entrar": "Save profile and enter",
   "Guia: {guidance}": "Guide: {guidance}",
+  "Hora": "Hour",
   "Hora de nacimiento": "Birth time",
   "Hora de nacimiento desconocida": "Unknown birth time",
   "Hora: {time}": "Time: {time}",
@@ -1565,6 +1563,8 @@ const literalEnglishFallbackValues = <String, String>{
       "Today your visible desire takes on tone {value}, changing how you ask, receive, and prioritize energy in relationships.",
   "Identidad": "Identity",
   "Incidencias abiertas: {count}": "Open incidents: {count}",
+  "Ingresa una fecha de nacimiento válida en año, día y mes.":
+      "Enter a valid birth date with year, day, and month.",
   "Incluye cuerpos complementarios. Algunos requieren efemérides extra para aparecer en la carta.":
       "Includes complementary bodies. Some require extra ephemerides to appear in the chart.",
   "Ingresa tu nombre completo al nacer y tu fecha de nacimiento.":
@@ -1619,8 +1619,10 @@ const literalEnglishFallbackValues = <String, String>{
   "Marca el tono general de la carta y el área donde tu energía central busca expresarse con más fuerza.":
       "Marks the general tone of the chart and the area where your central energy seeks stronger expression.",
   "Medio Cielo": "Midheaven",
+  "Mes": "Month",
   "Mes personal": "Personal month",
   "Meta": "Goal",
+  "Min": "Min",
   "Mi carta astral de Lo Renaciente. Puedes guardarla tambien en Archivos o compartirla.":
       "My Lo Renaciente astral chart. You can also save it to Files or share it.",
   "Mie": "Wed",
@@ -1681,8 +1683,6 @@ const literalEnglishFallbackValues = <String, String>{
   "Opcional, para matiz actual": "Optional, for current nuance",
   "Pagos y métodos": "Payments and methods",
   "Panorama": "Overview",
-  "Para administrar cursos, productos, citas y comunidad necesitas registrarte primero con tu teléfono.":
-      "To manage courses, products, bookings, and community you first need to register with your phone.",
   "Para administrar primero necesitas registrarte con teléfono y completar tu perfil.":
       "To manage, you first need to register with phone and complete your profile.",
   "Partes": "Parts",
@@ -1716,10 +1716,6 @@ const literalEnglishFallbackValues = <String, String>{
   "Puntos técnicos": "Technical points",
   "Puntos, casas y aspectos": "Points, houses, and aspects",
   "Push activadas: {value}": "Push enabled: {value}",
-  "Quiero comprar, reservar consultas, tomar cursos y participar en la comunidad.":
-      "I want to buy, book consultations, take courses, and participate in the community.",
-  "Quiero gestionar consultas, precios, citas, contenido, comunidad y tienda.":
-      "I want to manage consultations, prices, bookings, content, community, and shop.",
   "Quitar foto": "Remove photo",
   "Qué puedes gestionar desde aquí": "What you can manage from here",
   "Radar del momento": "Current radar",
@@ -1753,8 +1749,6 @@ const literalEnglishFallbackValues = <String, String>{
       "It is completed automatically if you do not edit it",
   "Se muestran horarios reales para sesiones de {minutes} minutos.":
       "Real times are shown for {minutes}-minute sessions.",
-  "Se usará este mismo perfil para habilitar el panel de administración de cursos, productos, citas, precios y comunidad.":
-      "This same profile will be used to enable the management panel for courses, products, bookings, prices, and community.",
   "Selecciona el criterio de Lilith": "Select the Lilith criterion",
   "Selecciona el criterio de cálculo": "Select the calculation criterion",
   "Selecciona la lógica de cálculo": "Select the calculation logic",
@@ -1816,8 +1810,6 @@ const literalEnglishFallbackValues = <String, String>{
   "Tránsitos, revoluciones y eventos próximos aparecerán aquí cuando generes la carta.":
       "Transits, returns, and upcoming events will appear here when you generate the chart.",
   "Tríada, regencias y sentido": "Triad, rulerships, and meaning",
-  "Tu cuenta ya puede gestionar cursos, productos, citas, precios y comunidad desde el panel operativo.":
-      "Your account can now manage courses, products, bookings, prices, and community from the operational panel.",
   "Tu lectura central aún no está lista":
       "Your central reading is not ready yet",
   "Tu nombre actual está vibrando igual que tu nombre base, así que la expresión externa del mapa se mantiene bastante coherente.":
@@ -1825,8 +1817,6 @@ const literalEnglishFallbackValues = <String, String>{
   "Tu nombre actual mueve una capa distinta del mapa: la expresión pasa a {value} y el deseo visible se ajusta con el nombre que usas hoy.":
       "Your current name moves a different layer of the map: expression shifts to {value}, and visible desire adjusts with the name you use today.",
   "Tu perfil": "Your profile",
-  "Tu perfil y tus datos se mantienen. Solo se ocultará el panel especialista y volverás a la navegación normal de usuario.":
-      "Your profile and data stay the same. Only the specialist panel will be hidden and you will return to normal user navigation.",
   "Tu plan está activo. Desde aquí puedes revisar beneficios, comparar planes y saltar a la gestión de tu plataforma.":
       "Your plan is active. From here you can review benefits, compare plans, and jump to your platform management.",
   "Tu tríada central": "Your central triad",
@@ -1838,8 +1828,6 @@ const literalEnglishFallbackValues = <String, String>{
   "Ubicación actual": "Current location",
   "Ubicación: {location}": "Location: {location}",
   "Upgrade disponible": "Upgrade available",
-  "Usa los mismos datos de tu perfil para habilitar gestión de cursos, productos, citas, precios y comunidad.":
-      "Use the same profile data to enable management of courses, products, bookings, prices, and community.",
   "Usuario": "User",
   "Usuarios activos: {count}": "Active users: {count}",
   "Ver alternativa": "View alternative",
@@ -1848,12 +1836,7 @@ const literalEnglishFallbackValues = <String, String>{
   "Ver upgrade": "View upgrade",
   "Vie": "Fri",
   "Vinculos y deseo": "Bonds and desire",
-  "Vista especialista activa": "Specialist view active",
-  "Vista especialista lista para administrar tu operación.":
-      "Specialist view ready to manage your operation.",
   "Vista previa": "Preview",
-  "Vista usuario activada.": "User view activated.",
-  "Volver a vista usuario": "Return to user view",
   "Ya alcanzaste el rango más alto disponible.":
       "You have reached the highest available rank.",
   "Zona IANA: {zone}": "IANA zone: {zone}",
@@ -1871,7 +1854,6 @@ const literalEnglishFallbackValues = <String, String>{
   "{sign} · {degree} · Casa {house}{retrograde}":
       "{sign} · {degree} · House {house}{retrograde}",
   "{value} · {count} repeticiones": "{value} · {count} repetitions",
-  "¿Cómo entrarás a la app?": "How will you enter the app?",
   "Áreas de foco: {areas}": "Focus areas: {areas}",
   "• Compartir contexto técnico mínimo para acelerar la respuesta":
       "• Share minimal technical context to speed up the response",

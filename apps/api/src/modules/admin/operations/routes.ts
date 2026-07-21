@@ -5,6 +5,7 @@ import {
   createCommunityChatMessage,
   deleteCommunityChatMessage,
   deleteCommunityChatMessageImage,
+  ensureOrderChatThread,
   getCommunityChatMessages,
 } from "../../../data/chat-store.js";
 import { getSpecialists } from "../../../data/mock-store.js";
@@ -62,6 +63,7 @@ import {
 } from "../../../data/persistent-store.js";
 import { getLibraryPdfMetadata } from "../../content/library-pdf-renderer.js";
 import { emitContentChanged } from "../../content/content-events.js";
+import { maybeOpenOrderCoordinationChat } from "../../shop/order-coordination.js";
 import {
   deleteSpecialistAvailability,
   getSpecialistAvailability,
@@ -75,7 +77,9 @@ function getAdminError(replyCode: number, hasPermission: boolean): string {
     return "No tienes permisos de admin.";
   }
 
-  return hasPermission ? "No se pudo completar la acción." : "Falta la sesión de admin.";
+  return hasPermission
+    ? "No se pudo completar la acción."
+    : "Falta la sesión de admin.";
 }
 
 function buildAdminAuditMeta(admin: {
@@ -91,8 +95,13 @@ function buildAdminAuditMeta(admin: {
   };
 }
 
-function buildSpecialistServicesMap(services: Awaited<ReturnType<typeof listServices>>) {
-  const itemsBySpecialistId = new Map<string, Awaited<ReturnType<typeof listServices>>>();
+function buildSpecialistServicesMap(
+  services: Awaited<ReturnType<typeof listServices>>,
+) {
+  const itemsBySpecialistId = new Map<
+    string,
+    Awaited<ReturnType<typeof listServices>>
+  >();
   for (const service of services) {
     for (const specialistId of service.specialistIds ?? []) {
       const items = itemsBySpecialistId.get(specialistId) ?? [];
@@ -103,8 +112,13 @@ function buildSpecialistServicesMap(services: Awaited<ReturnType<typeof listServ
   return itemsBySpecialistId;
 }
 
-function buildSpecialistBookingsMap(bookings: Awaited<ReturnType<typeof getAllBookingsAdmin>>) {
-  const itemsBySpecialistId = new Map<string, Awaited<ReturnType<typeof getAllBookingsAdmin>>>();
+function buildSpecialistBookingsMap(
+  bookings: Awaited<ReturnType<typeof getAllBookingsAdmin>>,
+) {
+  const itemsBySpecialistId = new Map<
+    string,
+    Awaited<ReturnType<typeof getAllBookingsAdmin>>
+  >();
   for (const booking of bookings) {
     if (!booking.specialistId) {
       continue;
@@ -122,10 +136,20 @@ function parseBooleanField(value: unknown, fallback: boolean): boolean {
   }
 
   const normalized = value.trim().toLowerCase();
-  if (normalized === "true" || normalized === "1" || normalized === "yes" || normalized === "on") {
+  if (
+    normalized === "true" ||
+    normalized === "1" ||
+    normalized === "yes" ||
+    normalized === "on"
+  ) {
     return true;
   }
-  if (normalized === "false" || normalized === "0" || normalized === "no" || normalized === "off") {
+  if (
+    normalized === "false" ||
+    normalized === "0" ||
+    normalized === "no" ||
+    normalized === "off"
+  ) {
     return false;
   }
 
@@ -141,14 +165,20 @@ function parseNumberField(value: unknown, fallback: number): number {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-function normalizeLibraryPdfFormStatus(value: unknown, fallback = "draft"): "draft" | "published" {
+function normalizeLibraryPdfFormStatus(
+  value: unknown,
+  fallback = "draft",
+): "draft" | "published" {
   if (value === "published" || value === "draft") {
     return value;
   }
   return fallback === "published" ? "published" : "draft";
 }
 
-function normalizeLibraryPdfCategory(value: unknown, fallback = "General"): string {
+function normalizeLibraryPdfCategory(
+  value: unknown,
+  fallback = "General",
+): string {
   if (typeof value !== "string") {
     return fallback;
   }
@@ -162,7 +192,8 @@ function isSupportedLibraryDocumentMime(mimeType: string): boolean {
   return (
     normalized === "application/pdf" ||
     normalized === "application/msword" ||
-    normalized === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    normalized ===
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
   );
 }
 
@@ -212,7 +243,9 @@ async function readLibraryPdfInput(
   pdfId?: string,
 ): Promise<Partial<LibraryPdfRecord>> {
   const existing = pdfId ? await getLibraryPdfById(pdfId) : null;
-  const contentType = String(request.headers["content-type"] ?? "").toLowerCase();
+  const contentType = String(
+    request.headers["content-type"] ?? "",
+  ).toLowerCase();
   const isMultipart = contentType.includes("multipart/form-data");
 
   if (!isMultipart) {
@@ -222,40 +255,47 @@ async function readLibraryPdfInput(
     const hasLessonId = Object.prototype.hasOwnProperty.call(body, "lessonId");
     return {
       id: pdfId ?? (typeof body.id === "string" ? body.id.trim() : ""),
-      title: typeof body.title === "string" ? body.title.trim() : existing?.title ?? "",
+      title:
+        typeof body.title === "string"
+          ? body.title.trim()
+          : (existing?.title ?? ""),
       description:
         typeof body.description === "string"
           ? body.description.trim()
-          : existing?.description ?? "",
+          : (existing?.description ?? ""),
       fileUrl:
         typeof body.fileUrl === "string"
           ? body.fileUrl.trim()
-          : existing?.fileUrl ?? "",
+          : (existing?.fileUrl ?? ""),
       courseId: hasCourseId
         ? normalizeNullableLibraryPdfRelation(body.courseId)
-        : existing?.courseId ?? null,
+        : (existing?.courseId ?? null),
       moduleId: hasModuleId
         ? normalizeNullableLibraryPdfRelation(body.moduleId)
-        : existing?.moduleId ?? null,
+        : (existing?.moduleId ?? null),
       lessonId: hasLessonId
         ? normalizeNullableLibraryPdfRelation(body.lessonId)
-        : existing?.lessonId ?? null,
-      category: normalizeLibraryPdfCategory(body.category, existing?.category ?? "General"),
+        : (existing?.lessonId ?? null),
+      category: normalizeLibraryPdfCategory(
+        body.category,
+        existing?.category ?? "General",
+      ),
       pageCount: parseNumberField(body.pageCount, existing?.pageCount ?? 0),
-      status: normalizeLibraryPdfFormStatus(body.status ?? existing?.status ?? "draft", existing?.status === "published" ? "published" : "draft"),
+      status: normalizeLibraryPdfFormStatus(
+        body.status ?? existing?.status ?? "draft",
+        existing?.status === "published" ? "published" : "draft",
+      ),
       isActive: parseBooleanField(body.isActive, existing?.isActive ?? true),
       skipAnalysis: parseBooleanField(body.skipAnalysis, false),
     };
   }
 
   const fields: Record<string, string> = {};
-  let filePart:
-    | {
-        filename: string;
-        mimetype: string;
-        bytes: Uint8Array;
-      }
-    | null = null;
+  let filePart: {
+    filename: string;
+    mimetype: string;
+    bytes: Uint8Array;
+  } | null = null;
 
   for await (const part of request.parts()) {
     if (part.type === "file") {
@@ -304,7 +344,10 @@ async function readLibraryPdfInput(
     lessonId: hasLessonId
       ? normalizeNullableLibraryPdfRelation(fields.lessonId)
       : existing?.lessonId || null,
-    category: normalizeLibraryPdfCategory(fields.category, existing?.category ?? "General"),
+    category: normalizeLibraryPdfCategory(
+      fields.category,
+      existing?.category ?? "General",
+    ),
     pageCount: parseNumberField(fields.pageCount, existing?.pageCount ?? 0),
     status: normalizeLibraryPdfFormStatus(
       fields.status ?? existing?.status ?? "draft",
@@ -346,8 +389,10 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
     const servicesBySpecialistId = buildSpecialistServicesMap(services);
     const bookingsBySpecialistId = buildSpecialistBookingsMap(bookings);
     const specialists = (await listAdminSpecialists()).map((specialist) => {
-      const specialistServices = servicesBySpecialistId.get(specialist.id) ?? [];
-      const specialistBookings = bookingsBySpecialistId.get(specialist.id) ?? [];
+      const specialistServices =
+        servicesBySpecialistId.get(specialist.id) ?? [];
+      const specialistBookings =
+        bookingsBySpecialistId.get(specialist.id) ?? [];
 
       return {
         ...specialist,
@@ -362,34 +407,39 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
     return { items: specialists };
   });
 
-  app.get<{ Params: { specialistId: string } }>("/specialists/:specialistId", async (request, reply) => {
-    const admin = await requireAdminSession(request, reply);
-    if (!admin) {
-      return { error: getAdminError(reply.statusCode, false) };
-    }
+  app.get<{ Params: { specialistId: string } }>(
+    "/specialists/:specialistId",
+    async (request, reply) => {
+      const admin = await requireAdminSession(request, reply);
+      if (!admin) {
+        return { error: getAdminError(reply.statusCode, false) };
+      }
 
-    const specialist = await getAdminSpecialistById(request.params.specialistId);
-    if (!specialist) {
-      reply.code(404);
-      return { error: "El especialista no existe." };
-    }
+      const specialist = await getAdminSpecialistById(
+        request.params.specialistId,
+      );
+      if (!specialist) {
+        reply.code(404);
+        return { error: "El especialista no existe." };
+      }
 
-    const [specialistServices, specialistBookings] = await Promise.all([
-      listServices({ includeInactive: true, specialistId: specialist.id }),
-      getAllBookingsAdmin({ specialistId: specialist.id, limit: 20 }),
-    ]);
+      const [specialistServices, specialistBookings] = await Promise.all([
+        listServices({ includeInactive: true, specialistId: specialist.id }),
+        getAllBookingsAdmin({ specialistId: specialist.id, limit: 20 }),
+      ]);
 
-    return {
-      item: {
-        ...specialist,
-        isVisible: specialist.isPublic,
-        serviceCount: specialistServices.length,
-        bookingCount: specialistBookings.length,
-        services: specialistServices,
-        bookings: specialistBookings.slice(0, 20),
-      },
-    };
-  });
+      return {
+        item: {
+          ...specialist,
+          isVisible: specialist.isPublic,
+          serviceCount: specialistServices.length,
+          bookingCount: specialistBookings.length,
+          services: specialistServices,
+          bookings: specialistBookings.slice(0, 20),
+        },
+      };
+    },
+  );
 
   app.patch<{
     Params: { specialistId: string };
@@ -429,23 +479,28 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
     }
   });
 
-  app.get<{ Params: { specialistId: string } }>("/specialists/:specialistId/services", async (request, reply) => {
-    const admin = await requireAdminSession(request, reply);
-    if (!admin) {
-      return { error: getAdminError(reply.statusCode, false) };
-    }
+  app.get<{ Params: { specialistId: string } }>(
+    "/specialists/:specialistId/services",
+    async (request, reply) => {
+      const admin = await requireAdminSession(request, reply);
+      if (!admin) {
+        return { error: getAdminError(reply.statusCode, false) };
+      }
 
-    const specialist = await getAdminSpecialistById(request.params.specialistId);
-    if (!specialist) {
-      reply.code(404);
-      return { error: "El especialista no existe." };
-    }
+      const specialist = await getAdminSpecialistById(
+        request.params.specialistId,
+      );
+      if (!specialist) {
+        reply.code(404);
+        return { error: "El especialista no existe." };
+      }
 
-    const services = (await listServices({ includeInactive: true })).filter((service) =>
-      service.specialistIds.includes(specialist.id),
-    );
-    return { items: services };
-  });
+      const services = (await listServices({ includeInactive: true })).filter(
+        (service) => service.specialistIds.includes(specialist.id),
+      );
+      return { items: services };
+    },
+  );
 
   app.post<{
     Params: { specialistId: string };
@@ -474,7 +529,9 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
       reply.code(400);
       return {
         error:
-          error instanceof Error ? error.message : "No se pudo crear el servicio.",
+          error instanceof Error
+            ? error.message
+            : "No se pudo crear el servicio.",
       };
     }
   });
@@ -482,65 +539,79 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
   app.patch<{
     Params: { specialistId: string; serviceId: string };
     Body: UpdateServiceOfferInput;
-  }>("/specialists/:specialistId/services/:serviceId", async (request, reply) => {
-    const admin = await requireAdminSession(request, reply);
-    if (!admin) {
-      return { error: getAdminError(reply.statusCode, false) };
-    }
+  }>(
+    "/specialists/:specialistId/services/:serviceId",
+    async (request, reply) => {
+      const admin = await requireAdminSession(request, reply);
+      if (!admin) {
+        return { error: getAdminError(reply.statusCode, false) };
+      }
 
-    const service = (await listServices({ includeInactive: true })).find(
-      (item) => item.id === request.params.serviceId,
-    );
-    if (!service || !service.specialistIds.includes(request.params.specialistId)) {
-      reply.code(404);
-      return { error: "El servicio no existe." };
-    }
-
-    try {
-      const item = await updateServiceOffer(
-        request.params.serviceId,
-        request.body ?? {},
-        buildAdminAuditMeta(admin),
+      const service = (await listServices({ includeInactive: true })).find(
+        (item) => item.id === request.params.serviceId,
       );
-      emitContentChanged({
-        entity: "service",
-        action: "updated",
-        entityId: item.id,
-        actor: admin.email,
+      if (
+        !service ||
+        !service.specialistIds.includes(request.params.specialistId)
+      ) {
+        reply.code(404);
+        return { error: "El servicio no existe." };
+      }
+
+      try {
+        const item = await updateServiceOffer(
+          request.params.serviceId,
+          request.body ?? {},
+          buildAdminAuditMeta(admin),
+        );
+        emitContentChanged({
+          entity: "service",
+          action: "updated",
+          entityId: item.id,
+          actor: admin.email,
+        });
+        return { item };
+      } catch (error) {
+        reply.code(400);
+        return {
+          error:
+            error instanceof Error
+              ? error.message
+              : "No se pudo actualizar el servicio.",
+        };
+      }
+    },
+  );
+
+  app.get<{ Params: { specialistId: string } }>(
+    "/specialists/:specialistId/bookings",
+    async (request, reply) => {
+      const admin = await requireAdminSession(request, reply);
+      if (!admin) {
+        return { error: getAdminError(reply.statusCode, false) };
+      }
+
+      const specialistBookings = await getAllBookingsAdmin({
+        specialistId: request.params.specialistId,
       });
-      return { item };
-    } catch (error) {
-      reply.code(400);
+
+      return { items: specialistBookings };
+    },
+  );
+
+  app.get<{ Params: { specialistId: string } }>(
+    "/specialists/:specialistId/availability",
+    async (request, reply) => {
+      const admin = await requireAdminSession(request, reply);
+      if (!admin) {
+        return { error: getAdminError(reply.statusCode, false) };
+      }
+
       return {
-        error:
-          error instanceof Error ? error.message : "No se pudo actualizar el servicio.",
+        items: await getSpecialistAvailability(request.params.specialistId, {}),
       };
-    }
-  });
-
-  app.get<{ Params: { specialistId: string } }>("/specialists/:specialistId/bookings", async (request, reply) => {
-    const admin = await requireAdminSession(request, reply);
-    if (!admin) {
-      return { error: getAdminError(reply.statusCode, false) };
-    }
-
-    const specialistBookings = await getAllBookingsAdmin({
-      specialistId: request.params.specialistId,
-    });
-
-    return { items: specialistBookings };
-  });
-
-  app.get<{ Params: { specialistId: string } }>("/specialists/:specialistId/availability", async (request, reply) => {
-    const admin = await requireAdminSession(request, reply);
-    if (!admin) {
-      return { error: getAdminError(reply.statusCode, false) };
-    }
-
-    return {
-      items: await getSpecialistAvailability(request.params.specialistId, {}),
-    };
-  });
+    },
+  );
 
   app.post<{
     Params: { specialistId: string };
@@ -571,7 +642,9 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
       reply.code(400);
       return {
         error:
-          error instanceof Error ? error.message : "No se pudo guardar la disponibilidad.",
+          error instanceof Error
+            ? error.message
+            : "No se pudo guardar la disponibilidad.",
       };
     }
   });
@@ -579,38 +652,41 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
   app.patch<{
     Params: { specialistId: string; availabilityId: string };
     Body: UpsertSpecialistAvailabilityInput;
-  }>("/specialists/:specialistId/availability/:availabilityId", async (request, reply) => {
-    const admin = await requireAdminSession(request, reply);
-    if (!admin) {
-      return { error: getAdminError(reply.statusCode, false) };
-    }
+  }>(
+    "/specialists/:specialistId/availability/:availabilityId",
+    async (request, reply) => {
+      const admin = await requireAdminSession(request, reply);
+      if (!admin) {
+        return { error: getAdminError(reply.statusCode, false) };
+      }
 
-    try {
-      const item = await upsertSpecialistAvailability(
-        {
-          ...(request.body ?? {}),
-          id: request.params.availabilityId,
-          specialistId: request.params.specialistId,
-        },
-        buildAdminAuditMeta(admin),
-      );
-      emitContentChanged({
-        entity: "specialist",
-        action: "updated",
-        entityId: item.id,
-        actor: admin.email,
-      });
-      return { item };
-    } catch (error) {
-      reply.code(400);
-      return {
-        error:
-          error instanceof Error
-            ? error.message
-            : "No se pudo actualizar la disponibilidad.",
-      };
-    }
-  });
+      try {
+        const item = await upsertSpecialistAvailability(
+          {
+            ...(request.body ?? {}),
+            id: request.params.availabilityId,
+            specialistId: request.params.specialistId,
+          },
+          buildAdminAuditMeta(admin),
+        );
+        emitContentChanged({
+          entity: "specialist",
+          action: "updated",
+          entityId: item.id,
+          actor: admin.email,
+        });
+        return { item };
+      } catch (error) {
+        reply.code(400);
+        return {
+          error:
+            error instanceof Error
+              ? error.message
+              : "No se pudo actualizar la disponibilidad.",
+        };
+      }
+    },
+  );
 
   app.delete<{ Params: { specialistId: string; availabilityId: string } }>(
     "/specialists/:specialistId/availability/:availabilityId",
@@ -638,7 +714,9 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
         reply.code(400);
         return {
           error:
-            error instanceof Error ? error.message : "No se pudo eliminar la disponibilidad.",
+            error instanceof Error
+              ? error.message
+              : "No se pudo eliminar la disponibilidad.",
         };
       }
     },
@@ -670,22 +748,25 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
     return { items: await getAllShopOrdersAdmin() };
   });
 
-  app.get<{ Params: { orderId: string } }>("/orders/:orderId", async (request, reply) => {
-    const admin = await requireAdminSession(request, reply);
-    if (!admin) {
-      return { error: getAdminError(reply.statusCode, false) };
-    }
+  app.get<{ Params: { orderId: string } }>(
+    "/orders/:orderId",
+    async (request, reply) => {
+      const admin = await requireAdminSession(request, reply);
+      if (!admin) {
+        return { error: getAdminError(reply.statusCode, false) };
+      }
 
-    const order = (await getAllShopOrdersAdmin()).find(
-      (item) => item.id === request.params.orderId,
-    );
-    if (!order) {
-      reply.code(404);
-      return { error: "La orden no existe." };
-    }
+      const order = (await getAllShopOrdersAdmin()).find(
+        (item) => item.id === request.params.orderId,
+      );
+      if (!order) {
+        reply.code(404);
+        return { error: "La orden no existe." };
+      }
 
-    return { item: order };
-  });
+      return { item: order };
+    },
+  );
 
   app.patch<{ Params: { orderId: string }; Body: UpdateShopOrderStatusInput }>(
     "/orders/:orderId",
@@ -695,7 +776,7 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
         return { error: getAdminError(reply.statusCode, false) };
       }
 
-    const order = (await getAllShopOrdersAdmin()).find(
+      const order = (await getAllShopOrdersAdmin()).find(
         (item) => item.id === request.params.orderId,
       );
       if (!order) {
@@ -709,16 +790,82 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
           request.body ?? { status: order.status },
           order.userId,
         );
-        return { item };
+        const chatThread = await maybeOpenOrderCoordinationChat(
+          item,
+          request.body ?? { status: order.status },
+          item.specialistId,
+        );
+        return { item, chatThread };
       } catch (error) {
         reply.code(400);
         return {
           error:
-            error instanceof Error ? error.message : "No se pudo actualizar la orden.",
+            error instanceof Error
+              ? error.message
+              : "No se pudo actualizar la orden.",
         };
       }
     },
   );
+
+  app.get<{ Params: { orderId: string } }>(
+    "/orders/:orderId/chat",
+    async (request, reply) => {
+      const admin = await requireAdminSession(request, reply);
+      if (!admin) {
+        return { error: getAdminError(reply.statusCode, false) };
+      }
+
+      const order = (await getAllShopOrdersAdmin()).find(
+        (item) => item.id === request.params.orderId,
+      );
+      if (!order) {
+        reply.code(404);
+        return { error: "La orden no existe." };
+      }
+
+      return {
+        item: await ensureOrderChatThread(order),
+      };
+    },
+  );
+
+  app.post<{
+    Params: { orderId: string };
+    Body: { body?: string };
+  }>("/orders/:orderId/chat/messages", async (request, reply) => {
+    const admin = await requireAdminSession(request, reply);
+    if (!admin) {
+      return { error: getAdminError(reply.statusCode, false) };
+    }
+
+    const order = (await getAllShopOrdersAdmin()).find(
+      (item) => item.id === request.params.orderId,
+    );
+    if (!order) {
+      reply.code(404);
+      return { error: "La orden no existe." };
+    }
+
+    try {
+      reply.code(201);
+      return {
+        item: await ensureOrderChatThread(order, {
+          authorType: "specialist",
+          authorId: order.specialistId,
+          message: request.body?.body,
+        }),
+      };
+    } catch (error) {
+      reply.code(400);
+      return {
+        error:
+          error instanceof Error
+            ? error.message
+            : "No se pudo enviar el mensaje.",
+      };
+    }
+  });
 
   app.patch<{ Params: { bookingId: string }; Body: UpdateBookingInput }>(
     "/bookings/:bookingId",
@@ -728,7 +875,9 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
         return { error: getAdminError(reply.statusCode, false) };
       }
 
-      const booking = (await getAllBookingsAdmin()).find((item) => item.id === request.params.bookingId);
+      const booking = (await getAllBookingsAdmin()).find(
+        (item) => item.id === request.params.bookingId,
+      );
       if (!booking) {
         reply.code(404);
         return { error: "La reserva no existe." };
@@ -751,51 +900,58 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
         reply.code(400);
         return {
           error:
-            error instanceof Error ? error.message : "No se pudo actualizar la reserva.",
+            error instanceof Error
+              ? error.message
+              : "No se pudo actualizar la reserva.",
         };
       }
     },
   );
 
-  app.post<{ Body: CreateBookingInput & { userId?: string } }>("/bookings", async (request, reply) => {
-    const admin = await requireAdminSession(request, reply);
-    if (!admin) {
-      return { error: getAdminError(reply.statusCode, false) };
-    }
+  app.post<{ Body: CreateBookingInput & { userId?: string } }>(
+    "/bookings",
+    async (request, reply) => {
+      const admin = await requireAdminSession(request, reply);
+      if (!admin) {
+        return { error: getAdminError(reply.statusCode, false) };
+      }
 
-    const userId = request.body?.userId?.trim();
-    if (!userId) {
-      reply.code(400);
-      return { error: "Selecciona un usuario para crear la reserva." };
-    }
+      const userId = request.body?.userId?.trim();
+      if (!userId) {
+        reply.code(400);
+        return { error: "Selecciona un usuario para crear la reserva." };
+      }
 
       try {
-      const item = await createBooking(
-        {
-          serviceId: request.body?.serviceId,
-          specialistId: request.body?.specialistId,
-          scheduledAt: request.body?.scheduledAt,
-          mode: request.body?.mode,
-          notes: request.body?.notes,
-        },
-        userId,
-      );
-      emitContentChanged({
-        entity: "booking",
-        action: "created",
-        entityId: item.id,
-        actor: admin.email,
-      });
-      reply.code(201);
-      return { item };
-    } catch (error) {
-      reply.code(400);
-      return {
-        error:
-          error instanceof Error ? error.message : "No se pudo crear la reserva.",
-      };
-    }
-  });
+        const item = await createBooking(
+          {
+            serviceId: request.body?.serviceId,
+            specialistId: request.body?.specialistId,
+            scheduledAt: request.body?.scheduledAt,
+            mode: request.body?.mode,
+            notes: request.body?.notes,
+          },
+          userId,
+        );
+        emitContentChanged({
+          entity: "booking",
+          action: "created",
+          entityId: item.id,
+          actor: admin.email,
+        });
+        reply.code(201);
+        return { item };
+      } catch (error) {
+        reply.code(400);
+        return {
+          error:
+            error instanceof Error
+              ? error.message
+              : "No se pudo crear la reserva.",
+        };
+      }
+    },
+  );
 
   app.get("/shop/products", async (request, reply) => {
     const admin = await requireAdminSession(request, reply);
@@ -845,7 +1001,9 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
         reply.code(400);
         return {
           error:
-            error instanceof Error ? error.message : "No se pudo crear el producto.",
+            error instanceof Error
+              ? error.message
+              : "No se pudo crear el producto.",
         };
       }
     },
@@ -881,24 +1039,29 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
         reply.code(400);
         return {
           error:
-            error instanceof Error ? error.message : "No se pudo actualizar el producto.",
+            error instanceof Error
+              ? error.message
+              : "No se pudo actualizar el producto.",
         };
       }
     },
   );
 
-  app.get<{ Params: { productId: string } }>("/shop/products/:productId/audit-log", async (request, reply) => {
-    const admin = await requireAdminSession(request, reply);
-    if (!admin) {
-      return { error: getAdminError(reply.statusCode, false) };
-    }
+  app.get<{ Params: { productId: string } }>(
+    "/shop/products/:productId/audit-log",
+    async (request, reply) => {
+      const admin = await requireAdminSession(request, reply);
+      if (!admin) {
+        return { error: getAdminError(reply.statusCode, false) };
+      }
 
-    return {
-      items: await getShopProductAuditLog({
-        productId: request.params.productId,
-      }),
-    };
-  });
+      return {
+        items: await getShopProductAuditLog({
+          productId: request.params.productId,
+        }),
+      };
+    },
+  );
 
   app.get("/courses", async (request, reply) => {
     const admin = await requireAdminSession(request, reply);
@@ -911,210 +1074,264 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
     };
   });
 
-  app.get<{ Params: { courseId: string } }>("/courses/:courseId", async (request, reply) => {
-    const admin = await requireAdminSession(request, reply);
-    if (!admin) {
-      return { error: getAdminError(reply.statusCode, false) };
-    }
+  app.get<{ Params: { courseId: string } }>(
+    "/courses/:courseId",
+    async (request, reply) => {
+      const admin = await requireAdminSession(request, reply);
+      if (!admin) {
+        return { error: getAdminError(reply.statusCode, false) };
+      }
 
-    const item = getAdminCourseById(request.params.courseId);
-    if (!item) {
-      reply.code(404);
-      return { error: "El curso no existe." };
-    }
+      const item = getAdminCourseById(request.params.courseId);
+      if (!item) {
+        reply.code(404);
+        return { error: "El curso no existe." };
+      }
 
-    return { item };
-  });
-
-  app.get<{ Params: { courseId: string } }>("/courses/:courseId/audit-log", async (request, reply) => {
-    const admin = await requireAdminSession(request, reply);
-    if (!admin) {
-      return { error: getAdminError(reply.statusCode, false) };
-    }
-
-    const item = getAdminCourseById(request.params.courseId);
-    if (!item) {
-      reply.code(404);
-      return { error: "El curso no existe." };
-    }
-
-    return {
-      items: await getCourseAuditLog({
-        courseId: request.params.courseId,
-      }),
-    };
-  });
-
-  app.post<{ Body: Record<string, unknown> }>("/courses", async (request, reply) => {
-    const admin = await requireAdminSession(request, reply);
-    if (!admin) {
-      return { error: getAdminError(reply.statusCode, false) };
-    }
-
-    try {
-      const item = await createCourse(request.body as never, buildAdminAuditMeta(admin));
-      emitContentChanged({
-        entity: "course",
-        action: "created",
-        entityId: item.id,
-        actor: admin.email,
-      });
-      reply.code(201);
       return { item };
-    } catch (error) {
-      reply.code(400);
+    },
+  );
+
+  app.get<{ Params: { courseId: string } }>(
+    "/courses/:courseId/audit-log",
+    async (request, reply) => {
+      const admin = await requireAdminSession(request, reply);
+      if (!admin) {
+        return { error: getAdminError(reply.statusCode, false) };
+      }
+
+      const item = getAdminCourseById(request.params.courseId);
+      if (!item) {
+        reply.code(404);
+        return { error: "El curso no existe." };
+      }
+
       return {
-        error:
-          error instanceof Error ? error.message : "No se pudo crear el curso.",
+        items: await getCourseAuditLog({
+          courseId: request.params.courseId,
+        }),
       };
-    }
-  });
+    },
+  );
 
-  app.patch<{ Params: { courseId: string }; Body: Record<string, unknown> }>("/courses/:courseId", async (request, reply) => {
-    const admin = await requireAdminSession(request, reply);
-    if (!admin) {
-      return { error: getAdminError(reply.statusCode, false) };
-    }
+  app.post<{ Body: Record<string, unknown> }>(
+    "/courses",
+    async (request, reply) => {
+      const admin = await requireAdminSession(request, reply);
+      if (!admin) {
+        return { error: getAdminError(reply.statusCode, false) };
+      }
 
-    try {
-      const item = await updateCourse(
-        request.params.courseId,
-        request.body as never,
-        buildAdminAuditMeta(admin),
-      );
-      emitContentChanged({
-        entity: "course",
-        action: "updated",
-        entityId: item.id,
-        actor: admin.email,
-      });
-      return { item };
-    } catch (error) {
-      reply.code(400);
-      return {
-        error:
-          error instanceof Error ? error.message : "No se pudo actualizar el curso.",
-      };
-    }
-  });
+      try {
+        const item = await createCourse(
+          request.body as never,
+          buildAdminAuditMeta(admin),
+        );
+        emitContentChanged({
+          entity: "course",
+          action: "created",
+          entityId: item.id,
+          actor: admin.email,
+        });
+        reply.code(201);
+        return { item };
+      } catch (error) {
+        reply.code(400);
+        return {
+          error:
+            error instanceof Error
+              ? error.message
+              : "No se pudo crear el curso.",
+        };
+      }
+    },
+  );
 
-  app.delete<{ Params: { courseId: string } }>("/courses/:courseId", async (request, reply) => {
-    const admin = await requireAdminSession(request, reply);
-    if (!admin) {
-      return { error: getAdminError(reply.statusCode, false) };
-    }
+  app.patch<{ Params: { courseId: string }; Body: Record<string, unknown> }>(
+    "/courses/:courseId",
+    async (request, reply) => {
+      const admin = await requireAdminSession(request, reply);
+      if (!admin) {
+        return { error: getAdminError(reply.statusCode, false) };
+      }
 
-    try {
-      const item = await archiveCourse(request.params.courseId, buildAdminAuditMeta(admin));
-      emitContentChanged({
-        entity: "course",
-        action: "archived",
-        entityId: item.id,
-        actor: admin.email,
-      });
-      return { item };
-    } catch (error) {
-      reply.code(400);
-      return {
-        error:
-          error instanceof Error ? error.message : "No se pudo archivar el curso.",
-      };
-    }
-  });
+      try {
+        const item = await updateCourse(
+          request.params.courseId,
+          request.body as never,
+          buildAdminAuditMeta(admin),
+        );
+        emitContentChanged({
+          entity: "course",
+          action: "updated",
+          entityId: item.id,
+          actor: admin.email,
+        });
+        return { item };
+      } catch (error) {
+        reply.code(400);
+        return {
+          error:
+            error instanceof Error
+              ? error.message
+              : "No se pudo actualizar el curso.",
+        };
+      }
+    },
+  );
 
-  app.post<{ Params: { courseId: string } }>("/courses/:courseId/publish", async (request, reply) => {
-    const admin = await requireAdminSession(request, reply);
-    if (!admin) {
-      return { error: getAdminError(reply.statusCode, false) };
-    }
+  app.delete<{ Params: { courseId: string } }>(
+    "/courses/:courseId",
+    async (request, reply) => {
+      const admin = await requireAdminSession(request, reply);
+      if (!admin) {
+        return { error: getAdminError(reply.statusCode, false) };
+      }
 
-    try {
-      const item = await publishCourse(request.params.courseId, buildAdminAuditMeta(admin));
-      emitContentChanged({
-        entity: "course",
-        action: "published",
-        entityId: item.id,
-        actor: admin.email,
-      });
-      return { item };
-    } catch (error) {
-      reply.code(400);
-      return {
-        error:
-          error instanceof Error ? error.message : "No se pudo publicar el curso.",
-      };
-    }
-  });
+      try {
+        const item = await archiveCourse(
+          request.params.courseId,
+          buildAdminAuditMeta(admin),
+        );
+        emitContentChanged({
+          entity: "course",
+          action: "archived",
+          entityId: item.id,
+          actor: admin.email,
+        });
+        return { item };
+      } catch (error) {
+        reply.code(400);
+        return {
+          error:
+            error instanceof Error
+              ? error.message
+              : "No se pudo archivar el curso.",
+        };
+      }
+    },
+  );
 
-  app.post<{ Params: { courseId: string } }>("/courses/:courseId/unpublish", async (request, reply) => {
-    const admin = await requireAdminSession(request, reply);
-    if (!admin) {
-      return { error: getAdminError(reply.statusCode, false) };
-    }
+  app.post<{ Params: { courseId: string } }>(
+    "/courses/:courseId/publish",
+    async (request, reply) => {
+      const admin = await requireAdminSession(request, reply);
+      if (!admin) {
+        return { error: getAdminError(reply.statusCode, false) };
+      }
 
-    try {
-      const item = await unpublishCourse(request.params.courseId, buildAdminAuditMeta(admin));
-      emitContentChanged({
-        entity: "course",
-        action: "unpublished",
-        entityId: item.id,
-        actor: admin.email,
-      });
-      return { item };
-    } catch (error) {
-      reply.code(400);
-      return {
-        error:
-          error instanceof Error ? error.message : "No se pudo pasar el curso a borrador.",
-      };
-    }
-  });
+      try {
+        const item = await publishCourse(
+          request.params.courseId,
+          buildAdminAuditMeta(admin),
+        );
+        emitContentChanged({
+          entity: "course",
+          action: "published",
+          entityId: item.id,
+          actor: admin.email,
+        });
+        return { item };
+      } catch (error) {
+        reply.code(400);
+        return {
+          error:
+            error instanceof Error
+              ? error.message
+              : "No se pudo publicar el curso.",
+        };
+      }
+    },
+  );
 
-  app.get<{ Params: { courseId: string } }>("/courses/:courseId/modules", async (request, reply) => {
-    const admin = await requireAdminSession(request, reply);
-    if (!admin) {
-      return { error: getAdminError(reply.statusCode, false) };
-    }
+  app.post<{ Params: { courseId: string } }>(
+    "/courses/:courseId/unpublish",
+    async (request, reply) => {
+      const admin = await requireAdminSession(request, reply);
+      if (!admin) {
+        return { error: getAdminError(reply.statusCode, false) };
+      }
 
-    const item = getAdminCourseById(request.params.courseId);
-    if (!item) {
-      reply.code(404);
-      return { error: "El curso no existe." };
-    }
+      try {
+        const item = await unpublishCourse(
+          request.params.courseId,
+          buildAdminAuditMeta(admin),
+        );
+        emitContentChanged({
+          entity: "course",
+          action: "unpublished",
+          entityId: item.id,
+          actor: admin.email,
+        });
+        return { item };
+      } catch (error) {
+        reply.code(400);
+        return {
+          error:
+            error instanceof Error
+              ? error.message
+              : "No se pudo pasar el curso a borrador.",
+        };
+      }
+    },
+  );
 
-    return { items: item.modules };
-  });
+  app.get<{ Params: { courseId: string } }>(
+    "/courses/:courseId/modules",
+    async (request, reply) => {
+      const admin = await requireAdminSession(request, reply);
+      if (!admin) {
+        return { error: getAdminError(reply.statusCode, false) };
+      }
 
-  app.post<{ Params: { courseId: string }; Body: Record<string, unknown> }>("/courses/:courseId/modules", async (request, reply) => {
-    const admin = await requireAdminSession(request, reply);
-    if (!admin) {
-      return { error: getAdminError(reply.statusCode, false) };
-    }
+      const item = getAdminCourseById(request.params.courseId);
+      if (!item) {
+        reply.code(404);
+        return { error: "El curso no existe." };
+      }
 
-    try {
-      const item = await createCourseModule(
-        request.params.courseId,
-        request.body as never,
-        buildAdminAuditMeta(admin),
-      );
-      emitContentChanged({
-        entity: "course",
-        action: "updated",
-        entityId: request.params.courseId,
-        actor: admin.email,
-      });
-      reply.code(201);
-      return { item };
-    } catch (error) {
-      reply.code(400);
-      return {
-        error:
-          error instanceof Error ? error.message : "No se pudo crear el módulo.",
-      };
-    }
-  });
+      return { items: item.modules };
+    },
+  );
 
-  app.patch<{ Params: { courseId: string; moduleId: string }; Body: Record<string, unknown> }>("/courses/:courseId/modules/:moduleId", async (request, reply) => {
+  app.post<{ Params: { courseId: string }; Body: Record<string, unknown> }>(
+    "/courses/:courseId/modules",
+    async (request, reply) => {
+      const admin = await requireAdminSession(request, reply);
+      if (!admin) {
+        return { error: getAdminError(reply.statusCode, false) };
+      }
+
+      try {
+        const item = await createCourseModule(
+          request.params.courseId,
+          request.body as never,
+          buildAdminAuditMeta(admin),
+        );
+        emitContentChanged({
+          entity: "course",
+          action: "updated",
+          entityId: request.params.courseId,
+          actor: admin.email,
+        });
+        reply.code(201);
+        return { item };
+      } catch (error) {
+        reply.code(400);
+        return {
+          error:
+            error instanceof Error
+              ? error.message
+              : "No se pudo crear el módulo.",
+        };
+      }
+    },
+  );
+
+  app.patch<{
+    Params: { courseId: string; moduleId: string };
+    Body: Record<string, unknown>;
+  }>("/courses/:courseId/modules/:moduleId", async (request, reply) => {
     const admin = await requireAdminSession(request, reply);
     if (!admin) {
       return { error: getAdminError(reply.statusCode, false) };
@@ -1138,61 +1355,76 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
       reply.code(400);
       return {
         error:
-          error instanceof Error ? error.message : "No se pudo actualizar el módulo.",
+          error instanceof Error
+            ? error.message
+            : "No se pudo actualizar el módulo.",
       };
     }
   });
 
-  app.delete<{ Params: { courseId: string; moduleId: string } }>("/courses/:courseId/modules/:moduleId", async (request, reply) => {
-    const admin = await requireAdminSession(request, reply);
-    if (!admin) {
-      return { error: getAdminError(reply.statusCode, false) };
-    }
+  app.delete<{ Params: { courseId: string; moduleId: string } }>(
+    "/courses/:courseId/modules/:moduleId",
+    async (request, reply) => {
+      const admin = await requireAdminSession(request, reply);
+      if (!admin) {
+        return { error: getAdminError(reply.statusCode, false) };
+      }
 
-    try {
-      const item = await deleteCourseModule(
-        request.params.courseId,
-        request.params.moduleId,
-        buildAdminAuditMeta(admin),
+      try {
+        const item = await deleteCourseModule(
+          request.params.courseId,
+          request.params.moduleId,
+          buildAdminAuditMeta(admin),
+        );
+        emitContentChanged({
+          entity: "course",
+          action: "updated",
+          entityId: request.params.courseId,
+          actor: admin.email,
+        });
+        return { item };
+      } catch (error) {
+        reply.code(400);
+        return {
+          error:
+            error instanceof Error
+              ? error.message
+              : "No se pudo eliminar el módulo.",
+        };
+      }
+    },
+  );
+
+  app.get<{ Params: { courseId: string; moduleId: string } }>(
+    "/courses/:courseId/modules/:moduleId/lessons",
+    async (request, reply) => {
+      const admin = await requireAdminSession(request, reply);
+      if (!admin) {
+        return { error: getAdminError(reply.statusCode, false) };
+      }
+
+      const item = getAdminCourseById(request.params.courseId);
+      if (!item) {
+        reply.code(404);
+        return { error: "El curso no existe." };
+      }
+
+      const module = item.modules.find(
+        (entry) => entry.id === request.params.moduleId,
       );
-      emitContentChanged({
-        entity: "course",
-        action: "updated",
-        entityId: request.params.courseId,
-        actor: admin.email,
-      });
-      return { item };
-    } catch (error) {
-      reply.code(400);
-      return {
-        error:
-          error instanceof Error ? error.message : "No se pudo eliminar el módulo.",
-      };
-    }
-  });
+      if (!module) {
+        reply.code(404);
+        return { error: "El módulo no existe." };
+      }
 
-  app.get<{ Params: { courseId: string; moduleId: string } }>("/courses/:courseId/modules/:moduleId/lessons", async (request, reply) => {
-    const admin = await requireAdminSession(request, reply);
-    if (!admin) {
-      return { error: getAdminError(reply.statusCode, false) };
-    }
+      return { items: module.lessons };
+    },
+  );
 
-    const item = getAdminCourseById(request.params.courseId);
-    if (!item) {
-      reply.code(404);
-      return { error: "El curso no existe." };
-    }
-
-    const module = item.modules.find((entry) => entry.id === request.params.moduleId);
-    if (!module) {
-      reply.code(404);
-      return { error: "El módulo no existe." };
-    }
-
-    return { items: module.lessons };
-  });
-
-  app.post<{ Params: { courseId: string; moduleId: string }; Body: Record<string, unknown> }>("/courses/:courseId/modules/:moduleId/lessons", async (request, reply) => {
+  app.post<{
+    Params: { courseId: string; moduleId: string };
+    Body: Record<string, unknown>;
+  }>("/courses/:courseId/modules/:moduleId/lessons", async (request, reply) => {
     const admin = await requireAdminSession(request, reply);
     if (!admin) {
       return { error: getAdminError(reply.statusCode, false) };
@@ -1217,117 +1449,147 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
       reply.code(400);
       return {
         error:
-          error instanceof Error ? error.message : "No se pudo crear la lección.",
+          error instanceof Error
+            ? error.message
+            : "No se pudo crear la lección.",
       };
     }
   });
 
-  app.patch<{ Params: { courseId: string; moduleId: string; lessonId: string }; Body: Record<string, unknown> }>("/courses/:courseId/modules/:moduleId/lessons/:lessonId", async (request, reply) => {
-    const admin = await requireAdminSession(request, reply);
-    if (!admin) {
-      return { error: getAdminError(reply.statusCode, false) };
-    }
+  app.patch<{
+    Params: { courseId: string; moduleId: string; lessonId: string };
+    Body: Record<string, unknown>;
+  }>(
+    "/courses/:courseId/modules/:moduleId/lessons/:lessonId",
+    async (request, reply) => {
+      const admin = await requireAdminSession(request, reply);
+      if (!admin) {
+        return { error: getAdminError(reply.statusCode, false) };
+      }
 
-    try {
-      const item = await updateCourseLesson(
-        request.params.courseId,
-        request.params.moduleId,
-        request.params.lessonId,
-        request.body as never,
-        buildAdminAuditMeta(admin),
-      );
-      emitContentChanged({
-        entity: "course",
-        action: "updated",
-        entityId: request.params.courseId,
-        actor: admin.email,
-      });
-      return { item };
-    } catch (error) {
-      reply.code(400);
+      try {
+        const item = await updateCourseLesson(
+          request.params.courseId,
+          request.params.moduleId,
+          request.params.lessonId,
+          request.body as never,
+          buildAdminAuditMeta(admin),
+        );
+        emitContentChanged({
+          entity: "course",
+          action: "updated",
+          entityId: request.params.courseId,
+          actor: admin.email,
+        });
+        return { item };
+      } catch (error) {
+        reply.code(400);
+        return {
+          error:
+            error instanceof Error
+              ? error.message
+              : "No se pudo actualizar la lección.",
+        };
+      }
+    },
+  );
+
+  app.delete<{
+    Params: { courseId: string; moduleId: string; lessonId: string };
+  }>(
+    "/courses/:courseId/modules/:moduleId/lessons/:lessonId",
+    async (request, reply) => {
+      const admin = await requireAdminSession(request, reply);
+      if (!admin) {
+        return { error: getAdminError(reply.statusCode, false) };
+      }
+
+      try {
+        const item = await deleteCourseLesson(
+          request.params.courseId,
+          request.params.moduleId,
+          request.params.lessonId,
+          buildAdminAuditMeta(admin),
+        );
+        emitContentChanged({
+          entity: "course",
+          action: "updated",
+          entityId: request.params.courseId,
+          actor: admin.email,
+        });
+        return { item };
+      } catch (error) {
+        reply.code(400);
+        return {
+          error:
+            error instanceof Error
+              ? error.message
+              : "No se pudo eliminar la lección.",
+        };
+      }
+    },
+  );
+
+  app.get<{ Querystring: { courseId?: string } }>(
+    "/course-resources",
+    async (request, reply) => {
+      const admin = await requireAdminSession(request, reply);
+      if (!admin) {
+        return { error: getAdminError(reply.statusCode, false) };
+      }
+
       return {
-        error:
-          error instanceof Error ? error.message : "No se pudo actualizar la lección.",
+        items: listCourseResources(request.query.courseId),
       };
-    }
-  });
+    },
+  );
 
-  app.delete<{ Params: { courseId: string; moduleId: string; lessonId: string } }>("/courses/:courseId/modules/:moduleId/lessons/:lessonId", async (request, reply) => {
-    const admin = await requireAdminSession(request, reply);
-    if (!admin) {
-      return { error: getAdminError(reply.statusCode, false) };
-    }
+  app.post<{ Body: Record<string, unknown> }>(
+    "/course-resources",
+    async (request, reply) => {
+      const admin = await requireAdminSession(request, reply);
+      if (!admin) {
+        return { error: getAdminError(reply.statusCode, false) };
+      }
 
-    try {
-      const item = await deleteCourseLesson(
-        request.params.courseId,
-        request.params.moduleId,
-        request.params.lessonId,
-        buildAdminAuditMeta(admin),
-      );
-      emitContentChanged({
-        entity: "course",
-        action: "updated",
-        entityId: request.params.courseId,
-        actor: admin.email,
-      });
-      return { item };
-    } catch (error) {
-      reply.code(400);
-      return {
-        error:
-          error instanceof Error ? error.message : "No se pudo eliminar la lección.",
-      };
-    }
-  });
+      const courseId = String(
+        (request.body as { courseId?: string }).courseId ?? "",
+      ).trim();
+      if (!courseId) {
+        reply.code(400);
+        return { error: "Selecciona un curso." };
+      }
 
-  app.get<{ Querystring: { courseId?: string } }>("/course-resources", async (request, reply) => {
-    const admin = await requireAdminSession(request, reply);
-    if (!admin) {
-      return { error: getAdminError(reply.statusCode, false) };
-    }
+      try {
+        const item = await upsertCourseResource(
+          courseId,
+          request.body as never,
+          buildAdminAuditMeta(admin),
+        );
+        emitContentChanged({
+          entity: "course",
+          action: "updated",
+          entityId: courseId,
+          actor: admin.email,
+        });
+        reply.code(201);
+        return { item };
+      } catch (error) {
+        reply.code(400);
+        return {
+          error:
+            error instanceof Error
+              ? error.message
+              : "No se pudo crear el recurso.",
+        };
+      }
+    },
+  );
 
-    return {
-      items: listCourseResources(request.query.courseId),
-    };
-  });
-
-  app.post<{ Body: Record<string, unknown> }>("/course-resources", async (request, reply) => {
-    const admin = await requireAdminSession(request, reply);
-    if (!admin) {
-      return { error: getAdminError(reply.statusCode, false) };
-    }
-
-    const courseId = String((request.body as { courseId?: string }).courseId ?? "").trim();
-    if (!courseId) {
-      reply.code(400);
-      return { error: "Selecciona un curso." };
-    }
-
-    try {
-      const item = await upsertCourseResource(
-        courseId,
-        request.body as never,
-        buildAdminAuditMeta(admin),
-      );
-      emitContentChanged({
-        entity: "course",
-        action: "updated",
-        entityId: courseId,
-        actor: admin.email,
-      });
-      reply.code(201);
-      return { item };
-    } catch (error) {
-      reply.code(400);
-      return {
-        error:
-          error instanceof Error ? error.message : "No se pudo crear el recurso.",
-      };
-    }
-  });
-
-  app.patch<{ Params: { courseId: string; resourceId: string }; Body: Record<string, unknown> }>("/course-resources/:courseId/:resourceId", async (request, reply) => {
+  app.patch<{
+    Params: { courseId: string; resourceId: string };
+    Body: Record<string, unknown>;
+  }>("/course-resources/:courseId/:resourceId", async (request, reply) => {
     const admin = await requireAdminSession(request, reply);
     if (!admin) {
       return { error: getAdminError(reply.statusCode, false) };
@@ -1353,38 +1615,45 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
       reply.code(400);
       return {
         error:
-          error instanceof Error ? error.message : "No se pudo actualizar el recurso.",
+          error instanceof Error
+            ? error.message
+            : "No se pudo actualizar el recurso.",
       };
     }
   });
 
-  app.delete<{ Params: { courseId: string; resourceId: string } }>("/course-resources/:courseId/:resourceId", async (request, reply) => {
-    const admin = await requireAdminSession(request, reply);
-    if (!admin) {
-      return { error: getAdminError(reply.statusCode, false) };
-    }
+  app.delete<{ Params: { courseId: string; resourceId: string } }>(
+    "/course-resources/:courseId/:resourceId",
+    async (request, reply) => {
+      const admin = await requireAdminSession(request, reply);
+      if (!admin) {
+        return { error: getAdminError(reply.statusCode, false) };
+      }
 
-    try {
-      await deleteCourseResource(
-        request.params.courseId,
-        request.params.resourceId,
-        buildAdminAuditMeta(admin),
-      );
-      emitContentChanged({
-        entity: "course",
-        action: "updated",
-        entityId: request.params.courseId,
-        actor: admin.email,
-      });
-      return { ok: true };
-    } catch (error) {
-      reply.code(400);
-      return {
-        error:
-          error instanceof Error ? error.message : "No se pudo eliminar el recurso.",
-      };
-    }
-  });
+      try {
+        await deleteCourseResource(
+          request.params.courseId,
+          request.params.resourceId,
+          buildAdminAuditMeta(admin),
+        );
+        emitContentChanged({
+          entity: "course",
+          action: "updated",
+          entityId: request.params.courseId,
+          actor: admin.email,
+        });
+        return { ok: true };
+      } catch (error) {
+        reply.code(400);
+        return {
+          error:
+            error instanceof Error
+              ? error.message
+              : "No se pudo eliminar el recurso.",
+        };
+      }
+    },
+  );
 
   app.get("/library/pdfs", async (request, reply) => {
     const admin = await requireAdminSession(request, reply);
@@ -1398,20 +1667,23 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
     return { items };
   });
 
-  app.get<{ Params: { pdfId: string } }>("/library/pdfs/:pdfId", async (request, reply) => {
-    const admin = await requireAdminSession(request, reply);
-    if (!admin) {
-      return { error: getAdminError(reply.statusCode, false) };
-    }
+  app.get<{ Params: { pdfId: string } }>(
+    "/library/pdfs/:pdfId",
+    async (request, reply) => {
+      const admin = await requireAdminSession(request, reply);
+      if (!admin) {
+        return { error: getAdminError(reply.statusCode, false) };
+      }
 
-    const item = await getLibraryPdfById(request.params.pdfId);
-    if (!item) {
-      reply.code(404);
-      return { error: "El PDF no existe." };
-    }
+      const item = await getLibraryPdfById(request.params.pdfId);
+      if (!item) {
+        reply.code(404);
+        return { error: "El PDF no existe." };
+      }
 
-    return { item };
-  });
+      return { item };
+    },
+  );
 
   app.post("/library/pdfs", async (request, reply) => {
     const admin = await requireAdminSession(request, reply);
@@ -1420,8 +1692,14 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
     }
 
     try {
-      const input = await readLibraryPdfInput(request, buildAdminAuditMeta(admin).changedBy);
-      const item = await createOrUpdateLibraryPdf(input, buildAdminAuditMeta(admin));
+      const input = await readLibraryPdfInput(
+        request,
+        buildAdminAuditMeta(admin).changedBy,
+      );
+      const item = await createOrUpdateLibraryPdf(
+        input,
+        buildAdminAuditMeta(admin),
+      );
       emitContentChanged({
         entity: "libraryPdf",
         action: item.status === "published" ? "published" : "updated",
@@ -1446,7 +1724,11 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
     }
 
     const fields: Record<string, string> = {};
-    const files: Array<{ filename: string; mimetype: string; bytes: Uint8Array }> = [];
+    const files: Array<{
+      filename: string;
+      mimetype: string;
+      bytes: Uint8Array;
+    }> = [];
 
     for await (const part of request.parts()) {
       if (part.type === "file") {
@@ -1487,10 +1769,9 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
 
         const item = await createOrUpdateLibraryPdf(
           {
-            title:
-              fields.titlePrefix?.trim().length
-                ? `${fields.titlePrefix.trim()} ${prettifyFileTitle(filePart.filename)}`
-                : prettifyFileTitle(filePart.filename),
+            title: fields.titlePrefix?.trim().length
+              ? `${fields.titlePrefix.trim()} ${prettifyFileTitle(filePart.filename)}`
+              : prettifyFileTitle(filePart.filename),
             description: fields.description?.trim() ?? "",
             fileUrl: asset.publicUrl,
             courseId: fields.courseId?.trim() || null,
@@ -1498,7 +1779,10 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
             lessonId: fields.lessonId?.trim() || null,
             category: normalizeLibraryPdfCategory(fields.category, "General"),
             pageCount: parseNumberField(fields.pageCount, 0),
-            status: normalizeLibraryPdfFormStatus(fields.status ?? "published", "published"),
+            status: normalizeLibraryPdfFormStatus(
+              fields.status ?? "published",
+              "published",
+            ),
             isActive: parseBooleanField(fields.isActive, true),
           },
           auditMeta,
@@ -1513,7 +1797,10 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
       } catch (error) {
         failures.push({
           fileName: filePart.filename,
-          error: error instanceof Error ? error.message : "No se pudo guardar este PDF.",
+          error:
+            error instanceof Error
+              ? error.message
+              : "No se pudo guardar este PDF.",
         });
       }
     }
@@ -1521,8 +1808,7 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
     if (items.length === 0) {
       reply.code(400);
       return {
-        error:
-          failures[0]?.error ?? "No se pudieron guardar los PDFs.",
+        error: failures[0]?.error ?? "No se pudieron guardar los PDFs.",
         failures,
       };
     }
@@ -1540,171 +1826,209 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
     return { items };
   });
 
-  app.patch<{ Params: { pdfId: string } }>("/library/pdfs/:pdfId", async (request, reply) => {
-    const admin = await requireAdminSession(request, reply);
-    if (!admin) {
-      return { error: getAdminError(reply.statusCode, false) };
-    }
+  app.patch<{ Params: { pdfId: string } }>(
+    "/library/pdfs/:pdfId",
+    async (request, reply) => {
+      const admin = await requireAdminSession(request, reply);
+      if (!admin) {
+        return { error: getAdminError(reply.statusCode, false) };
+      }
 
-    try {
-      const input = await readLibraryPdfInput(
-        request,
-        buildAdminAuditMeta(admin).changedBy,
-        request.params.pdfId,
-      );
-      const item = await createOrUpdateLibraryPdf(input, buildAdminAuditMeta(admin));
-      emitContentChanged({
-        entity: "libraryPdf",
-        action: item.status === "published" ? "published" : "updated",
-        entityId: item.id,
-        actor: admin.email,
-      });
-      return { item };
-    } catch (error) {
-      reply.code(400);
-      return {
+      try {
+        const input = await readLibraryPdfInput(
+          request,
+          buildAdminAuditMeta(admin).changedBy,
+          request.params.pdfId,
+        );
+        const item = await createOrUpdateLibraryPdf(
+          input,
+          buildAdminAuditMeta(admin),
+        );
+        emitContentChanged({
+          entity: "libraryPdf",
+          action: item.status === "published" ? "published" : "updated",
+          entityId: item.id,
+          actor: admin.email,
+        });
+        return { item };
+      } catch (error) {
+        reply.code(400);
+        return {
           error:
-          error instanceof Error ? error.message : "No se pudo actualizar el PDF.",
-      };
-    }
-  });
-
-  app.delete<{ Params: { pdfId: string } }>("/library/pdfs/:pdfId", async (request, reply) => {
-    const admin = await requireAdminSession(request, reply);
-    if (!admin) {
-      return { error: getAdminError(reply.statusCode, false) };
-    }
-
-    try {
-      await deleteLibraryPdf(request.params.pdfId, buildAdminAuditMeta(admin));
-      emitContentChanged({
-        entity: "libraryPdf",
-        action: "deleted",
-        entityId: request.params.pdfId,
-        actor: admin.email,
-      });
-      return { ok: true };
-    } catch (error) {
-      reply.code(400);
-      return {
-        error:
-          error instanceof Error ? error.message : "No se pudo eliminar el PDF.",
-      };
-    }
-  });
-
-  app.post<{ Params: { pdfId: string } }>("/library/pdfs/:pdfId/publish", async (request, reply) => {
-    const admin = await requireAdminSession(request, reply);
-    if (!admin) {
-      return { error: getAdminError(reply.statusCode, false) };
-    }
-
-    try {
-      const current = await getLibraryPdfById(request.params.pdfId);
-      if (!current) {
-        reply.code(404);
-        return { error: "El PDF no existe." };
+            error instanceof Error
+              ? error.message
+              : "No se pudo actualizar el PDF.",
+        };
       }
-      const item = await upsertLibraryPdf(
-        {
-          ...current,
-          status: "published",
-          isActive: true,
-        },
-        buildAdminAuditMeta(admin),
+    },
+  );
+
+  app.delete<{ Params: { pdfId: string } }>(
+    "/library/pdfs/:pdfId",
+    async (request, reply) => {
+      const admin = await requireAdminSession(request, reply);
+      if (!admin) {
+        return { error: getAdminError(reply.statusCode, false) };
+      }
+
+      try {
+        await deleteLibraryPdf(
+          request.params.pdfId,
+          buildAdminAuditMeta(admin),
+        );
+        emitContentChanged({
+          entity: "libraryPdf",
+          action: "deleted",
+          entityId: request.params.pdfId,
+          actor: admin.email,
+        });
+        return { ok: true };
+      } catch (error) {
+        reply.code(400);
+        return {
+          error:
+            error instanceof Error
+              ? error.message
+              : "No se pudo eliminar el PDF.",
+        };
+      }
+    },
+  );
+
+  app.post<{ Params: { pdfId: string } }>(
+    "/library/pdfs/:pdfId/publish",
+    async (request, reply) => {
+      const admin = await requireAdminSession(request, reply);
+      if (!admin) {
+        return { error: getAdminError(reply.statusCode, false) };
+      }
+
+      try {
+        const current = await getLibraryPdfById(request.params.pdfId);
+        if (!current) {
+          reply.code(404);
+          return { error: "El PDF no existe." };
+        }
+        const item = await upsertLibraryPdf(
+          {
+            ...current,
+            status: "published",
+            isActive: true,
+          },
+          buildAdminAuditMeta(admin),
+        );
+        emitContentChanged({
+          entity: "libraryPdf",
+          action: "published",
+          entityId: item.id,
+          actor: admin.email,
+        });
+        return { item };
+      } catch (error) {
+        reply.code(400);
+        return {
+          error:
+            error instanceof Error
+              ? error.message
+              : "No se pudo publicar el PDF.",
+        };
+      }
+    },
+  );
+
+  app.post<{ Params: { pdfId: string } }>(
+    "/library/pdfs/:pdfId/archive",
+    async (request, reply) => {
+      const admin = await requireAdminSession(request, reply);
+      if (!admin) {
+        return { error: getAdminError(reply.statusCode, false) };
+      }
+
+      try {
+        const current = await getLibraryPdfById(request.params.pdfId);
+        if (!current) {
+          reply.code(404);
+          return { error: "El PDF no existe." };
+        }
+        await deleteLibraryPdf(
+          request.params.pdfId,
+          buildAdminAuditMeta(admin),
+        );
+        emitContentChanged({
+          entity: "libraryPdf",
+          action: "archived",
+          entityId: current.id,
+          actor: admin.email,
+        });
+        return { item: { ...current, status: "archived", isActive: false } };
+      } catch (error) {
+        reply.code(400);
+        return {
+          error:
+            error instanceof Error
+              ? error.message
+              : "No se pudo archivar el PDF.",
+        };
+      }
+    },
+  );
+
+  app.get<{ Querystring: { limit?: string } }>(
+    "/chat/community",
+    async (request, reply) => {
+      const admin = await requireAdminSession(request, reply);
+      if (!admin) {
+        return { error: getAdminError(reply.statusCode, false) };
+      }
+
+      const limit = Math.max(
+        1,
+        Math.min(Number(request.query.limit ?? 50), 100),
       );
-      emitContentChanged({
-        entity: "libraryPdf",
-        action: "published",
-        entityId: item.id,
-        actor: admin.email,
-      });
-      return { item };
-    } catch (error) {
-      reply.code(400);
+      const items = await getCommunityChatMessages();
       return {
-        error:
-          error instanceof Error ? error.message : "No se pudo publicar el PDF.",
+        items: items.slice(-limit),
       };
-    }
-  });
-
-  app.post<{ Params: { pdfId: string } }>("/library/pdfs/:pdfId/archive", async (request, reply) => {
-    const admin = await requireAdminSession(request, reply);
-    if (!admin) {
-      return { error: getAdminError(reply.statusCode, false) };
-    }
-
-    try {
-      const current = await getLibraryPdfById(request.params.pdfId);
-      if (!current) {
-        reply.code(404);
-        return { error: "El PDF no existe." };
-      }
-      await deleteLibraryPdf(request.params.pdfId, buildAdminAuditMeta(admin));
-      emitContentChanged({
-        entity: "libraryPdf",
-        action: "archived",
-        entityId: current.id,
-        actor: admin.email,
-      });
-      return { item: { ...current, status: "archived", isActive: false } };
-    } catch (error) {
-      reply.code(400);
-      return {
-        error:
-          error instanceof Error ? error.message : "No se pudo archivar el PDF.",
-      };
-    }
-  });
-
-  app.get<{ Querystring: { limit?: string } }>("/chat/community", async (request, reply) => {
-    const admin = await requireAdminSession(request, reply);
-    if (!admin) {
-      return { error: getAdminError(reply.statusCode, false) };
-    }
-
-    const limit = Math.max(1, Math.min(Number(request.query.limit ?? 50), 100));
-    const items = await getCommunityChatMessages();
-    return {
-      items: items.slice(-limit),
-    };
-  });
+    },
+  );
 
   app.post<{ Body: { body?: string; imageUrl?: string } }>(
     "/chat/community/messages",
     async (request, reply) => {
-    const admin = await requireAdminSession(request, reply);
-    if (!admin) {
-      return { error: getAdminError(reply.statusCode, false) };
-    }
+      const admin = await requireAdminSession(request, reply);
+      if (!admin) {
+        return { error: getAdminError(reply.statusCode, false) };
+      }
 
-    try {
-      reply.code(201);
-      const items = await createCommunityChatMessage(
-        request.body ?? {},
-        undefined,
-        {
-          authorName: admin.name || admin.email || "Equipo Lo Renaciente",
-          authorRole: "guide",
-        },
-      );
-      emitContentChanged({
-        entity: "communityChat",
-        action: "created",
-        actor: admin.email,
-      });
-      return {
-        items,
-      };
-    } catch (error) {
-      reply.code(400);
-      return {
-        error:
-          error instanceof Error ? error.message : "No se pudo responder al chat.",
-      };
-    }
-  });
+      try {
+        reply.code(201);
+        const items = await createCommunityChatMessage(
+          request.body ?? {},
+          undefined,
+          {
+            authorName: admin.name || admin.email || "Equipo Lo Renaciente",
+            authorRole: "guide",
+          },
+        );
+        emitContentChanged({
+          entity: "communityChat",
+          action: "created",
+          actor: admin.email,
+        });
+        return {
+          items,
+        };
+      } catch (error) {
+        reply.code(400);
+        return {
+          error:
+            error instanceof Error
+              ? error.message
+              : "No se pudo responder al chat.",
+        };
+      }
+    },
+  );
 
   app.delete<{ Params: { messageId: string } }>(
     "/chat/community/messages/:messageId",
@@ -1715,7 +2039,9 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
       }
 
       try {
-        const items = await deleteCommunityChatMessage(request.params.messageId);
+        const items = await deleteCommunityChatMessage(
+          request.params.messageId,
+        );
         emitContentChanged({
           entity: "communityChat",
           action: "deleted",
@@ -1729,7 +2055,9 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
         reply.code(400);
         return {
           error:
-            error instanceof Error ? error.message : "No se pudo eliminar el mensaje.",
+            error instanceof Error
+              ? error.message
+              : "No se pudo eliminar el mensaje.",
         };
       }
     },
@@ -1744,7 +2072,9 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
       }
 
       try {
-        const items = await deleteCommunityChatMessageImage(request.params.messageId);
+        const items = await deleteCommunityChatMessageImage(
+          request.params.messageId,
+        );
         emitContentChanged({
           entity: "communityChat",
           action: "updated",
@@ -1758,30 +2088,37 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
         reply.code(400);
         return {
           error:
-            error instanceof Error ? error.message : "No se pudo eliminar la imagen.",
+            error instanceof Error
+              ? error.message
+              : "No se pudo eliminar la imagen.",
         };
       }
     },
   );
 
-  app.get<{ Params: { userId: string } }>("/users/:userId", async (request, reply) => {
-    const admin = await requireAdminSession(request, reply);
-    if (!admin) {
-      return { error: getAdminError(reply.statusCode, false) };
-    }
+  app.get<{ Params: { userId: string } }>(
+    "/users/:userId",
+    async (request, reply) => {
+      const admin = await requireAdminSession(request, reply);
+      if (!admin) {
+        return { error: getAdminError(reply.statusCode, false) };
+      }
 
-    try {
-      return {
-        item: await getProfile(request.params.userId),
-      };
-    } catch (error) {
-      reply.code(404);
-      return {
-        error:
-          error instanceof Error ? error.message : "No se pudo cargar el usuario.",
-      };
-    }
-  });
+      try {
+        return {
+          item: await getProfile(request.params.userId),
+        };
+      } catch (error) {
+        reply.code(404);
+        return {
+          error:
+            error instanceof Error
+              ? error.message
+              : "No se pudo cargar el usuario.",
+        };
+      }
+    },
+  );
 
   app.get("/incidents", async (request, reply) => {
     const admin = await requireAdminSession(request, reply);

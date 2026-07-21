@@ -6,7 +6,9 @@ import '../../core/i18n/app_i18n.dart';
 import '../../core/theme/app_palette.dart';
 import '../../core/utils/formatters.dart';
 import '../../models/app_models.dart';
+import '../../models/chat_models.dart';
 import '../../models/shop_models.dart';
+import '../chat/order_chat_screen.dart';
 
 class ShopScreen extends StatefulWidget {
   const ShopScreen({
@@ -17,6 +19,9 @@ class ShopScreen extends StatefulWidget {
     required this.onCreateProduct,
     required this.onUpdateProduct,
     required this.onUpdateOrderStatus,
+    required this.onLoadChatThreads,
+    required this.onLoadOrderChat,
+    required this.onSendOrderChatMessage,
     this.canManageShop = false,
   });
 
@@ -33,6 +38,10 @@ class ShopScreen extends StatefulWidget {
     required String orderId,
     required String status,
   }) onUpdateOrderStatus;
+  final Future<List<ChatThreadSummary>> Function() onLoadChatThreads;
+  final Future<ChatThreadDetail> Function(String orderId) onLoadOrderChat;
+  final Future<ChatThreadDetail> Function(String orderId, String body)
+      onSendOrderChatMessage;
   final bool canManageShop;
 
   @override
@@ -45,6 +54,10 @@ class _ShopScreenState extends State<ShopScreen> {
   String _selectedCategory = _allCategory;
   _ShopSection _selectedSection = _ShopSection.home;
   final Map<String, int> _cart = <String, int>{};
+  Timer? _chatThreadRefreshTimer;
+  List<ChatThreadSummary> _chatThreads = const [];
+  bool _loadingChatThreads = false;
+  String? _chatThreadsError;
 
   @override
   void initState() {
@@ -52,6 +65,22 @@ class _ShopScreenState extends State<ShopScreen> {
     if (widget.canManageShop) {
       _selectedSection = _ShopSection.admin;
     }
+    unawaited(_refreshChatThreads(silent: true));
+    _chatThreadRefreshTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (!mounted ||
+          (_selectedSection != _ShopSection.orders &&
+              _selectedSection != _ShopSection.admin)) {
+        return;
+      }
+
+      unawaited(_refreshChatThreads(silent: true));
+    });
+  }
+
+  @override
+  void dispose() {
+    _chatThreadRefreshTimer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -59,6 +88,10 @@ class _ShopScreenState extends State<ShopScreen> {
     super.didUpdateWidget(oldWidget);
 
     _normalizeCart();
+
+    if (oldWidget.data.shop.orders != widget.data.shop.orders) {
+      unawaited(_refreshChatThreads(silent: true));
+    }
 
     if (widget.canManageShop) {
       _cart.clear();
@@ -112,6 +145,11 @@ class _ShopScreenState extends State<ShopScreen> {
         : widget.canManageShop
             ? _ShopSection.admin
             : _ShopSection.home;
+    final chatThreadsByOrderId = <String, ChatThreadSummary>{
+      for (final thread in _chatThreads)
+        if (thread.orderId != null && thread.orderId!.isNotEmpty)
+          thread.orderId!: thread,
+    };
 
     return Container(
       decoration: const BoxDecoration(
@@ -215,10 +253,16 @@ class _ShopScreenState extends State<ShopScreen> {
                           ),
                         _ShopSection.orders => _ShopOrdersView(
                             orders: widget.data.shop.orders,
+                            chatThreadsByOrderId: chatThreadsByOrderId,
+                            loadingChatThreads: _loadingChatThreads,
+                            chatThreadsError: _chatThreadsError,
+                            onRefreshChatThreads: () => _refreshChatThreads(),
+                            onOpenOrderChat: _openOrderChat,
                           ),
                         _ShopSection.admin => _ShopAdminView(
                             products: products,
                             orders: widget.data.shop.orders,
+                            chatThreadsByOrderId: chatThreadsByOrderId,
                             lowStockProducts: lowStockProducts,
                             customizableProducts: customizableProducts,
                             onCreateProduct: _openCreateProductSheet,
@@ -230,6 +274,7 @@ class _ShopScreenState extends State<ShopScreen> {
                               });
                             },
                             onUpdateOrderStatus: _updateOrderStatus,
+                            onOpenOrderChat: _openOrderChat,
                           ),
                       },
                     ),
@@ -554,12 +599,84 @@ class _ShopScreenState extends State<ShopScreen> {
     );
   }
 
+  Future<void> _refreshChatThreads({bool silent = false}) async {
+    if (_loadingChatThreads && silent) {
+      return;
+    }
+
+    if (!silent && mounted) {
+      setState(() {
+        _loadingChatThreads = true;
+        _chatThreadsError = null;
+      });
+    }
+
+    try {
+      final threads = await widget.onLoadChatThreads();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _chatThreads = threads
+            .where((thread) =>
+                thread.orderId != null && thread.orderId!.isNotEmpty)
+            .toList();
+        _chatThreadsError = null;
+      });
+    } catch (error) {
+      if (!mounted || silent) {
+        return;
+      }
+      setState(() {
+        _chatThreadsError = error.toString().replaceFirst('Exception: ', '');
+      });
+    } finally {
+      if (mounted && !silent) {
+        setState(() {
+          _loadingChatThreads = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _openOrderChat(ShopOrder order) async {
+    try {
+      final thread = await widget.onLoadOrderChat(order.id);
+      if (!mounted) {
+        return;
+      }
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => OrderChatScreen(
+            order: order,
+            initialThread: thread,
+            onLoadThread: widget.onLoadOrderChat,
+            onSendMessage: widget.onSendOrderChatMessage,
+          ),
+        ),
+      );
+      if (mounted) {
+        unawaited(_refreshChatThreads(silent: true));
+      }
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+    }
+  }
+
   Future<void> _updateOrderStatus(ShopOrder order, String status) async {
     try {
       final updated = await widget.onUpdateOrderStatus(
         orderId: order.id,
         status: status,
       );
+      unawaited(_refreshChatThreads(silent: true));
       if (!mounted) {
         return;
       }
@@ -1662,9 +1779,19 @@ class _CatalogMetaChip extends StatelessWidget {
 class _ShopOrdersView extends StatefulWidget {
   const _ShopOrdersView({
     required this.orders,
+    required this.chatThreadsByOrderId,
+    required this.loadingChatThreads,
+    required this.onRefreshChatThreads,
+    required this.onOpenOrderChat,
+    this.chatThreadsError,
   });
 
   final List<ShopOrder> orders;
+  final Map<String, ChatThreadSummary> chatThreadsByOrderId;
+  final bool loadingChatThreads;
+  final String? chatThreadsError;
+  final Future<void> Function() onRefreshChatThreads;
+  final Future<void> Function(ShopOrder order) onOpenOrderChat;
 
   @override
   State<_ShopOrdersView> createState() => _ShopOrdersViewState();
@@ -1964,6 +2091,24 @@ class _ShopOrdersViewState extends State<_ShopOrdersView> {
         const SizedBox(height: 12),
         _OrderPipeline(orders: widget.orders),
         const SizedBox(height: 16),
+        if (widget.loadingChatThreads)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: LinearProgressIndicator(
+              minHeight: 3,
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
+        if (widget.chatThreadsError != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _OrderChatNotice(
+              title: l10n.ts('No se pudieron cargar los mensajes'),
+              body: widget.chatThreadsError!,
+              actionLabel: l10n.ts('Reintentar'),
+              onTap: widget.onRefreshChatThreads,
+            ),
+          ),
         if (widget.orders.isEmpty)
           _EmptyState(
             title: l10n.ts('Aún no hay órdenes'),
@@ -1974,6 +2119,8 @@ class _ShopOrdersViewState extends State<_ShopOrdersView> {
               padding: const EdgeInsets.only(bottom: 12),
               child: _OrderCard(
                 order: order,
+                coordinationThread: widget.chatThreadsByOrderId[order.id],
+                onOpenChat: () => widget.onOpenOrderChat(order),
                 expanded: _expandedOrderIds.contains(order.id),
                 onToggle: () {
                   setState(() {
@@ -2075,6 +2222,7 @@ class _ShopAdminView extends StatefulWidget {
   const _ShopAdminView({
     required this.products,
     required this.orders,
+    required this.chatThreadsByOrderId,
     required this.lowStockProducts,
     required this.customizableProducts,
     required this.onCreateProduct,
@@ -2082,10 +2230,12 @@ class _ShopAdminView extends StatefulWidget {
     required this.onEditFeatured,
     required this.onOpenOrders,
     required this.onUpdateOrderStatus,
+    required this.onOpenOrderChat,
   });
 
   final List<ShopProduct> products;
   final List<ShopOrder> orders;
+  final Map<String, ChatThreadSummary> chatThreadsByOrderId;
   final List<ShopProduct> lowStockProducts;
   final List<ShopProduct> customizableProducts;
   final VoidCallback onCreateProduct;
@@ -2094,6 +2244,7 @@ class _ShopAdminView extends StatefulWidget {
   final VoidCallback onOpenOrders;
   final Future<void> Function(ShopOrder order, String status)
       onUpdateOrderStatus;
+  final Future<void> Function(ShopOrder order) onOpenOrderChat;
 
   @override
   State<_ShopAdminView> createState() => _ShopAdminViewState();
@@ -2116,7 +2267,7 @@ class _ShopAdminViewState extends State<_ShopAdminView> {
     final visibleInventory = _filterInventory(widget.products);
     final visibleOrders = _filterOrders(widget.orders);
     final activeOrders =
-        widget.orders.where((order) => order.status != 'shipped').length;
+        widget.orders.where((order) => order.status != 'delivered').length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2318,6 +2469,7 @@ class _ShopAdminViewState extends State<_ShopAdminView> {
                 padding: const EdgeInsets.only(bottom: 10),
                 child: _AdminOrderRow(
                   order: order,
+                  coordinationThread: widget.chatThreadsByOrderId[order.id],
                   expanded: _expandedOrderIds.contains(order.id),
                   onToggle: () {
                     setState(() {
@@ -2330,6 +2482,7 @@ class _ShopAdminViewState extends State<_ShopAdminView> {
                   },
                   onUpdateStatus: (status) =>
                       widget.onUpdateOrderStatus(order, status),
+                  onOpenChat: () => widget.onOpenOrderChat(order),
                 ),
               ),
             ),
@@ -3253,23 +3406,29 @@ class _FeaturedManagerSheetState extends State<_FeaturedManagerSheet> {
 class _AdminOrderRow extends StatelessWidget {
   const _AdminOrderRow({
     required this.order,
+    required this.coordinationThread,
     required this.expanded,
     required this.onToggle,
     required this.onUpdateStatus,
+    required this.onOpenChat,
   });
 
   final ShopOrder order;
+  final ChatThreadSummary? coordinationThread;
   final bool expanded;
   final VoidCallback onToggle;
   final Future<void> Function(String status) onUpdateStatus;
+  final VoidCallback onOpenChat;
 
   @override
   Widget build(BuildContext context) {
     return _OrderCard(
       order: order,
+      coordinationThread: coordinationThread,
       expanded: expanded,
       onToggle: onToggle,
       onUpdateStatus: onUpdateStatus,
+      onOpenChat: onOpenChat,
     );
   }
 }
@@ -4724,14 +4883,18 @@ class _OrderCard extends StatelessWidget {
   const _OrderCard({
     required this.order,
     this.expanded = false,
+    this.coordinationThread,
     this.onToggle,
     this.onUpdateStatus,
+    this.onOpenChat,
   });
 
   final ShopOrder order;
   final bool expanded;
+  final ChatThreadSummary? coordinationThread;
   final VoidCallback? onToggle;
   final Future<void> Function(String status)? onUpdateStatus;
+  final VoidCallback? onOpenChat;
 
   @override
   Widget build(BuildContext context) {
@@ -4803,6 +4966,29 @@ class _OrderCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           _OrderProgressTimeline(status: order.status),
+          if (coordinationThread != null) ...[
+            const SizedBox(height: 12),
+            _OrderChatNotice(
+              title: l10n.ts('Mensaje de coordinación'),
+              body: coordinationThread!.lastMessagePreview.trim().isEmpty
+                  ? l10n.ts(
+                      'Abre el chat para coordinar pago y entrega.',
+                    )
+                  : coordinationThread!.lastMessagePreview,
+              actionLabel: l10n.ts('Revisar'),
+              onTap: onOpenChat,
+            ),
+          ] else if (onUpdateStatus != null && onOpenChat != null) ...[
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: onOpenChat,
+                icon: const Icon(Icons.forum_rounded),
+                label: Text(l10n.ts('Abrir chat')),
+              ),
+            ),
+          ],
           const SizedBox(height: 10),
           Text(
             order.storeName,
@@ -4904,6 +5090,96 @@ class _OrderCard extends StatelessWidget {
             ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+class _OrderChatNotice extends StatelessWidget {
+  const _OrderChatNotice({
+    required this.title,
+    required this.body,
+    this.actionLabel,
+    this.onTap,
+  });
+
+  final String title;
+  final String body;
+  final String? actionLabel;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
+        child: Ink(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: AppPalette.mistLilac.withValues(alpha: 0.72),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: AppPalette.royalViolet.withValues(alpha: 0.18),
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.mark_chat_unread_rounded,
+                  color: AppPalette.royalViolet,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            color: AppPalette.butterflyInk,
+                            fontWeight: FontWeight.w900,
+                          ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      body,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppPalette.mutedLavender,
+                            height: 1.35,
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+              if (actionLabel != null) ...[
+                const SizedBox(width: 10),
+                FilledButton.tonal(
+                  onPressed: onTap,
+                  style: FilledButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                  ),
+                  child: Text(actionLabel!),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -6186,6 +6462,11 @@ List<_PipelineStage> _shopOrderStages(BuildContext context) {
       AppPalette.flameGold,
     ),
     _PipelineStage(context.l10n.ts('Enviada'), 'shipped', AppPalette.indigo),
+    _PipelineStage(
+      context.l10n.ts('Entregada'),
+      'delivered',
+      AppPalette.success,
+    ),
   ];
 }
 
@@ -6223,6 +6504,8 @@ int _orderStageIndex(String status) {
       return 2;
     case 'shipped':
       return 3;
+    case 'delivered':
+      return 4;
     default:
       return 0;
   }
@@ -6244,6 +6527,11 @@ _OrderStatusCopy _statusCopy(BuildContext context, String status) {
       return _OrderStatusCopy(
         label: context.l10n.ts('Enviada'),
         color: AppPalette.indigo,
+      );
+    case 'delivered':
+      return _OrderStatusCopy(
+        label: context.l10n.ts('Entregada'),
+        color: AppPalette.success,
       );
     default:
       return _OrderStatusCopy(

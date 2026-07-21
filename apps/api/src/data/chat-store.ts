@@ -3,9 +3,13 @@ import { randomUUID } from "node:crypto";
 import type { PoolClient, QueryResultRow } from "pg";
 
 import { getUserBadgeProfile } from "./badge-store.js";
-import { isDatabaseConfigured, query, withTransaction } from "../infrastructure/database.js";
-import { getBookings, getProfile } from "./persistent-store.js";
-import { getSpecialists } from "./mock-store.js";
+import {
+  isDatabaseConfigured,
+  query,
+  withTransaction,
+} from "../infrastructure/database.js";
+import { getBookings, getProfile, getShopOrders } from "./persistent-store.js";
+import { getSpecialists, type ShopOrder } from "./mock-store.js";
 
 const demoUserId = "user-mark";
 
@@ -18,6 +22,7 @@ export interface ChatThreadSummary {
   specialistId: string;
   specialistName: string;
   bookingId: string | null;
+  orderId: string | null;
   status: ChatThreadStatus;
   lastMessagePreview: string;
   lastMessageAt: string | null;
@@ -59,6 +64,7 @@ export interface ChatThreadDetail {
 export interface CreateChatThreadInput {
   specialistId?: string;
   bookingId?: string;
+  orderId?: string;
   initialMessage?: string;
 }
 
@@ -82,6 +88,7 @@ interface ThreadRow extends QueryResultRow {
   user_id: string;
   specialist_id: string;
   booking_id: string | null;
+  order_id: string | null;
   status: ChatThreadStatus;
   created_at: Date | string;
   updated_at: Date | string;
@@ -114,6 +121,7 @@ interface ThreadRecord {
   userId: string;
   specialistId: string;
   bookingId: string | null;
+  orderId: string | null;
   status: ChatThreadStatus;
   createdAt: string;
   updatedAt: string;
@@ -125,6 +133,7 @@ const mockThreads: ThreadRecord[] = [
     userId: demoUserId,
     specialistId: "spec-amaya",
     bookingId: "booking-1",
+    orderId: null,
     status: "open",
     createdAt: "2026-03-24T15:00:00.000Z",
     updatedAt: "2026-03-24T15:06:00.000Z",
@@ -209,7 +218,10 @@ function toIsoString(value: Date | string | null | undefined): string | null {
 }
 
 function getSpecialistName(specialistId: string): string {
-  return getSpecialists().find((item) => item.id === specialistId)?.name ?? specialistId;
+  return (
+    getSpecialists().find((item) => item.id === specialistId)?.name ??
+    specialistId
+  );
 }
 
 function buildPreview(body: string): string {
@@ -228,6 +240,7 @@ function mapThreadRow(row: ThreadRow): ChatThreadSummary {
     specialistId: row.specialist_id,
     specialistName: getSpecialistName(row.specialist_id),
     bookingId: row.booking_id,
+    orderId: row.order_id,
     status: row.status,
     lastMessagePreview: buildPreview(row.last_message_preview ?? ""),
     lastMessageAt: toIsoString(row.last_message_at),
@@ -260,6 +273,7 @@ function buildMockThreadSummary(thread: ThreadRecord): ChatThreadSummary {
     specialistId: thread.specialistId,
     specialistName: getSpecialistName(thread.specialistId),
     bookingId: thread.bookingId,
+    orderId: thread.orderId,
     status: thread.status,
     lastMessagePreview: buildPreview(lastMessage?.body ?? ""),
     lastMessageAt: lastMessage?.createdAt ?? null,
@@ -282,6 +296,7 @@ async function getThreadRowById(
         t.user_id,
         t.specialist_id,
         t.booking_id,
+        t.order_id,
         t.status,
         t.created_at,
         t.updated_at,
@@ -333,7 +348,10 @@ async function getThreadMessages(
   return result.rows.map(mapMessageRow);
 }
 
-function buildThreadDetail(thread: ChatThreadSummary, messages: ChatMessage[]): ChatThreadDetail {
+function buildThreadDetail(
+  thread: ChatThreadSummary,
+  messages: ChatMessage[],
+): ChatThreadDetail {
   return {
     thread,
     messages,
@@ -352,7 +370,9 @@ function ensureThreadMessage(input: CreateChatMessageInput): string {
   return body;
 }
 
-function ensureCommunityMessage(input: CreateCommunityChatMessageInput): string {
+function ensureCommunityMessage(
+  input: CreateCommunityChatMessageInput,
+): string {
   const body = input.body?.trim() ?? "";
   const imageUrl = input.imageUrl?.trim() ?? "";
   if (body.length < 1 && imageUrl.length < 1) {
@@ -396,7 +416,9 @@ function resolveCommunityAvatarUrl(value?: string): string | null {
   return resolveCommunityImageUrl(value);
 }
 
-function mapCommunityMessageRow(row: CommunityMessageRow): CommunityChatMessage {
+function mapCommunityMessageRow(
+  row: CommunityMessageRow,
+): CommunityChatMessage {
   return {
     id: row.id,
     authorName: row.author_name,
@@ -412,7 +434,9 @@ function mapCommunityMessageRow(row: CommunityMessageRow): CommunityChatMessage 
   };
 }
 
-function resolveCommunityAuthorName(profile: Awaited<ReturnType<typeof getProfile>>): string {
+function resolveCommunityAuthorName(
+  profile: Awaited<ReturnType<typeof getProfile>>,
+): string {
   const firstName = profile.firstName.trim();
   const lastName = profile.lastName.trim();
   const nickname = profile.nickname.trim();
@@ -464,7 +488,9 @@ async function enrichCommunityMessages(
         ]);
         const communityBadge =
           badgeProfile.badges
-            .filter((badge) => badge.unlocked && badge.pathId === "community_path")
+            .filter(
+              (badge) => badge.unlocked && badge.pathId === "community_path",
+            )
             .sort((left, right) => right.stepIndex - left.stepIndex)[0] ?? null;
 
         authorDetails.set(userId, {
@@ -505,7 +531,9 @@ async function enrichCommunityMessages(
   });
 }
 
-export async function getChatThreads(userId?: string): Promise<ChatThreadSummary[]> {
+export async function getChatThreads(
+  userId?: string,
+): Promise<ChatThreadSummary[]> {
   const resolvedUserId = userId ?? demoUserId;
 
   if (!isDatabaseConfigured()) {
@@ -522,6 +550,7 @@ export async function getChatThreads(userId?: string): Promise<ChatThreadSummary
         t.user_id,
         t.specialist_id,
         t.booking_id,
+        t.order_id,
         t.status,
         t.created_at,
         t.updated_at,
@@ -589,7 +618,10 @@ export async function getChatThread(
     throw new Error("El hilo no existe.");
   }
 
-  return buildThreadDetail(mapThreadRow(threadRow), await getThreadMessages(threadId));
+  return buildThreadDetail(
+    mapThreadRow(threadRow),
+    await getThreadMessages(threadId),
+  );
 }
 
 export async function createChatThread(
@@ -598,14 +630,33 @@ export async function createChatThread(
 ): Promise<ChatThreadDetail> {
   const resolvedUserId = userId ?? demoUserId;
   const bookingId = input.bookingId?.trim() || null;
+  const orderId = input.orderId?.trim() || null;
   let specialistId = input.specialistId?.trim() || "";
 
+  if (bookingId && orderId) {
+    throw new Error(
+      "El chat debe asociarse a una reserva o a una orden, no a ambas.",
+    );
+  }
+
   if (bookingId) {
-    const booking = (await getBookings(resolvedUserId)).find((item) => item.id === bookingId);
+    const booking = (await getBookings(resolvedUserId)).find(
+      (item) => item.id === bookingId,
+    );
     if (!booking) {
       throw new Error("La reserva asociada no existe.");
     }
     specialistId = specialistId || booking.specialistId;
+  }
+
+  if (orderId) {
+    const order = (await getShopOrders(resolvedUserId)).find(
+      (item) => item.id === orderId,
+    );
+    if (!order) {
+      throw new Error("La orden asociada no existe.");
+    }
+    specialistId = specialistId || order.specialistId;
   }
 
   if (!specialistId) {
@@ -625,7 +676,14 @@ export async function createChatThread(
             item.bookingId === bookingId &&
             item.status === "open",
         )
-      : undefined;
+      : orderId
+        ? mockThreads.find(
+            (item) =>
+              item.userId === resolvedUserId &&
+              item.orderId === orderId &&
+              item.status === "open",
+          )
+        : undefined;
 
     if (existingThread) {
       return getChatThread(existingThread.id, resolvedUserId);
@@ -636,6 +694,7 @@ export async function createChatThread(
       userId: resolvedUserId,
       specialistId,
       bookingId,
+      orderId,
       status: "open",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -658,20 +717,24 @@ export async function createChatThread(
   }
 
   return withTransaction(async (client) => {
-    if (bookingId) {
+    if (bookingId || orderId) {
       const existing = await client.query<{ id: string }>(
         `
           select id
           from chat_threads
           where user_id = $1
-            and booking_id = $2
+            and ${bookingId ? "booking_id" : "order_id"} = $2
             and status = 'open'
           limit 1
         `,
-        [resolvedUserId, bookingId],
+        [resolvedUserId, bookingId ?? orderId],
       );
       if (existing.rows[0]) {
-        const detail = await getThreadRowById(existing.rows[0].id, resolvedUserId, client);
+        const detail = await getThreadRowById(
+          existing.rows[0].id,
+          resolvedUserId,
+          client,
+        );
         if (!detail) {
           throw new Error("No se pudo recuperar el hilo existente.");
         }
@@ -691,10 +754,11 @@ export async function createChatThread(
           user_id,
           specialist_id,
           booking_id,
+          order_id,
           status
-        ) values ($1, $2, $3, $4, 'open')
+        ) values ($1, $2, $3, $4, $5, 'open')
       `,
-      [threadId, resolvedUserId, specialistId, bookingId],
+      [threadId, resolvedUserId, specialistId, bookingId, orderId],
     );
 
     if (initialMessage.length > 0) {
@@ -725,7 +789,10 @@ export async function createChatThread(
       throw new Error("No se pudo crear el hilo.");
     }
 
-    return buildThreadDetail(mapThreadRow(thread), await getThreadMessages(threadId, client));
+    return buildThreadDetail(
+      mapThreadRow(thread),
+      await getThreadMessages(threadId, client),
+    );
   });
 }
 
@@ -792,7 +859,11 @@ export async function createChatMessage(
       [threadId],
     );
 
-    const updatedThread = await getThreadRowById(threadId, resolvedUserId, client);
+    const updatedThread = await getThreadRowById(
+      threadId,
+      resolvedUserId,
+      client,
+    );
     if (!updatedThread) {
       throw new Error("No se pudo recuperar el hilo actualizado.");
     }
@@ -804,10 +875,130 @@ export async function createChatMessage(
   });
 }
 
-export async function getCommunityChatMessages(): Promise<CommunityChatMessage[]> {
+export async function ensureOrderChatThread(
+  order: ShopOrder,
+  options: {
+    message?: string;
+    authorType?: ChatAuthorType;
+    authorId?: string;
+  } = {},
+): Promise<ChatThreadDetail> {
+  const body = options.message?.trim() ?? "";
+  const authorType = options.authorType ?? "specialist";
+  const authorId =
+    options.authorId?.trim() ||
+    (authorType === "system" ? "system" : order.specialistId);
+
+  if (!isDatabaseConfigured()) {
+    let thread = mockThreads.find(
+      (item) =>
+        item.userId === order.userId &&
+        item.orderId === order.id &&
+        item.status === "open",
+    );
+
+    if (!thread) {
+      thread = {
+        id: randomUUID(),
+        userId: order.userId,
+        specialistId: order.specialistId,
+        bookingId: null,
+        orderId: order.id,
+        status: "open",
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      mockThreads.unshift(thread);
+    }
+
+    if (body.length > 0) {
+      mockMessages.push({
+        id: randomUUID(),
+        threadId: thread.id,
+        authorType,
+        authorId,
+        body,
+        createdAt: new Date().toISOString(),
+      });
+      thread.updatedAt = new Date().toISOString();
+    }
+
+    return getChatThread(thread.id, order.userId);
+  }
+
+  return withTransaction(async (client) => {
+    const existing = await client.query<{ id: string }>(
+      `
+        select id
+        from chat_threads
+        where user_id = $1
+          and order_id = $2
+          and status = 'open'
+        limit 1
+      `,
+      [order.userId, order.id],
+    );
+    const threadId = existing.rows[0]?.id ?? randomUUID();
+
+    if (!existing.rows[0]) {
+      await client.query(
+        `
+          insert into chat_threads (
+            id,
+            user_id,
+            specialist_id,
+            booking_id,
+            order_id,
+            status
+          ) values ($1, $2, $3, null, $4, 'open')
+        `,
+        [threadId, order.userId, order.specialistId, order.id],
+      );
+    }
+
+    if (body.length > 0) {
+      await client.query(
+        `
+          insert into chat_messages (
+            id,
+            thread_id,
+            author_type,
+            author_id,
+            body
+          ) values ($1, $2, $3, $4, $5)
+        `,
+        [randomUUID(), threadId, authorType, authorId, body],
+      );
+      await client.query(
+        `
+          update chat_threads
+          set updated_at = now()
+          where id = $1
+        `,
+        [threadId],
+      );
+    }
+
+    const thread = await getThreadRowById(threadId, order.userId, client);
+    if (!thread) {
+      throw new Error("No se pudo abrir el chat de la orden.");
+    }
+
+    return buildThreadDetail(
+      mapThreadRow(thread),
+      await getThreadMessages(threadId, client),
+    );
+  });
+}
+
+export async function getCommunityChatMessages(): Promise<
+  CommunityChatMessage[]
+> {
   if (!isDatabaseConfigured()) {
     return enrichCommunityMessages(
-      [...mockCommunityMessages].sort((left, right) => left.createdAt.localeCompare(right.createdAt)),
+      [...mockCommunityMessages].sort((left, right) =>
+        left.createdAt.localeCompare(right.createdAt),
+      ),
     );
   }
 
@@ -837,10 +1028,14 @@ export async function createCommunityChatMessage(
   const profile = await getProfile(resolvedUserId);
   const authorRole = options?.authorRole ?? "member";
   const authorUserId =
-    authorRole === "member" ? resolvedUserId : options?.authorUserId?.trim() || null;
+    authorRole === "member"
+      ? resolvedUserId
+      : options?.authorUserId?.trim() || null;
   const authorName =
     options?.authorName?.trim() ||
-    (authorRole === "guide" ? "Equipo Lo Renaciente" : resolveCommunityAuthorName(profile));
+    (authorRole === "guide"
+      ? "Equipo Lo Renaciente"
+      : resolveCommunityAuthorName(profile));
 
   if (!isDatabaseConfigured()) {
     mockCommunityMessages.push({
@@ -877,19 +1072,27 @@ export async function createCommunityChatMessage(
   return getCommunityChatMessages();
 }
 
-export async function deleteCommunityChatMessage(messageId: string): Promise<CommunityChatMessage[]> {
+export async function deleteCommunityChatMessage(
+  messageId: string,
+): Promise<CommunityChatMessage[]> {
   const normalizedMessageId = messageId.trim();
   if (!normalizedMessageId) {
     throw new Error("El mensaje no es válido.");
   }
 
   if (!isDatabaseConfigured()) {
-    const nextMessages = mockCommunityMessages.filter((message) => message.id !== normalizedMessageId);
+    const nextMessages = mockCommunityMessages.filter(
+      (message) => message.id !== normalizedMessageId,
+    );
     if (nextMessages.length === mockCommunityMessages.length) {
       throw new Error("El mensaje no existe.");
     }
 
-    mockCommunityMessages.splice(0, mockCommunityMessages.length, ...nextMessages);
+    mockCommunityMessages.splice(
+      0,
+      mockCommunityMessages.length,
+      ...nextMessages,
+    );
     return getCommunityChatMessages();
   }
 
@@ -918,7 +1121,9 @@ export async function deleteCommunityChatMessageImage(
   }
 
   if (!isDatabaseConfigured()) {
-    const index = mockCommunityMessages.findIndex((message) => message.id === normalizedMessageId);
+    const index = mockCommunityMessages.findIndex(
+      (message) => message.id === normalizedMessageId,
+    );
     if (index < 0) {
       throw new Error("El mensaje no existe.");
     }

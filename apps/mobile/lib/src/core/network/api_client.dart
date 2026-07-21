@@ -204,6 +204,37 @@ class ApiClient {
     );
   }
 
+  Future<String> uploadCourseAsset({
+    required String accessToken,
+    required Uint8List bytes,
+    required String fileName,
+    required String contentType,
+  }) async {
+    return _uploadStorageAsset(
+      accessToken: accessToken,
+      bytes: bytes,
+      fileName: fileName,
+      contentType: contentType,
+      category: 'course',
+    );
+  }
+
+  Future<Course> createCourseFromResource({
+    required String accessToken,
+    required CreateCourseFromResourceInput input,
+  }) async {
+    final response = await _send(
+      method: 'POST',
+      path: '/api/courses',
+      accessToken: accessToken,
+      body: input.toJson(),
+    );
+
+    final item = response['item'] as Map<String, dynamic>;
+    _normalizeCoursePayload(item);
+    return Course.fromJson(item);
+  }
+
   Future<Booking> createBooking({
     required String accessToken,
     required CreateBookingInput input,
@@ -324,6 +355,54 @@ class ApiClient {
     return ShopOrder.fromJson(item);
   }
 
+  Future<List<ChatThreadSummary>> fetchChatThreads({
+    required String accessToken,
+  }) async {
+    final response = await _send(
+      method: 'GET',
+      path: '/api/chat/threads',
+      accessToken: accessToken,
+    );
+
+    final items = response['items'] as List<dynamic>? ?? const <dynamic>[];
+    return items
+        .whereType<Map<String, dynamic>>()
+        .map(ChatThreadSummary.fromJson)
+        .toList();
+  }
+
+  Future<ChatThreadDetail> fetchOrderChat({
+    required String accessToken,
+    required String orderId,
+  }) async {
+    final response = await _send(
+      method: 'GET',
+      path: '/api/shop/orders/$orderId/chat',
+      accessToken: accessToken,
+    );
+
+    return ChatThreadDetail.fromJson(
+      response['item'] as Map<String, dynamic>? ?? const <String, dynamic>{},
+    );
+  }
+
+  Future<ChatThreadDetail> sendOrderChatMessage({
+    required String accessToken,
+    required String orderId,
+    required String body,
+  }) async {
+    final response = await _send(
+      method: 'POST',
+      path: '/api/shop/orders/$orderId/chat/messages',
+      accessToken: accessToken,
+      body: {'body': body},
+    );
+
+    return ChatThreadDetail.fromJson(
+      response['item'] as Map<String, dynamic>? ?? const <String, dynamic>{},
+    );
+  }
+
   Future<List<CommunityChatMessage>> fetchCommunityChat({
     String? accessToken,
   }) async {
@@ -334,16 +413,13 @@ class ApiClient {
     );
 
     final items = response['items'] as List<dynamic>? ?? const <dynamic>[];
-    return items
-        .whereType<Map<String, dynamic>>()
-        .map((item) {
-          final imageUrl = item['imageUrl'];
-          if (imageUrl is String) {
-            item['imageUrl'] = _resolveAssetUrl(imageUrl);
-          }
-          return CommunityChatMessage.fromJson(item);
-        })
-        .toList();
+    return items.whereType<Map<String, dynamic>>().map((item) {
+      final imageUrl = item['imageUrl'];
+      if (imageUrl is String) {
+        item['imageUrl'] = _resolveAssetUrl(imageUrl);
+      }
+      return CommunityChatMessage.fromJson(item);
+    }).toList();
   }
 
   Future<List<CommunityChatMessage>> sendCommunityChatMessage({
@@ -357,21 +433,19 @@ class ApiClient {
       accessToken: accessToken,
       body: {
         'body': body,
-        if (imageUrl != null && imageUrl.trim().isNotEmpty) 'imageUrl': imageUrl,
+        if (imageUrl != null && imageUrl.trim().isNotEmpty)
+          'imageUrl': imageUrl,
       },
     );
 
     final items = response['items'] as List<dynamic>? ?? const <dynamic>[];
-    return items
-        .whereType<Map<String, dynamic>>()
-        .map((item) {
-          final imageUrl = item['imageUrl'];
-          if (imageUrl is String) {
-            item['imageUrl'] = _resolveAssetUrl(imageUrl);
-          }
-          return CommunityChatMessage.fromJson(item);
-        })
-        .toList();
+    return items.whereType<Map<String, dynamic>>().map((item) {
+      final imageUrl = item['imageUrl'];
+      if (imageUrl is String) {
+        item['imageUrl'] = _resolveAssetUrl(imageUrl);
+      }
+      return CommunityChatMessage.fromJson(item);
+    }).toList();
   }
 
   Future<BadgeProfileSummary> trackBadgeAction({
@@ -708,6 +782,36 @@ class ApiClient {
       for (final order in orders) {
         if (order is Map<String, dynamic>) {
           _normalizeShopOrderPayload(order);
+        }
+      }
+    }
+
+    final courses = bootstrapJson['courses'] as List<dynamic>? ?? const [];
+    for (final course in courses) {
+      if (course is Map<String, dynamic>) {
+        _normalizeCoursePayload(course);
+      }
+    }
+  }
+
+  void _normalizeCoursePayload(Map<String, dynamic> courseJson) {
+    final coverImageUrl = courseJson['coverImageUrl'];
+    if (coverImageUrl is String) {
+      courseJson['coverImageUrl'] = _resolveAssetUrl(coverImageUrl);
+    }
+
+    final modules = courseJson['modules'] as List<dynamic>? ?? const [];
+    for (final module in modules) {
+      if (module is! Map<String, dynamic>) {
+        continue;
+      }
+      final lessons = module['lessons'] as List<dynamic>? ?? const [];
+      for (final lesson in lessons) {
+        if (lesson is Map<String, dynamic>) {
+          final resourceUrl = lesson['resourceUrl'];
+          if (resourceUrl is String) {
+            lesson['resourceUrl'] = _resolveAssetUrl(resourceUrl);
+          }
         }
       }
     }

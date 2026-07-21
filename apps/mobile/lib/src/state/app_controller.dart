@@ -408,6 +408,52 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  Future<String> uploadCourseAsset({
+    required Uint8List bytes,
+    required String fileName,
+    required String contentType,
+  }) async {
+    final currentSession = _session;
+    if (currentSession == null) {
+      throw Exception(
+        'Tu sesión ya no está activa. Vuelve a ingresar con tu teléfono.',
+      );
+    }
+
+    try {
+      return await _apiClient.uploadCourseAsset(
+        accessToken: currentSession.accessToken,
+        bytes: bytes,
+        fileName: fileName,
+        contentType: contentType,
+      );
+    } catch (error) {
+      throw Exception(_readErrorMessage(error));
+    }
+  }
+
+  Future<Course> createCourseFromResource(
+    CreateCourseFromResourceInput input,
+  ) async {
+    final currentSession = _session;
+    if (currentSession == null) {
+      throw Exception(
+        'Tu sesión ya no está activa. Vuelve a ingresar con tu teléfono.',
+      );
+    }
+
+    try {
+      final course = await _apiClient.createCourseFromResource(
+        accessToken: currentSession.accessToken,
+        input: input,
+      );
+      unawaited(refreshHome());
+      return course;
+    } catch (error) {
+      throw Exception(_readErrorMessage(error));
+    }
+  }
+
   Future<String?> createBooking(CreateBookingInput input) async {
     final currentSession = _session;
     if (currentSession == null) {
@@ -581,6 +627,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
   Future<ShopOrder> updateShopOrderStatus({
     required String orderId,
     required String status,
+    bool openCoordinationChat = true,
   }) async {
     final currentSession = _session;
     if (currentSession == null) {
@@ -593,11 +640,71 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
       final order = await _apiClient.updateShopOrderStatus(
         accessToken: currentSession.accessToken,
         orderId: orderId,
-        input: UpdateShopOrderStatusInput(status: status),
+        input: UpdateShopOrderStatusInput(
+          status: status,
+          openCoordinationChat: openCoordinationChat,
+        ),
       );
       _applyShopOrderSnapshot(order);
       unawaited(refreshHome());
       return order;
+    } catch (error) {
+      throw Exception(_readErrorMessage(error));
+    }
+  }
+
+  Future<List<ChatThreadSummary>> loadChatThreads() async {
+    final currentSession = _session;
+    if (currentSession == null) {
+      throw Exception(
+        'Tu sesión ya no está activa. Vuelve a ingresar con tu teléfono.',
+      );
+    }
+
+    try {
+      return await _apiClient.fetchChatThreads(
+        accessToken: currentSession.accessToken,
+      );
+    } catch (error) {
+      throw Exception(_readErrorMessage(error));
+    }
+  }
+
+  Future<ChatThreadDetail> loadOrderChat(String orderId) async {
+    final currentSession = _session;
+    if (currentSession == null) {
+      throw Exception(
+        'Tu sesión ya no está activa. Vuelve a ingresar con tu teléfono.',
+      );
+    }
+
+    try {
+      return await _apiClient.fetchOrderChat(
+        accessToken: currentSession.accessToken,
+        orderId: orderId,
+      );
+    } catch (error) {
+      throw Exception(_readErrorMessage(error));
+    }
+  }
+
+  Future<ChatThreadDetail> sendOrderChatMessage(
+    String orderId,
+    String body,
+  ) async {
+    final currentSession = _session;
+    if (currentSession == null) {
+      throw Exception(
+        'Tu sesión ya no está activa. Vuelve a ingresar con tu teléfono.',
+      );
+    }
+
+    try {
+      return await _apiClient.sendOrderChatMessage(
+        accessToken: currentSession.accessToken,
+        orderId: orderId,
+        body: body,
+      );
     } catch (error) {
       throw Exception(_readErrorMessage(error));
     }

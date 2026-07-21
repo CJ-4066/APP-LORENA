@@ -10,17 +10,14 @@ import '../features/astro/astral_chart_screen.dart';
 import '../features/auth/auth_screens.dart';
 import '../features/bookings/bookings_screen.dart';
 import '../features/bookings/schedule_booking_screen.dart';
-import '../features/chat/community_chat_screen.dart';
 import '../features/courses/courses_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/numerology/numerology_screen.dart';
 import '../features/profile/edit_profile_screen.dart';
 import '../features/profile/profile_screen.dart';
 import '../features/shop/shop_screen.dart';
-import '../features/specialist/specialist_workspace_screen.dart';
 import '../features/tarot/tarot_screen.dart';
 import '../models/app_models.dart';
-import '../models/profile_models.dart';
 import '../state/app_controller.dart';
 
 class LoRenacienteApp extends StatefulWidget {
@@ -221,53 +218,7 @@ class _AuthenticatedShell extends StatelessWidget {
       );
     }
 
-    Future<void> openCommunityChat() async {
-      await Navigator.of(context).push(
-        MaterialPageRoute<void>(
-          builder: (_) => CommunityChatScreen(
-            onLoadMessages: controller.loadCommunityChat,
-            onSendMessage: controller.sendCommunityChatMessage,
-          ),
-        ),
-      );
-    }
-
-    Future<String?> enterSpecialistMode() async {
-      if (data.user.accountType == 'specialist') {
-        controller.setCurrentIndex(0);
-        return null;
-      }
-
-      final error = await controller.updateProfile(
-        UpdateProfileInput(accountType: 'specialist'),
-      );
-      if (error == null) {
-        controller.setCurrentIndex(0);
-      }
-
-      return error;
-    }
-
-    Future<String?> exitSpecialistMode() async {
-      const clientProfileIndex = 5;
-
-      if (data.user.accountType != 'specialist') {
-        controller.setCurrentIndex(clientProfileIndex);
-        return null;
-      }
-
-      final error = await controller.updateProfile(
-        UpdateProfileInput(accountType: 'client'),
-      );
-      if (error == null) {
-        controller.setCurrentIndex(clientProfileIndex);
-      }
-
-      return error;
-    }
-
     final isAdmin = data.user.roles.contains('admin');
-    final isSpecialist = data.user.accountType == 'specialist';
     final screens = isAdmin
         ? [
             AdminWorkspaceScreen(
@@ -286,13 +237,18 @@ class _AuthenticatedShell extends StatelessWidget {
               onCreateProduct: controller.createShopProduct,
               onUpdateProduct: controller.updateShopProduct,
               onUpdateOrderStatus: controller.updateShopOrderStatus,
-              canManageShop: isSpecialist,
+              onLoadChatThreads: controller.loadChatThreads,
+              onLoadOrderChat: controller.loadOrderChat,
+              onSendOrderChatMessage: controller.sendOrderChatMessage,
+              canManageShop: false,
             ),
             CoursesScreen(
               data: data,
               onRefresh: controller.refreshHome,
               contentVersion: controller.contentVersion ?? '',
-              canManageCourses: isSpecialist,
+              canManageCourses: true,
+              onUploadCourseAsset: controller.uploadCourseAsset,
+              onCreateCourseFromResource: controller.createCourseFromResource,
             ),
             BookingsScreen(
               data: data,
@@ -310,8 +266,6 @@ class _AuthenticatedShell extends StatelessWidget {
               data: data,
               onRefresh: controller.refreshHome,
               onOpenAstralChart: openAstralChart,
-              onEnterSpecialistMode: enterSpecialistMode,
-              onExitSpecialistMode: exitSpecialistMode,
               currentLocale: controller.locale,
               onChangeLocale: controller.setLocale,
               onStartPhoneLogin: controller.goBackToPhoneEntry,
@@ -330,131 +284,69 @@ class _AuthenticatedShell extends StatelessWidget {
               },
             ),
           ]
-        : isSpecialist
-            ? [
-                SpecialistWorkspaceScreen(
-                  data: data,
-                  onRefresh: controller.refreshHome,
-                  onUpdateService: controller.updateServiceOffer,
-                  onUpdateBooking: controller.updateBooking,
-                  onOpenShop: () => controller.setCurrentIndex(1),
-                  onOpenCourses: () => controller.setCurrentIndex(2),
-                  onOpenCommunityChat: openCommunityChat,
-                ),
-                ShopScreen(
-                  data: data,
-                  onRefresh: controller.refreshHome,
-                  onCreateOrder: controller.createShopOrder,
-                  onCreateProduct: controller.createShopProduct,
-                  onUpdateProduct: controller.updateShopProduct,
-                  onUpdateOrderStatus: controller.updateShopOrderStatus,
-                  canManageShop: true,
-                ),
-                CoursesScreen(
-                  data: data,
-                  onRefresh: controller.refreshHome,
-                  contentVersion: controller.contentVersion ?? '',
-                  canManageCourses: true,
-                ),
-                BookingsScreen(
-                  data: data,
-                  onRefresh: controller.refreshHome,
-                  onCreateBooking: openBooking,
-                  onLoadAvailability: controller.loadSpecialistAvailability,
-                  onUpdateBooking: controller.updateBooking,
-                  onCancelBooking: controller.cancelBooking,
-                  onLoadCommunityChat: controller.loadCommunityChat,
-                  onSendCommunityChatMessage:
-                      controller.sendCommunityChatMessage,
-                  canManageBookings: true,
-                ),
-                ProfileScreen(
-                  data: data,
-                  onRefresh: controller.refreshHome,
-                  onOpenAstralChart: openAstralChart,
-                  onEnterSpecialistMode: enterSpecialistMode,
-                  onExitSpecialistMode: exitSpecialistMode,
-                  currentLocale: controller.locale,
-                  onChangeLocale: controller.setLocale,
-                  onStartPhoneLogin: controller.goBackToPhoneEntry,
-                  onLogout: controller.signOut,
-                  onEditProfile: () async {
-                    await Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => EditProfileScreen(
-                          user: data.user,
-                          onSave: controller.updateProfile,
-                          onUploadAvatar: controller.uploadProfileAvatar,
-                          onSearchBirthPlaces: controller.searchBirthPlaces,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ]
-            : [
-                HomeScreen(
-                  data: data,
-                  onRefresh: controller.refreshHome,
-                  onOpenAstralChart: openAstralChart,
-                  onOpenNumerology: openNumerology,
-                  onLoadAstroOverview: controller.generateAstroOverview,
-                ),
-                TarotScreen(
-                  data: data,
-                  onRefresh: controller.refreshHome,
-                  onCreateBooking: openBooking,
-                  onTrackTarotDraw: controller.trackTarotDrawBadge,
-                ),
-                ShopScreen(
-                  data: data,
-                  onRefresh: controller.refreshHome,
-                  onCreateOrder: controller.createShopOrder,
-                  onCreateProduct: controller.createShopProduct,
-                  onUpdateProduct: controller.updateShopProduct,
-                  onUpdateOrderStatus: controller.updateShopOrderStatus,
-                  canManageShop: false,
-                ),
-                CoursesScreen(
-                  data: data,
-                  onRefresh: controller.refreshHome,
-                  contentVersion: controller.contentVersion ?? '',
-                ),
-                BookingsScreen(
-                  data: data,
-                  onRefresh: controller.refreshHome,
-                  onCreateBooking: openBooking,
-                  onLoadAvailability: controller.loadSpecialistAvailability,
-                  onUpdateBooking: controller.updateBooking,
-                  onCancelBooking: controller.cancelBooking,
-                  onLoadCommunityChat: controller.loadCommunityChat,
-                  onSendCommunityChatMessage:
-                      controller.sendCommunityChatMessage,
-                ),
-                ProfileScreen(
-                  data: data,
-                  onRefresh: controller.refreshHome,
-                  onOpenAstralChart: openAstralChart,
-                  onEnterSpecialistMode: enterSpecialistMode,
-                  onExitSpecialistMode: exitSpecialistMode,
-                  currentLocale: controller.locale,
-                  onChangeLocale: controller.setLocale,
-                  onStartPhoneLogin: controller.goBackToPhoneEntry,
-                  onLogout: controller.signOut,
-                  onEditProfile: () async {
-                    await Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => EditProfileScreen(
-                          user: data.user,
-                          onSave: controller.updateProfile,
-                          onUploadAvatar: controller.uploadProfileAvatar,
-                          onSearchBirthPlaces: controller.searchBirthPlaces,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ];
+        : [
+            HomeScreen(
+              data: data,
+              onRefresh: controller.refreshHome,
+              onOpenAstralChart: openAstralChart,
+              onOpenNumerology: openNumerology,
+              onLoadAstroOverview: controller.generateAstroOverview,
+            ),
+            TarotScreen(
+              data: data,
+              onRefresh: controller.refreshHome,
+              onCreateBooking: openBooking,
+              onTrackTarotDraw: controller.trackTarotDrawBadge,
+            ),
+            ShopScreen(
+              data: data,
+              onRefresh: controller.refreshHome,
+              onCreateOrder: controller.createShopOrder,
+              onCreateProduct: controller.createShopProduct,
+              onUpdateProduct: controller.updateShopProduct,
+              onUpdateOrderStatus: controller.updateShopOrderStatus,
+              onLoadChatThreads: controller.loadChatThreads,
+              onLoadOrderChat: controller.loadOrderChat,
+              onSendOrderChatMessage: controller.sendOrderChatMessage,
+              canManageShop: false,
+            ),
+            CoursesScreen(
+              data: data,
+              onRefresh: controller.refreshHome,
+              contentVersion: controller.contentVersion ?? '',
+            ),
+            BookingsScreen(
+              data: data,
+              onRefresh: controller.refreshHome,
+              onCreateBooking: openBooking,
+              onLoadAvailability: controller.loadSpecialistAvailability,
+              onUpdateBooking: controller.updateBooking,
+              onCancelBooking: controller.cancelBooking,
+              onLoadCommunityChat: controller.loadCommunityChat,
+              onSendCommunityChatMessage: controller.sendCommunityChatMessage,
+            ),
+            ProfileScreen(
+              data: data,
+              onRefresh: controller.refreshHome,
+              onOpenAstralChart: openAstralChart,
+              currentLocale: controller.locale,
+              onChangeLocale: controller.setLocale,
+              onStartPhoneLogin: controller.goBackToPhoneEntry,
+              onLogout: controller.signOut,
+              onEditProfile: () async {
+                await Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => EditProfileScreen(
+                      user: data.user,
+                      onSave: controller.updateProfile,
+                      onUploadAvatar: controller.uploadProfileAvatar,
+                      onSearchBirthPlaces: controller.searchBirthPlaces,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ];
     final selectedIndex =
         controller.currentIndex.clamp(0, screens.length - 1).toInt();
 
@@ -502,66 +394,38 @@ class _AuthenticatedShell extends StatelessWidget {
                   label: l10n.tr('navProfile'),
                 ),
               ]
-            : isSpecialist
-                ? [
-                    const NavigationDestination(
-                      icon: Icon(Icons.dashboard_customize_outlined),
-                      selectedIcon: Icon(Icons.dashboard_customize),
-                      label: 'Panel',
-                    ),
-                    NavigationDestination(
-                      icon: const Icon(Icons.shopping_bag_outlined),
-                      selectedIcon: const Icon(Icons.shopping_bag),
-                      label: 'Productos',
-                    ),
-                    NavigationDestination(
-                      icon: const Icon(Icons.auto_stories_outlined),
-                      selectedIcon: const Icon(Icons.auto_stories),
-                      label: 'Cursos/PDF',
-                    ),
-                    NavigationDestination(
-                      icon: const Icon(Icons.calendar_month_outlined),
-                      selectedIcon: const Icon(Icons.calendar_month),
-                      label: 'Agenda',
-                    ),
-                    NavigationDestination(
-                      icon: const Icon(Icons.person_outline),
-                      selectedIcon: const Icon(Icons.person),
-                      label: l10n.tr('navProfile'),
-                    ),
-                  ]
-                : [
-                    NavigationDestination(
-                      icon: const Icon(Icons.auto_awesome_outlined),
-                      selectedIcon: const Icon(Icons.auto_awesome),
-                      label: l10n.tr('navHome'),
-                    ),
-                    NavigationDestination(
-                      icon: const Icon(Icons.style_outlined),
-                      selectedIcon: const Icon(Icons.style),
-                      label: l10n.tr('navTarot'),
-                    ),
-                    NavigationDestination(
-                      icon: const Icon(Icons.shopping_bag_outlined),
-                      selectedIcon: const Icon(Icons.shopping_bag),
-                      label: l10n.tr('navShop'),
-                    ),
-                    NavigationDestination(
-                      icon: const Icon(Icons.auto_stories_outlined),
-                      selectedIcon: const Icon(Icons.auto_stories),
-                      label: l10n.tr('navCourses'),
-                    ),
-                    NavigationDestination(
-                      icon: const Icon(Icons.calendar_month_outlined),
-                      selectedIcon: const Icon(Icons.calendar_month),
-                      label: l10n.tr('navBookings'),
-                    ),
-                    NavigationDestination(
-                      icon: const Icon(Icons.person_outline),
-                      selectedIcon: const Icon(Icons.person),
-                      label: l10n.tr('navProfile'),
-                    ),
-                  ],
+            : [
+                NavigationDestination(
+                  icon: const Icon(Icons.auto_awesome_outlined),
+                  selectedIcon: const Icon(Icons.auto_awesome),
+                  label: l10n.tr('navHome'),
+                ),
+                NavigationDestination(
+                  icon: const Icon(Icons.style_outlined),
+                  selectedIcon: const Icon(Icons.style),
+                  label: l10n.tr('navTarot'),
+                ),
+                NavigationDestination(
+                  icon: const Icon(Icons.shopping_bag_outlined),
+                  selectedIcon: const Icon(Icons.shopping_bag),
+                  label: l10n.tr('navShop'),
+                ),
+                NavigationDestination(
+                  icon: const Icon(Icons.auto_stories_outlined),
+                  selectedIcon: const Icon(Icons.auto_stories),
+                  label: l10n.tr('navCourses'),
+                ),
+                NavigationDestination(
+                  icon: const Icon(Icons.calendar_month_outlined),
+                  selectedIcon: const Icon(Icons.calendar_month),
+                  label: l10n.tr('navBookings'),
+                ),
+                NavigationDestination(
+                  icon: const Icon(Icons.person_outline),
+                  selectedIcon: const Icon(Icons.person),
+                  label: l10n.tr('navProfile'),
+                ),
+              ],
       ),
     );
   }

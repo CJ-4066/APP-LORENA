@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../../core/i18n/app_i18n.dart';
 import '../../core/theme/app_palette.dart';
 import '../../core/utils/formatters.dart';
-import '../../core/utils/natal_chart_profile.dart';
 import '../../models/app_models.dart';
 import 'account_center_screens.dart';
 import 'profile_badges_screen.dart';
@@ -18,8 +17,6 @@ class ProfileScreen extends StatelessWidget {
     required this.onStartPhoneLogin,
     required this.onLogout,
     required this.onOpenAstralChart,
-    required this.onEnterSpecialistMode,
-    required this.onExitSpecialistMode,
     required this.currentLocale,
     required this.onChangeLocale,
   });
@@ -30,8 +27,6 @@ class ProfileScreen extends StatelessWidget {
   final VoidCallback onStartPhoneLogin;
   final Future<void> Function() onLogout;
   final Future<void> Function() onOpenAstralChart;
-  final Future<String?> Function() onEnterSpecialistMode;
-  final Future<String?> Function() onExitSpecialistMode;
   final Locale currentLocale;
   final Future<void> Function(Locale locale) onChangeLocale;
 
@@ -247,15 +242,6 @@ class ProfileScreen extends StatelessWidget {
                   ],
                 ),
               ),
-            ),
-            const SizedBox(height: 16),
-            _SpecialistModeCard(
-              user: data.user,
-              isGuestMode: isGuestMode,
-              onStartPhoneLogin: onStartPhoneLogin,
-              onEditProfile: onEditProfile,
-              onEnterSpecialistMode: onEnterSpecialistMode,
-              onExitSpecialistMode: onExitSpecialistMode,
             ),
             const SizedBox(height: 16),
             Card(
@@ -701,283 +687,6 @@ class ProfileScreen extends StatelessWidget {
   }
 }
 
-class _SpecialistModeCard extends StatelessWidget {
-  const _SpecialistModeCard({
-    required this.user,
-    required this.isGuestMode,
-    required this.onStartPhoneLogin,
-    required this.onEditProfile,
-    required this.onEnterSpecialistMode,
-    required this.onExitSpecialistMode,
-  });
-
-  final UserProfile user;
-  final bool isGuestMode;
-  final VoidCallback onStartPhoneLogin;
-  final Future<void> Function() onEditProfile;
-  final Future<String?> Function() onEnterSpecialistMode;
-  final Future<String?> Function() onExitSpecialistMode;
-
-  @override
-  Widget build(BuildContext context) {
-    final l10n = context.l10n;
-    final isSpecialist = user.accountType == 'specialist';
-    final buttonLabel =
-        isSpecialist ? l10n.ts('Usuario') : l10n.ts('Especialista');
-
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            AppPalette.midnight,
-            AppPalette.indigo,
-            AppPalette.orchid,
-          ],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppPalette.indigo.withValues(alpha: 0.22),
-            blurRadius: 24,
-            offset: const Offset(0, 14),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.18),
-                  ),
-                ),
-                child: const Icon(
-                  Icons.workspace_premium_outlined,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      isSpecialist
-                          ? l10n.ts('Vista especialista activa')
-                          : l10n.ts('Administrar como especialista'),
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w900,
-                          ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      isSpecialist
-                          ? l10n.ts(
-                              'Tu cuenta ya puede gestionar cursos, productos, citas, precios y comunidad desde el panel operativo.',
-                            )
-                          : l10n.ts(
-                              'Usa los mismos datos de tu perfil para habilitar gestión de cursos, productos, citas, precios y comunidad.',
-                            ),
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Colors.white.withValues(alpha: 0.82),
-                            height: 1.4,
-                          ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _SpecialistModePill(label: l10n.ts('Cursos/PDF')),
-              _SpecialistModePill(label: l10n.ts('Productos')),
-              _SpecialistModePill(label: l10n.ts('Citas')),
-              _SpecialistModePill(label: l10n.ts('Comunidad')),
-            ],
-          ),
-          if (!isGuestMode && !_hasRecommendedSpecialistProfileData(user)) ...[
-            const SizedBox(height: 12),
-            Text(
-              l10n.ts(
-                'Puedes activar la vista especialista ahora. Completar nacimiento, ciudad, país y zona horaria mejora la ficha pública y la experiencia operativa.',
-              ),
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: AppPalette.moonIvory,
-                    fontWeight: FontWeight.w700,
-                    height: 1.35,
-                  ),
-            ),
-          ],
-          const SizedBox(height: 16),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: isSpecialist
-                  ? () => _handleClientModeTap(context)
-                  : () => _handleSpecialistModeTap(context),
-              style: FilledButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: AppPalette.butterflyInk,
-              ),
-              icon: Icon(
-                isSpecialist
-                    ? Icons.person_outline_rounded
-                    : Icons.arrow_forward_rounded,
-              ),
-              label: Text(buttonLabel),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _handleSpecialistModeTap(BuildContext context) async {
-    final l10n = context.l10n;
-
-    if (isGuestMode) {
-      final shouldRegister = await showDialog<bool>(
-            context: context,
-            builder: (dialogContext) {
-              return AlertDialog(
-                title: Text(l10n.ts('Registro requerido')),
-                content: Text(
-                  l10n.ts(
-                    'Para administrar cursos, productos, citas y comunidad necesitas registrarte primero con tu teléfono.',
-                  ),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(dialogContext).pop(false),
-                    child: Text(l10n.ts('Cancelar')),
-                  ),
-                  FilledButton(
-                    onPressed: () => Navigator.of(dialogContext).pop(true),
-                    child: Text(l10n.ts('Registrarme')),
-                  ),
-                ],
-              );
-            },
-          ) ??
-          false;
-
-      if (shouldRegister && context.mounted) {
-        onStartPhoneLogin();
-      }
-      return;
-    }
-
-    if (user.accountType != 'specialist') {
-      final confirmed = await showDialog<bool>(
-            context: context,
-            builder: (dialogContext) {
-              return AlertDialog(
-                title: Text(l10n.ts('Activar vista especialista')),
-                content: Text(
-                  l10n.ts(
-                    'Se usará este mismo perfil para habilitar el panel de administración de cursos, productos, citas, precios y comunidad. Luego podrás completar o ajustar tus datos sin perder acceso.',
-                  ),
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(dialogContext).pop(false),
-                    child: Text(l10n.ts('Cancelar')),
-                  ),
-                  FilledButton(
-                    onPressed: () => Navigator.of(dialogContext).pop(true),
-                    child: Text(l10n.ts('Activar')),
-                  ),
-                ],
-              );
-            },
-          ) ??
-          false;
-
-      if (!confirmed) {
-        return;
-      }
-    }
-
-    final error = await onEnterSpecialistMode();
-    if (!context.mounted) {
-      return;
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          error ??
-              l10n.ts(
-                'Vista especialista lista para administrar tu operación.',
-              ),
-        ),
-      ),
-    );
-  }
-
-  Future<void> _handleClientModeTap(BuildContext context) async {
-    final l10n = context.l10n;
-
-    final confirmed = await showDialog<bool>(
-          context: context,
-          builder: (dialogContext) {
-            return AlertDialog(
-              title: Text(l10n.ts('Volver a vista usuario')),
-              content: Text(
-                l10n.ts(
-                  'Tu perfil y tus datos se mantienen. Solo se ocultará el panel especialista y volverás a la navegación normal de usuario.',
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(false),
-                  child: Text(l10n.ts('Cancelar')),
-                ),
-                FilledButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(true),
-                  child: Text(l10n.ts('Volver')),
-                ),
-              ],
-            );
-          },
-        ) ??
-        false;
-
-    if (!confirmed) {
-      return;
-    }
-
-    final error = await onExitSpecialistMode();
-    if (!context.mounted) {
-      return;
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          error ?? l10n.ts('Vista usuario activada.'),
-        ),
-      ),
-    );
-  }
-}
-
 class _EnergyProfileCard extends StatelessWidget {
   const _EnergyProfileCard({
     required this.profile,
@@ -1167,35 +876,6 @@ class _ProfileEnergyPill extends StatelessWidget {
   }
 }
 
-class _SpecialistModePill extends StatelessWidget {
-  const _SpecialistModePill({
-    required this.label,
-  });
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: AppPalette.moonIvory.withValues(alpha: 0.22),
-        ),
-      ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
-            ),
-      ),
-    );
-  }
-}
-
 Color _parseProfileEnergyHex(String value) {
   final normalized = value.replaceAll('#', '').trim();
   if (normalized.length == 6) {
@@ -1235,11 +915,4 @@ Color _badgeRarityTint(String rarity) {
     default:
       return AppPalette.petalSoft;
   }
-}
-
-bool _hasRecommendedSpecialistProfileData(UserProfile user) {
-  return user.id.trim().isNotEmpty &&
-      user.firstName.trim().isNotEmpty &&
-      user.lastName.trim().isNotEmpty &&
-      hasCompleteNatalProfileData(user.natalChart);
 }

@@ -7,6 +7,7 @@ import '../../core/config/app_config.dart';
 import '../../core/i18n/app_i18n.dart';
 import '../../core/theme/app_palette.dart';
 import '../../core/utils/formatters.dart';
+import '../../core/widgets/birth_date_fields.dart';
 import '../../core/widgets/in_app_webview_screen.dart';
 import '../../core/widgets/mystic_ui.dart';
 import '../../core/widgets/specialist_rating_badge.dart';
@@ -56,9 +57,11 @@ class NumerologyScreen extends StatefulWidget {
 }
 
 class _NumerologyScreenState extends State<NumerologyScreen> {
+  final ScrollController _scrollController = ScrollController();
+  final GlobalKey _sectionAnchorKey = GlobalKey();
   late final TextEditingController _birthNameController;
   late final TextEditingController _currentNameController;
-  late final TextEditingController _birthDateController;
+  late final BirthDateInputControllers _birthDateControllers;
 
   _NumerologyMenu _selectedMenu = _NumerologyMenu.panorama;
   NumerologyGuideData? _guide;
@@ -84,8 +87,8 @@ class _NumerologyScreenState extends State<NumerologyScreen> {
           ? widget.data.user.nickname.trim()
           : birthName,
     );
-    _birthDateController = TextEditingController(
-      text: _formatBirthDateForForm(widget.data.user.natalChart.birthDate),
+    _birthDateControllers = BirthDateInputControllers.fromDate(
+      widget.data.user.natalChart.birthDate,
     );
 
     Future<void>.microtask(_bootstrapScreen);
@@ -94,7 +97,7 @@ class _NumerologyScreenState extends State<NumerologyScreen> {
   Future<void> _bootstrapScreen() async {
     await _loadGuide();
     if (_birthNameController.text.trim().isNotEmpty &&
-        _birthDateController.text.trim().isNotEmpty) {
+        _birthDateControllers.normalizedIsoDate() != null) {
       await _generateProfile();
     }
   }
@@ -128,11 +131,20 @@ class _NumerologyScreenState extends State<NumerologyScreen> {
 
   Future<void> _generateProfile() async {
     final birthName = _birthNameController.text.trim();
-    final birthDate = _normalizeBirthDateForApi(_birthDateController.text);
-    if (birthName.isEmpty || birthDate.isEmpty) {
+    final birthDate = _birthDateControllers.normalizedIsoDate();
+    if (birthName.isEmpty) {
       setState(() {
         _errorMessage = context.l10n.ts(
           'Ingresa tu nombre completo al nacer y tu fecha de nacimiento.',
+        );
+      });
+      return;
+    }
+
+    if (birthDate == null) {
+      setState(() {
+        _errorMessage = context.l10n.ts(
+          'Ingresa una fecha de nacimiento válida en año, día y mes.',
         );
       });
       return;
@@ -174,17 +186,75 @@ class _NumerologyScreenState extends State<NumerologyScreen> {
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _birthNameController.dispose();
     _currentNameController.dispose();
-    _birthDateController.dispose();
+    _birthDateControllers.dispose();
     super.dispose();
+  }
+
+  void _selectMenu(_NumerologyMenu menu) {
+    if (_selectedMenu != menu) {
+      setState(() {
+        _selectedMenu = menu;
+      });
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      unawaited(
+        _scrollToSelectedSection(
+          delay: const Duration(milliseconds: 90),
+        ),
+      );
+    });
+  }
+
+  Future<void> _scrollToSelectedSection({
+    Duration delay = Duration.zero,
+  }) async {
+    if (delay > Duration.zero) {
+      await Future<void>.delayed(delay);
+    }
+    if (!mounted || !_scrollController.hasClients) {
+      return;
+    }
+
+    final targetContext = _sectionAnchorKey.currentContext;
+    final targetBox = targetContext?.findRenderObject() as RenderBox?;
+    final screenBox = context.findRenderObject() as RenderBox?;
+    if (targetBox == null || screenBox == null) {
+      return;
+    }
+
+    final targetY = targetBox.localToGlobal(Offset.zero).dy;
+    final screenY = screenBox.localToGlobal(Offset.zero).dy;
+    final rawOffset = _scrollController.offset + targetY - screenY - 12;
+    final destination = rawOffset.clamp(
+      _scrollController.position.minScrollExtent,
+      _scrollController.position.maxScrollExtent,
+    );
+
+    await _scrollController.animateTo(
+      destination.toDouble(),
+      duration: const Duration(milliseconds: 760),
+      curve: Curves.easeInOutCubicEmphasized,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final baseTheme = Theme.of(context);
+    final cleanTextTheme = baseTheme.textTheme.apply(
+      decoration: TextDecoration.none,
+      decorationColor: Colors.transparent,
+    );
     final numerologyTheme = baseTheme.copyWith(
+      textTheme: cleanTextTheme,
+      primaryTextTheme: baseTheme.primaryTextTheme.apply(
+        decoration: TextDecoration.none,
+        decorationColor: Colors.transparent,
+      ),
       cardTheme: baseTheme.cardTheme.copyWith(
         color: _numerologySurface,
         elevation: 0,
@@ -197,8 +267,14 @@ class _NumerologyScreenState extends State<NumerologyScreen> {
       inputDecorationTheme: baseTheme.inputDecorationTheme.copyWith(
         filled: true,
         fillColor: AppPalette.petalSoft,
-        labelStyle: const TextStyle(color: _numerologyInk),
-        hintStyle: const TextStyle(color: AppPalette.mutedLavender),
+        labelStyle: const TextStyle(
+          color: _numerologyInk,
+          decoration: TextDecoration.none,
+        ),
+        hintStyle: const TextStyle(
+          color: AppPalette.mutedLavender,
+          decoration: TextDecoration.none,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(18),
           borderSide: const BorderSide(color: _numerologyBorder),
@@ -219,13 +295,17 @@ class _NumerologyScreenState extends State<NumerologyScreen> {
         labelStyle: const TextStyle(
           color: _numerologyInk,
           fontWeight: FontWeight.w600,
+          decoration: TextDecoration.none,
         ),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: _numerologyAccent,
           foregroundColor: AppPalette.midnight,
-          textStyle: const TextStyle(fontWeight: FontWeight.w800),
+          textStyle: const TextStyle(
+            fontWeight: FontWeight.w800,
+            decoration: TextDecoration.none,
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
@@ -236,7 +316,10 @@ class _NumerologyScreenState extends State<NumerologyScreen> {
         style: OutlinedButton.styleFrom(
           foregroundColor: _numerologyInk,
           side: const BorderSide(color: _numerologyBorder),
-          textStyle: const TextStyle(fontWeight: FontWeight.w700),
+          textStyle: const TextStyle(
+            fontWeight: FontWeight.w700,
+            decoration: TextDecoration.none,
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
@@ -246,7 +329,10 @@ class _NumerologyScreenState extends State<NumerologyScreen> {
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: _numerologyAccent,
-          textStyle: const TextStyle(fontWeight: FontWeight.w700),
+          textStyle: const TextStyle(
+            fontWeight: FontWeight.w700,
+            decoration: TextDecoration.none,
+          ),
         ),
       ),
     );
@@ -323,23 +409,20 @@ class _NumerologyScreenState extends State<NumerologyScreen> {
                   await _loadGuide();
                 },
                 child: ListView(
+                  controller: _scrollController,
                   padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
                   children: [
                     _NumerologyHeroPanel(
                       menuFlow: menuFlow,
                       selectedMenu: _selectedMenu,
                       profile: _profile,
-                      onSelectMenu: (menu) {
-                        setState(() {
-                          _selectedMenu = menu;
-                        });
-                      },
+                      onSelectMenu: _selectMenu,
                     ),
                     const SizedBox(height: 18),
                     _NumerologyIntakeCard(
                       birthNameController: _birthNameController,
                       currentNameController: _currentNameController,
-                      birthDateController: _birthDateController,
+                      birthDateControllers: _birthDateControllers,
                       errorMessage: _errorMessage,
                       isGenerating: _isGenerating,
                       hasConsultation: numerologyServices.isNotEmpty,
@@ -351,6 +434,7 @@ class _NumerologyScreenState extends State<NumerologyScreen> {
                               ),
                     ),
                     const SizedBox(height: 18),
+                    SizedBox(key: _sectionAnchorKey, height: 1),
                     if (_isGuideLoading)
                       const Center(
                         child: Padding(
@@ -359,7 +443,7 @@ class _NumerologyScreenState extends State<NumerologyScreen> {
                         ),
                       )
                     else
-                      MysticSlideSwitcher(
+                      _NumerologySectionSwitcher(
                         child: _NumerologySectionBody(
                           key: ValueKey(_selectedMenu),
                           selectedMenu: _selectedMenu,
@@ -454,12 +538,11 @@ class _NumerologyHeroPanel extends StatelessWidget {
             l10n.ts(
               'Explora tus números esenciales, tus ciclos y la lectura de tu nombre dentro de una experiencia más clara y guiada.',
             ),
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 15,
-              height: 1.45,
-              decoration: TextDecoration.none,
-            ),
+            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: Colors.white70,
+                  height: 1.45,
+                  decoration: TextDecoration.none,
+                ),
           ),
           const SizedBox(height: 18),
           Container(
@@ -508,7 +591,7 @@ class _NumerologyIntakeCard extends StatelessWidget {
   const _NumerologyIntakeCard({
     required this.birthNameController,
     required this.currentNameController,
-    required this.birthDateController,
+    required this.birthDateControllers,
     required this.errorMessage,
     required this.isGenerating,
     required this.hasConsultation,
@@ -518,7 +601,7 @@ class _NumerologyIntakeCard extends StatelessWidget {
 
   final TextEditingController birthNameController;
   final TextEditingController currentNameController;
-  final TextEditingController birthDateController;
+  final BirthDateInputControllers birthDateControllers;
   final String? errorMessage;
   final bool isGenerating;
   final bool hasConsultation;
@@ -541,6 +624,8 @@ class _NumerologyIntakeCard extends StatelessWidget {
           TextField(
             controller: birthNameController,
             textCapitalization: TextCapitalization.words,
+            autocorrect: false,
+            enableSuggestions: false,
             decoration: InputDecoration(
               labelText: l10n.ts('Nombre completo al nacer'),
               hintText: l10n.ts('Ejemplo: Maria Fernanda Quispe'),
@@ -550,19 +635,17 @@ class _NumerologyIntakeCard extends StatelessWidget {
           TextField(
             controller: currentNameController,
             textCapitalization: TextCapitalization.words,
+            autocorrect: false,
+            enableSuggestions: false,
             decoration: InputDecoration(
               labelText: l10n.ts('Nombre actual o social'),
               hintText: l10n.ts('Opcional, para matiz actual'),
             ),
           ),
           const SizedBox(height: 12),
-          TextField(
-            controller: birthDateController,
-            keyboardType: TextInputType.datetime,
-            decoration: InputDecoration(
-              labelText: l10n.ts('Fecha de nacimiento'),
-              hintText: 'DD-MM-YYYY',
-            ),
+          BirthDateFields(
+            controllers: birthDateControllers,
+            enabled: !isGenerating,
           ),
           const SizedBox(height: 14),
           if (errorMessage != null)
@@ -617,34 +700,6 @@ class _NumerologyIntakeCard extends StatelessWidget {
   }
 }
 
-String _formatBirthDateForForm(String rawValue) {
-  final match = rawValue.trim().split('-');
-  if (match.length != 3) {
-    return rawValue;
-  }
-
-  if (match[0].length == 4) {
-    return '${match[2]}-${match[1]}-${match[0]}';
-  }
-
-  return rawValue;
-}
-
-String _normalizeBirthDateForApi(String rawValue) {
-  final value = rawValue.trim();
-  final isoMatch = RegExp(r'^\d{4}-\d{2}-\d{2}$');
-  if (isoMatch.hasMatch(value)) {
-    return value;
-  }
-
-  final dayFirstMatch = RegExp(r'^(\d{2})-(\d{2})-(\d{4})$').firstMatch(value);
-  if (dayFirstMatch == null) {
-    return value;
-  }
-
-  return '${dayFirstMatch.group(3)}-${dayFirstMatch.group(2)}-${dayFirstMatch.group(1)}';
-}
-
 String _foldAccents(String value) {
   return value
       .toLowerCase()
@@ -655,6 +710,47 @@ String _foldAccents(String value) {
       .replaceAll('ú', 'u')
       .replaceAll('ü', 'u')
       .replaceAll('ñ', 'n');
+}
+
+class _NumerologySectionSwitcher extends StatelessWidget {
+  const _NumerologySectionSwitcher({
+    required this.child,
+  });
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 420),
+      reverseDuration: const Duration(milliseconds: 220),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      transitionBuilder: (child, animation) {
+        final slide = Tween<Offset>(
+          begin: const Offset(0, 0.08),
+          end: Offset.zero,
+        ).animate(animation);
+        final scale = Tween<double>(
+          begin: 0.985,
+          end: 1,
+        ).animate(animation);
+
+        return FadeTransition(
+          opacity: animation,
+          child: SlideTransition(
+            position: slide,
+            child: ScaleTransition(
+              scale: scale,
+              alignment: Alignment.topCenter,
+              child: child,
+            ),
+          ),
+        );
+      },
+      child: child,
+    );
+  }
 }
 
 class _NumerologySectionBody extends StatelessWidget {
@@ -2088,11 +2184,11 @@ class _StatCard extends StatelessWidget {
     final l10n = context.l10n;
 
     return Container(
-      width: 136,
-      height: 124,
-      padding: const EdgeInsets.all(14),
+      width: 156,
+      height: 116,
+      padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(20),
         color: _numerologySurface,
         border: Border.all(color: _numerologyBorder),
       ),
@@ -2101,23 +2197,22 @@ class _StatCard extends StatelessWidget {
         children: [
           Text(
             title,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: AppPalette.mutedLavender,
-              decoration: TextDecoration.none,
-            ),
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                  color: AppPalette.mutedLavender,
+                  decoration: TextDecoration.none,
+                ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
             child: Text(
               value,
               style: TextStyle(
-                fontSize: 18,
+                fontSize: 16,
                 fontWeight: FontWeight.w800,
                 color: accent,
                 decoration: TextDecoration.none,
@@ -2126,15 +2221,16 @@ class _StatCard extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           Expanded(
             child: Text(
               l10n.ts(description),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                decoration: TextDecoration.none,
-              ),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    height: 1.25,
+                    decoration: TextDecoration.none,
+                  ),
             ),
           ),
         ],

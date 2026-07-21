@@ -145,13 +145,21 @@ class UpdateShopProductInput {
 class UpdateShopOrderStatusInput {
   UpdateShopOrderStatusInput({
     required this.status,
+    this.openCoordinationChat,
+    this.coordinationMessage,
   });
 
   final String status;
+  final bool? openCoordinationChat;
+  final String? coordinationMessage;
 
   Map<String, dynamic> toJson() {
     return {
       'status': status,
+      if (openCoordinationChat != null)
+        'openCoordinationChat': openCoordinationChat,
+      if (coordinationMessage != null)
+        'coordinationMessage': coordinationMessage,
     };
   }
 }

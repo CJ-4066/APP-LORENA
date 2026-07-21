@@ -1,4 +1,6 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
@@ -7,6 +9,35 @@ import '../../core/theme/app_palette.dart';
 import '../../models/astro_models.dart';
 
 part 'astro_chart_wheel_support.dart';
+
+Future<Uint8List> renderAstroChartExportPng(
+  AstroNatalChartResult result, {
+  double width = 2100,
+}) async {
+  final height = width * 0.74;
+  final recorder = ui.PictureRecorder();
+  final canvas = Canvas(
+    recorder,
+    Rect.fromLTWH(0, 0, width, height),
+  );
+
+  _AstroChartExportPainter(result: result).paint(
+    canvas,
+    Size(width, height),
+  );
+
+  final picture = recorder.endRecording();
+  final image = await picture.toImage(width.round(), height.round());
+  final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+  image.dispose();
+  picture.dispose();
+
+  if (byteData == null) {
+    throw Exception('No se pudo generar la imagen PNG de la carta.');
+  }
+
+  return byteData.buffer.asUint8List();
+}
 
 class AstroChartWheelCard extends StatelessWidget {
   const AstroChartWheelCard({
@@ -150,6 +181,288 @@ class AstroChartWheelGraphic extends StatelessWidget {
   }
 }
 
+class _AstroChartExportPainter {
+  const _AstroChartExportPainter({
+    required this.result,
+  });
+
+  final AstroNatalChartResult result;
+
+  void paint(Canvas canvas, Size size) {
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.fill,
+    );
+
+    final margin = size.width * 0.035;
+    final gap = size.width * 0.019;
+    final leftWidth = size.width * 0.215;
+    final rightWidth = size.width * 0.15;
+    final content = Rect.fromLTWH(
+      margin,
+      margin,
+      size.width - (margin * 2),
+      size.height - (margin * 2),
+    );
+    final centerWidth = content.width - leftWidth - rightWidth - (gap * 2);
+    final wheelSize = math.min(content.height * 0.92, centerWidth * 0.98);
+    final wheelLeft = content.left +
+        leftWidth +
+        gap +
+        ((centerWidth - wheelSize) / 2).clamp(0.0, centerWidth);
+    final wheelTop = content.top + ((content.height - wheelSize) / 2);
+
+    _paintExportHeader(
+      canvas,
+      Rect.fromLTWH(content.left, content.top, leftWidth, content.height),
+    );
+    _paintExportWheel(
+      canvas,
+      Rect.fromLTWH(wheelLeft, wheelTop, wheelSize, wheelSize),
+    );
+    _paintExportCusps(
+      canvas,
+      Rect.fromLTWH(
+        content.right - rightWidth,
+        content.top + (content.height * 0.08),
+        rightWidth,
+        content.height * 0.84,
+      ),
+    );
+  }
+
+  void _paintExportHeader(Canvas canvas, Rect rect) {
+    final meta = result.meta;
+    final birthUtc = DateTime.tryParse(meta.birthDateTimeUtc)?.toUtc();
+    final subjectName =
+        meta.subjectName.trim().isEmpty ? 'CARTA NATAL' : meta.subjectName;
+    final localBirth = [
+      _formatDateLabel(meta.birthDate),
+      meta.birthTime,
+      if (meta.utcOffset.isNotEmpty) '(${meta.utcOffset})',
+    ].where((item) => item.trim().isNotEmpty).join(' ');
+    final utcBirth = birthUtc == null
+        ? ''
+        : '${_formatDateLabel(_formatIsoDate(birthUtc))} ${_formatUtcTime(birthUtc)} UT';
+    final coordinates =
+        '${_formatLatitude(meta.coordinates.latitude)} ${_formatLongitude(meta.coordinates.longitude)}';
+
+    var y = rect.top;
+    y += _paintExportText(
+          canvas,
+          'Carta natal',
+          Offset(rect.left, y),
+          maxWidth: rect.width,
+          fontSize: 32,
+          fontWeight: FontWeight.w800,
+          color: const Color(0xFF1A1A1A),
+        ) +
+        10;
+    y += _paintExportText(
+          canvas,
+          subjectName.toUpperCase(),
+          Offset(rect.left, y),
+          maxWidth: rect.width,
+          fontSize: 38,
+          fontWeight: FontWeight.w900,
+          color: const Color(0xFF1A1A1A),
+          maxLines: 3,
+        ) +
+        24;
+
+    for (final line in [
+      localBirth,
+      utcBirth,
+      meta.locationLabel,
+      coordinates,
+    ].where((item) => item.trim().isNotEmpty)) {
+      y += _paintExportText(
+            canvas,
+            line,
+            Offset(rect.left, y),
+            maxWidth: rect.width,
+            fontSize: 25,
+            fontWeight: FontWeight.w500,
+            color: const Color(0xFF282828),
+            maxLines: 3,
+          ) +
+          8;
+    }
+
+    y += 16;
+    y += _paintExportText(
+          canvas,
+          'Tropical/geocentrico',
+          Offset(rect.left, y),
+          maxWidth: rect.width,
+          fontSize: 23,
+          fontWeight: FontWeight.w700,
+          color: const Color(0xFF5E538F),
+        ) +
+        8;
+    y += _paintExportText(
+          canvas,
+          'Casas: ${_capitalize(meta.houseSystem)}',
+          Offset(rect.left, y),
+          maxWidth: rect.width,
+          fontSize: 23,
+          fontWeight: FontWeight.w700,
+          color: const Color(0xFF5E538F),
+        ) +
+        8;
+    y += _paintExportText(
+          canvas,
+          'Nodos: ${_nodeTypeLabel(meta.nodeType)}',
+          Offset(rect.left, y),
+          maxWidth: rect.width,
+          fontSize: 23,
+          fontWeight: FontWeight.w700,
+          color: const Color(0xFF5E538F),
+        ) +
+        28;
+
+    _paintExportText(
+      canvas,
+      'Sol: ${result.summary.solarSign}\n'
+      'Luna: ${result.summary.lunarSign}\n'
+      'Ascendente: ${result.summary.ascendantSign}\n'
+      'Regente: ${result.summary.chartRuler}',
+      Offset(rect.left, y),
+      maxWidth: rect.width,
+      fontSize: 24,
+      fontWeight: FontWeight.w600,
+      color: const Color(0xFF1F1F1F),
+      lineHeight: 1.35,
+    );
+  }
+
+  void _paintExportWheel(Canvas canvas, Rect rect) {
+    canvas.save();
+    canvas.translate(rect.left, rect.top);
+    _AstroChartWheelPainter(
+      result: result,
+      showPlanetDegreeLabels: true,
+    ).paint(canvas, rect.size);
+    canvas.restore();
+  }
+
+  void _paintExportCusps(Canvas canvas, Rect rect) {
+    final rows = <_CuspRowData>[
+      _CuspRowData(
+        label: 'AC',
+        degree: result.angles.ascendant.degreeFormatted.split(' ').first,
+        signIndex: result.angles.ascendant.signIndex,
+      ),
+      ...result.houses
+          .where((house) => house.number >= 2 && house.number <= 9)
+          .map(
+            (house) => _CuspRowData(
+              label: '${house.number}',
+              degree: house.cuspDegreeFormatted.split(' ').first,
+              signIndex: house.signIndex,
+            ),
+          ),
+      _CuspRowData(
+        label: 'MC',
+        degree: result.angles.midheaven.degreeFormatted.split(' ').first,
+        signIndex: result.angles.midheaven.signIndex,
+      ),
+      ...result.houses.where((house) => house.number >= 11).map(
+            (house) => _CuspRowData(
+              label: '${house.number}',
+              degree: house.cuspDegreeFormatted.split(' ').first,
+              signIndex: house.signIndex,
+            ),
+          ),
+    ];
+
+    final borderPaint = Paint()
+      ..color = const Color(0xFFBDB7AF)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, const Radius.circular(8)),
+      Paint()
+        ..color = Colors.white
+        ..style = PaintingStyle.fill,
+    );
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, const Radius.circular(8)),
+      borderPaint,
+    );
+
+    var y = rect.top + 22;
+    for (final row in rows) {
+      final signIndex = row.signIndex < 0
+          ? 0
+          : row.signIndex >= _zodiacSigns.length
+              ? _zodiacSigns.length - 1
+              : row.signIndex;
+      final baseline = y + 18;
+      _paintExportText(
+        canvas,
+        row.label,
+        Offset(rect.left + 18, y),
+        maxWidth: 40,
+        fontSize: 23,
+        fontWeight: FontWeight.w800,
+        color: const Color(0xFF1F1F1F),
+      );
+      _paintExportText(
+        canvas,
+        row.degree,
+        Offset(rect.left + 58, y),
+        maxWidth: rect.width - 108,
+        fontSize: 23,
+        fontWeight: FontWeight.w500,
+        color: const Color(0xFF1F1F1F),
+      );
+      _paintExportText(
+        canvas,
+        _zodiacSigns[signIndex].glyph,
+        Offset(rect.right - 42, baseline - 22),
+        maxWidth: 30,
+        fontSize: 30,
+        fontWeight: FontWeight.w800,
+        color: _zodiacSigns[signIndex].color,
+      );
+      y += 48;
+    }
+  }
+}
+
+double _paintExportText(
+  Canvas canvas,
+  String text,
+  Offset offset, {
+  required double maxWidth,
+  double fontSize = 24,
+  FontWeight fontWeight = FontWeight.w600,
+  Color color = Colors.black,
+  int? maxLines,
+  double lineHeight = 1.15,
+}) {
+  final painter = TextPainter(
+    text: TextSpan(
+      text: text,
+      style: TextStyle(
+        color: color,
+        fontSize: fontSize,
+        fontWeight: fontWeight,
+        height: lineHeight,
+      ),
+    ),
+    textDirection: TextDirection.ltr,
+    maxLines: maxLines,
+    ellipsis: maxLines == null ? null : '...',
+  )..layout(maxWidth: maxWidth);
+
+  painter.paint(canvas, offset);
+  return painter.height;
+}
+
 class _AstroChartWheelPainter extends CustomPainter {
   const _AstroChartWheelPainter({
     required this.result,
@@ -279,7 +592,7 @@ class _AstroChartWheelPainter extends CustomPainter {
     for (var index = 0; index < _zodiacSigns.length; index++) {
       final startLongitude = index * 30.0;
       final startAngle = _toCanvasRadians(startLongitude, ascLongitude);
-      final sweep = _degreesToRadians(30);
+      final sweep = -_degreesToRadians(30);
       final sectorPaint = Paint()
         ..color = _signBackgroundColor(index)
         ..style = PaintingStyle.fill;

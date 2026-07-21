@@ -980,6 +980,38 @@ class Course {
   }
 }
 
+class CreateCourseFromResourceInput {
+  const CreateCourseFromResourceInput({
+    required this.title,
+    required this.subtitle,
+    required this.category,
+    required this.description,
+    required this.resourceTitle,
+    required this.resourceKind,
+    required this.resourceUrl,
+  });
+
+  final String title;
+  final String subtitle;
+  final String category;
+  final String description;
+  final String resourceTitle;
+  final String resourceKind;
+  final String resourceUrl;
+
+  Map<String, dynamic> toJson() {
+    return {
+      'title': title,
+      'subtitle': subtitle,
+      'category': category,
+      'description': description,
+      'resourceTitle': resourceTitle,
+      'resourceKind': resourceKind,
+      'resourceUrl': resourceUrl,
+    };
+  }
+}
+
 class CourseModule {
   CourseModule({
     required this.id,
@@ -1013,6 +1045,8 @@ class CourseLesson {
     required this.format,
     required this.durationMinutes,
     required this.prompt,
+    required this.content,
+    this.resourceUrl,
   });
 
   final String id;
@@ -1020,6 +1054,8 @@ class CourseLesson {
   final String format;
   final int durationMinutes;
   final String prompt;
+  final String content;
+  final String? resourceUrl;
 
   factory CourseLesson.fromJson(Map<String, dynamic> json) {
     return CourseLesson(
@@ -1028,6 +1064,8 @@ class CourseLesson {
       format: json['format'] as String? ?? '',
       durationMinutes: json['durationMinutes'] as int? ?? 0,
       prompt: json['prompt'] as String? ?? '',
+      content: json['content'] as String? ?? '',
+      resourceUrl: json['resourceUrl'] as String?,
     );
   }
 }
@@ -1469,6 +1507,7 @@ List<Course> _parseCourses(Map<String, dynamic> json) {
               format: 'Lectura',
               durationMinutes: readingTimeMinutes,
               prompt: excerpt,
+              content: excerpt,
             ),
           ],
         ),

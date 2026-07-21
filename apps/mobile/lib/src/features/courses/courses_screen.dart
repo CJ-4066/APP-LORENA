@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
@@ -12,6 +14,16 @@ import 'library_pdf_viewer_screen.dart';
 import 'library_pdf_thumbnail_service.dart';
 import 'shared_drive_library_service.dart';
 
+typedef CourseAssetUploader = Future<String> Function({
+  required Uint8List bytes,
+  required String fileName,
+  required String contentType,
+});
+
+typedef CourseResourceCreator = Future<Course> Function(
+  CreateCourseFromResourceInput input,
+);
+
 class CoursesScreen extends StatefulWidget {
   const CoursesScreen({
     super.key,
@@ -19,12 +31,16 @@ class CoursesScreen extends StatefulWidget {
     required this.onRefresh,
     required this.contentVersion,
     this.canManageCourses = false,
+    this.onUploadCourseAsset,
+    this.onCreateCourseFromResource,
   });
 
   final AppBootstrap data;
   final Future<void> Function() onRefresh;
   final String contentVersion;
   final bool canManageCourses;
+  final CourseAssetUploader? onUploadCourseAsset;
+  final CourseResourceCreator? onCreateCourseFromResource;
 
   @override
   State<CoursesScreen> createState() => _CoursesScreenState();
@@ -50,6 +66,8 @@ class _CoursesScreenState extends State<CoursesScreen> {
       return _CourseManagerView(
         data: widget.data,
         onRefresh: widget.onRefresh,
+        onUploadCourseAsset: widget.onUploadCourseAsset,
+        onCreateCourseFromResource: widget.onCreateCourseFromResource,
       );
     }
 
@@ -88,10 +106,40 @@ class _CourseManagerView extends StatelessWidget {
   const _CourseManagerView({
     required this.data,
     required this.onRefresh,
+    required this.onUploadCourseAsset,
+    required this.onCreateCourseFromResource,
   });
 
   final AppBootstrap data;
   final Future<void> Function() onRefresh;
+  final CourseAssetUploader? onUploadCourseAsset;
+  final CourseResourceCreator? onCreateCourseFromResource;
+
+  Future<void> _openCreateCourse(BuildContext context) async {
+    final uploader = onUploadCourseAsset;
+    final creator = onCreateCourseFromResource;
+    if (uploader == null || creator == null) {
+      return;
+    }
+
+    final created = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => CreateCourseResourceScreen(
+          onUploadCourseAsset: uploader,
+          onCreateCourseFromResource: creator,
+        ),
+      ),
+    );
+    if (created == true && context.mounted) {
+      await onRefresh();
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Curso creado como borrador.')),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -142,8 +190,13 @@ class _CourseManagerView extends StatelessWidget {
                   ),
                   l10n.ts('{count} premium', {'count': '$premiumCount'}),
                 ],
-                primaryLabel: l10n.ts('Actualizar'),
-                onPrimaryTap: () {
+                primaryLabel: l10n.ts('Crear curso'),
+                onPrimaryTap: onCreateCourseFromResource != null &&
+                        onUploadCourseAsset != null
+                    ? () => _openCreateCourse(context)
+                    : null,
+                secondaryLabel: l10n.ts('Actualizar'),
+                onSecondaryTap: () {
                   onRefresh();
                 },
               ),
@@ -167,7 +220,7 @@ class _CourseManagerView extends StatelessWidget {
                 MysticMiniBanner(
                   title: l10n.ts('Sin cursos cargados'),
                   subtitle: l10n.ts(
-                    'Cuando se conecte la creación de cursos, aquí se administrarán PDFs, módulos y lecciones.',
+                    'Crea el primer curso y adjunta su PDF, archivo o enlace Canva.',
                   ),
                   glyphKind: MysticGlyphKind.course,
                   accent: AppPalette.indigo,
@@ -179,6 +232,499 @@ class _CourseManagerView extends StatelessWidget {
                     child: _CourseAdminCard(course: course),
                   ),
                 ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class CreateCourseResourceScreen extends StatefulWidget {
+  const CreateCourseResourceScreen({
+    super.key,
+    required this.onUploadCourseAsset,
+    required this.onCreateCourseFromResource,
+  });
+
+  final CourseAssetUploader onUploadCourseAsset;
+  final CourseResourceCreator onCreateCourseFromResource;
+
+  @override
+  State<CreateCourseResourceScreen> createState() =>
+      _CreateCourseResourceScreenState();
+}
+
+class _CreateCourseResourceScreenState
+    extends State<CreateCourseResourceScreen> {
+  final _titleController = TextEditingController();
+  final _categoryController = TextEditingController(text: 'General');
+  final _descriptionController = TextEditingController();
+  final _resourceUrlController = TextEditingController();
+  final _resourceTitleController = TextEditingController();
+
+  PlatformFile? _selectedFile;
+  Uint8List? _selectedBytes;
+  String _resourceKind = 'pdf';
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _categoryController.dispose();
+    _descriptionController.dispose();
+    _resourceUrlController.dispose();
+    _resourceTitleController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickFile() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.any,
+      withData: true,
+      allowMultiple: false,
+    );
+    final file = result?.files.single;
+    if (file == null) {
+      return;
+    }
+
+    Uint8List? bytes = file.bytes;
+    final path = file.path;
+    if (bytes == null && path != null && path.isNotEmpty) {
+      bytes = await File(path).readAsBytes();
+    }
+
+    if (!mounted) {
+      return;
+    }
+    if (bytes == null || bytes.isEmpty) {
+      setState(() {
+        _error = 'No se pudo leer el archivo seleccionado.';
+      });
+      return;
+    }
+
+    setState(() {
+      _selectedFile = file;
+      _selectedBytes = bytes;
+      _resourceKind = _guessResourceKind(file.name);
+      _error = null;
+      if (_resourceTitleController.text.trim().isEmpty) {
+        _resourceTitleController.text = file.name;
+      }
+    });
+  }
+
+  Future<void> _saveCourse() async {
+    final title = _titleController.text.trim();
+    final category = _categoryController.text.trim();
+    final description = _descriptionController.text.trim();
+    final resourceTitle = _resourceTitleController.text.trim();
+    final typedUrl = _resourceUrlController.text.trim();
+    final selectedFile = _selectedFile;
+    final selectedBytes = _selectedBytes;
+
+    if (title.isEmpty) {
+      setState(() {
+        _error = 'Ingresa el título del curso.';
+      });
+      return;
+    }
+    if ((selectedFile == null || selectedBytes == null) && typedUrl.isEmpty) {
+      setState(() {
+        _error = 'Selecciona un archivo o pega un enlace.';
+      });
+      return;
+    }
+
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+
+    try {
+      var resourceUrl = typedUrl;
+      var resourceKind = _resourceKind;
+      if (selectedFile != null && selectedBytes != null) {
+        resourceUrl = await widget.onUploadCourseAsset(
+          bytes: selectedBytes,
+          fileName: selectedFile.name,
+          contentType: _guessContentType(selectedFile.name),
+        );
+        resourceKind = _guessResourceKind(selectedFile.name);
+      } else if (typedUrl.toLowerCase().contains('canva.com')) {
+        resourceKind = 'canva';
+      } else if (typedUrl.toLowerCase().endsWith('.pdf')) {
+        resourceKind = 'pdf';
+      }
+
+      await widget.onCreateCourseFromResource(
+        CreateCourseFromResourceInput(
+          title: title,
+          subtitle: description.isEmpty ? 'Material de estudio' : description,
+          category: category.isEmpty ? 'General' : category,
+          description: description,
+          resourceTitle: resourceTitle.isEmpty ? title : resourceTitle,
+          resourceKind: resourceKind,
+          resourceUrl: resourceUrl,
+        ),
+      );
+
+      if (mounted) {
+        Navigator.of(context).pop(true);
+      }
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _error = error.toString().replaceFirst('Exception: ', '');
+        _saving = false;
+      });
+    }
+  }
+
+  String _guessContentType(String fileName) {
+    final lower = fileName.toLowerCase();
+    if (lower.endsWith('.pdf')) {
+      return 'application/pdf';
+    }
+    if (lower.endsWith('.doc')) {
+      return 'application/msword';
+    }
+    if (lower.endsWith('.docx')) {
+      return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    }
+    if (lower.endsWith('.png')) {
+      return 'image/png';
+    }
+    if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) {
+      return 'image/jpeg';
+    }
+    if (lower.endsWith('.webp')) {
+      return 'image/webp';
+    }
+    if (lower.endsWith('.svg')) {
+      return 'image/svg+xml';
+    }
+    return 'application/octet-stream';
+  }
+
+  String _guessResourceKind(String fileName) {
+    final lower = fileName.toLowerCase();
+    if (lower.endsWith('.pdf')) {
+      return 'pdf';
+    }
+    if (lower.endsWith('.png') ||
+        lower.endsWith('.jpg') ||
+        lower.endsWith('.jpeg') ||
+        lower.endsWith('.webp') ||
+        lower.endsWith('.svg')) {
+      return 'image';
+    }
+    return 'file';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final selectedFile = _selectedFile;
+
+    return Scaffold(
+      backgroundColor: AppPalette.shellGradientBottom,
+      appBar: AppBar(
+        title: Text(l10n.ts('Crear curso')),
+        backgroundColor: AppPalette.shellGradientTop,
+        foregroundColor: AppPalette.butterflyInk,
+      ),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              AppPalette.shellGradientTop,
+              AppPalette.shellGradientBottom,
+            ],
+          ),
+        ),
+        child: SafeArea(
+          top: false,
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+            children: [
+              _CourseFormPanel(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _CourseTextField(
+                      controller: _titleController,
+                      label: l10n.ts('Título'),
+                    ),
+                    const SizedBox(height: 12),
+                    _CourseTextField(
+                      controller: _categoryController,
+                      label: l10n.ts('Categoría'),
+                    ),
+                    const SizedBox(height: 12),
+                    _CourseTextField(
+                      controller: _descriptionController,
+                      label: l10n.ts('Descripción'),
+                      maxLines: 4,
+                    ),
+                    const SizedBox(height: 12),
+                    _CourseTextField(
+                      controller: _resourceTitleController,
+                      label: l10n.ts('Título del recurso'),
+                    ),
+                    const SizedBox(height: 14),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _CourseKindChip(
+                          label: 'PDF',
+                          selected: _resourceKind == 'pdf',
+                          onTap: () => setState(() => _resourceKind = 'pdf'),
+                        ),
+                        _CourseKindChip(
+                          label: 'Canva',
+                          selected: _resourceKind == 'canva',
+                          onTap: () => setState(() => _resourceKind = 'canva'),
+                        ),
+                        _CourseKindChip(
+                          label: l10n.ts('Archivo'),
+                          selected: _resourceKind == 'file',
+                          onTap: () => setState(() => _resourceKind = 'file'),
+                        ),
+                        _CourseKindChip(
+                          label: l10n.ts('Imagen'),
+                          selected: _resourceKind == 'image',
+                          onTap: () => setState(() => _resourceKind = 'image'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    _CourseFilePickerTile(
+                      fileName: selectedFile?.name,
+                      fileSize: selectedFile?.size,
+                      onTap: _saving ? null : _pickFile,
+                    ),
+                    const SizedBox(height: 12),
+                    _CourseTextField(
+                      controller: _resourceUrlController,
+                      label: l10n.ts('Enlace Canva o PDF'),
+                      keyboardType: TextInputType.url,
+                    ),
+                    if (_error != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        _error!,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppPalette.berry,
+                              fontWeight: FontWeight.w800,
+                            ),
+                      ),
+                    ],
+                    const SizedBox(height: 18),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                        onPressed: _saving ? null : _saveCourse,
+                        icon: _saving
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.upload_file_outlined),
+                        label: Text(
+                          _saving
+                              ? l10n.ts('Guardando...')
+                              : l10n.ts('Guardar curso'),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CourseFormPanel extends StatelessWidget {
+  const _CourseFormPanel({
+    required this.child,
+  });
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppPalette.moonIvory,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppPalette.border),
+      ),
+      padding: const EdgeInsets.all(18),
+      child: child,
+    );
+  }
+}
+
+class _CourseTextField extends StatelessWidget {
+  const _CourseTextField({
+    required this.controller,
+    required this.label,
+    this.maxLines = 1,
+    this.keyboardType,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final int maxLines;
+  final TextInputType? keyboardType;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      maxLines: maxLines,
+      keyboardType: keyboardType,
+      decoration: InputDecoration(
+        labelText: label,
+        filled: true,
+        fillColor: Colors.white.withValues(alpha: 0.68),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: BorderSide(color: AppPalette.border),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: BorderSide(color: AppPalette.border),
+        ),
+      ),
+    );
+  }
+}
+
+class _CourseKindChip extends StatelessWidget {
+  const _CourseKindChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ChoiceChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) => onTap(),
+      selectedColor: AppPalette.softLilac,
+      labelStyle: TextStyle(
+        color: selected ? AppPalette.indigo : AppPalette.mutedLavender,
+        fontWeight: FontWeight.w900,
+      ),
+      side: BorderSide(color: selected ? AppPalette.indigo : AppPalette.border),
+    );
+  }
+}
+
+class _CourseFilePickerTile extends StatelessWidget {
+  const _CourseFilePickerTile({
+    required this.fileName,
+    required this.fileSize,
+    required this.onTap,
+  });
+
+  final String? fileName;
+  final int? fileSize;
+  final VoidCallback? onTap;
+
+  String _formatSize(int bytes) {
+    if (bytes < 1024) {
+      return '$bytes B';
+    }
+    if (bytes < 1024 * 1024) {
+      return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    }
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasFile = fileName != null && fileName!.trim().isNotEmpty;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
+        child: Ink(
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.68),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppPalette.border),
+          ),
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: AppPalette.softLilac,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(
+                  Icons.attach_file_rounded,
+                  color: AppPalette.indigo,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      hasFile
+                          ? fileName!
+                          : context.l10n.ts('Seleccionar archivo'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            color: AppPalette.butterflyInk,
+                            fontWeight: FontWeight.w900,
+                          ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      hasFile && fileSize != null
+                          ? _formatSize(fileSize!)
+                          : context.l10n.ts('PDF, DOC, imagen o archivo'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: AppPalette.mutedLavender,
+                            fontWeight: FontWeight.w700,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
             ],
           ),
         ),

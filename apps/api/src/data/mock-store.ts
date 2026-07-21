@@ -231,7 +231,7 @@ export interface Booking {
   notes: string;
 }
 
-export type ShopOrderStatus = "pending" | "confirmed" | "preparing" | "shipped";
+export type ShopOrderStatus = "pending" | "confirmed" | "preparing" | "shipped" | "delivered";
 export type ShopProductStatus = "active" | "draft" | "hidden" | "archived";
 
 export interface ShopProduct {
@@ -298,6 +298,8 @@ export interface UpdateShopProductInput {
 
 export interface UpdateShopOrderStatusInput {
   status?: ShopOrderStatus;
+  openCoordinationChat?: boolean;
+  coordinationMessage?: string;
 }
 
 export interface ShopOrderItem {
@@ -2270,7 +2272,8 @@ function isShopOrderStatus(value: unknown): value is ShopOrderStatus {
     value === "pending" ||
     value === "confirmed" ||
     value === "preparing" ||
-    value === "shipped"
+    value === "shipped" ||
+    value === "delivered"
   );
 }
 
@@ -3376,6 +3379,9 @@ export function createShopOrder(
 
 export async function getBootstrap(userId?: string): Promise<AppBootstrap> {
   const user = getUserById(userId);
+  const canManageCourses =
+    (user.roles?.includes("admin") ?? false) ||
+    (user.accountType === "specialist" && Boolean(user.specialistProfileId?.trim()));
   const services =
     user.accountType === "specialist" &&
     Boolean(user.specialistProfileId?.trim())
@@ -3401,7 +3407,7 @@ export async function getBootstrap(userId?: string): Promise<AppBootstrap> {
     payments: getPaymentsConfig(),
     services: services,
     specialists: getSpecialists(),
-    courses: getCourses(),
+    courses: canManageCourses ? getAdminCourses() : getCourses(),
     shop: getShopData(user.id),
     bookings: getBookings(user.id),
     admin: getAdminSummary(),

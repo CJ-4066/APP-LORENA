@@ -125,8 +125,6 @@ class _ScheduleBookingScreenState extends State<ScheduleBookingScreen> {
         .toList();
   }
 
-  bool get _isSpecialistView => widget.data.user.accountType == 'specialist';
-
   Future<void> _pickDate() async {
     final now = DateTime.now();
     final picked = await showDatePicker(
@@ -365,11 +363,7 @@ class _ScheduleBookingScreenState extends State<ScheduleBookingScreen> {
     return Scaffold(
       backgroundColor: AppPalette.petalSoft,
       appBar: AppBar(
-        title: Text(
-          _isSpecialistView
-              ? l10n.ts('Registrar cita')
-              : l10n.ts('Agendar cita'),
-        ),
+        title: Text(l10n.ts('Agendar cita')),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
@@ -394,9 +388,7 @@ class _ScheduleBookingScreenState extends State<ScheduleBookingScreen> {
                   children: [
                     Expanded(
                       child: Text(
-                        _isSpecialistView
-                            ? l10n.ts('Registrar cita')
-                            : l10n.ts('Agendar cita'),
+                        l10n.ts('Agendar cita'),
                         style:
                             Theme.of(context).textTheme.headlineSmall?.copyWith(
                                   fontWeight: FontWeight.w800,
@@ -729,11 +721,7 @@ class _ScheduleBookingScreenState extends State<ScheduleBookingScreen> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.calendar_month),
-                label: Text(
-                  _isSpecialistView
-                      ? l10n.ts('Registrar cita')
-                      : l10n.ts('Confirmar cita'),
-                ),
+                label: Text(l10n.ts('Confirmar cita')),
               ),
             ],
           ),

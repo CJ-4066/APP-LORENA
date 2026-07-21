@@ -1,6 +1,5 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:screenshot/screenshot.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:syncfusion_flutter_pdf/pdf.dart' as sfpdf;
 
@@ -9,6 +8,8 @@ import '../../core/i18n/app_i18n.dart';
 import '../../core/theme/app_palette.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/utils/natal_chart_profile.dart';
+import '../../core/widgets/birth_date_fields.dart';
+import '../../core/widgets/birth_time_wheel_field.dart';
 import '../../core/widgets/mystic_ui.dart';
 import '../../models/app_models.dart';
 import '../../models/astro_models.dart';
@@ -56,9 +57,8 @@ class AstralChartScreen extends StatefulWidget {
 }
 
 class _AstralChartScreenState extends State<AstralChartScreen> {
-  final ScreenshotController _screenshotController = ScreenshotController();
   late final TextEditingController _subjectNameController;
-  late final TextEditingController _birthDateController;
+  late final BirthDateInputControllers _birthDateControllers;
   late final TextEditingController _birthTimeController;
   late final TextEditingController _cityController;
   late final TextEditingController _stateController;
@@ -112,7 +112,7 @@ class _AstralChartScreenState extends State<AstralChartScreen> {
     super.initState();
     final natalChart = widget.user.natalChart;
     _subjectNameController = TextEditingController();
-    _birthDateController = TextEditingController();
+    _birthDateControllers = BirthDateInputControllers();
     _birthTimeController = TextEditingController();
     _cityController = TextEditingController();
     _stateController = TextEditingController();
@@ -151,7 +151,7 @@ class _AstralChartScreenState extends State<AstralChartScreen> {
   @override
   void dispose() {
     _subjectNameController.dispose();
-    _birthDateController.dispose();
+    _birthDateControllers.dispose();
     _birthTimeController.dispose();
     _cityController.dispose();
     _stateController.dispose();
@@ -177,6 +177,11 @@ class _AstralChartScreenState extends State<AstralChartScreen> {
     final state = _stateController.text.trim();
     final country = _countryController.text.trim();
     final subjectName = _subjectNameController.text.trim();
+    final birthDate = _birthDateControllers.normalizedIsoDate();
+    if (birthDate == null) {
+      return;
+    }
+
     final locationLabel =
         [city, state, country].where((item) => item.isNotEmpty).join(', ');
 
@@ -189,7 +194,7 @@ class _AstralChartScreenState extends State<AstralChartScreen> {
       final result = await widget.onGenerate(
         AstroRequestInput(
           subjectName: subjectName.isEmpty ? null : subjectName,
-          birthDate: _birthDateController.text.trim(),
+          birthDate: birthDate,
           birthTime: _birthTimeUnknown ? '' : _birthTimeController.text.trim(),
           birthTimeUnknown: _birthTimeUnknown,
           utcOffset: _utcOffsetController.text.trim(),
@@ -242,7 +247,7 @@ class _AstralChartScreenState extends State<AstralChartScreen> {
 
   void _applyNatalChartToForm(NatalChart natalChart) {
     _subjectNameController.text = natalChart.subjectName;
-    _birthDateController.text = _formatBirthDateForForm(natalChart.birthDate);
+    _birthDateControllers.setFromDate(natalChart.birthDate);
     _birthTimeController.text = natalChart.birthTime;
     _birthTimeUnknown = natalChart.birthTimeUnknown;
     _cityController.text = natalChart.city;
@@ -288,7 +293,7 @@ class _AstralChartScreenState extends State<AstralChartScreen> {
     }
 
     final subjectName = _subjectNameController.text.trim();
-    final birthDate = _birthDateController.text.trim();
+    final birthDate = _birthDateControllers.normalizedIsoDate();
     final birthTime = _birthTimeController.text.trim();
     final city = _cityController.text.trim();
     final state = _stateController.text.trim();
@@ -298,8 +303,7 @@ class _AstralChartScreenState extends State<AstralChartScreen> {
     final latitude = double.tryParse(latitudeText);
     final longitude = double.tryParse(longitudeText);
 
-    if (birthDate.isEmpty ||
-        city.isEmpty ||
+    if (city.isEmpty ||
         country.isEmpty ||
         latitudeText.isEmpty ||
         longitudeText.isEmpty) {
@@ -311,11 +315,10 @@ class _AstralChartScreenState extends State<AstralChartScreen> {
       return;
     }
 
-    if (!RegExp(r'^(\d{4}-\d{2}-\d{2}|\d{2}-\d{2}-\d{4})$')
-        .hasMatch(birthDate)) {
+    if (birthDate == null) {
       setState(() {
         _errorMessage = context.l10n.ts(
-          'La fecha debe tener formato DD-MM-YYYY o YYYY-MM-DD.',
+          'Ingresa una fecha de nacimiento válida en año, día y mes.',
         );
       });
       return;
@@ -458,14 +461,7 @@ class _AstralChartScreenState extends State<AstralChartScreen> {
       throw Exception('Primero genera una carta natal.');
     }
 
-    final bytes = await _screenshotController.captureFromWidget(
-      Material(
-        color: Colors.transparent,
-        child: _ChartWheelExportImage(result: result.natalChart),
-      ),
-      context: context,
-      pixelRatio: 2.8,
-    );
+    final bytes = await renderAstroChartExportPng(result.natalChart);
 
     final fileName =
         'carta-astral-${DateTime.now().millisecondsSinceEpoch}.png';
@@ -1092,12 +1088,9 @@ class _AstralChartScreenState extends State<AstralChartScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          TextField(
-            controller: _birthDateController,
-            decoration: InputDecoration(
-              labelText: l10n.ts('Fecha de nacimiento'),
-              hintText: '00-00-0000',
-            ),
+          BirthDateFields(
+            controllers: _birthDateControllers,
+            enabled: !_isLoading,
           ),
           const SizedBox(height: 14),
           SwitchListTile.adaptive(
@@ -1116,22 +1109,12 @@ class _AstralChartScreenState extends State<AstralChartScreen> {
             },
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _birthTimeController,
-                  enabled: !_birthTimeUnknown,
-                  decoration: InputDecoration(
-                    labelText: l10n.ts('Hora de nacimiento'),
-                    hintText: '00:00:00',
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(child: _buildTimeZoneField()),
-            ],
+          BirthTimeWheelField(
+            controller: _birthTimeController,
+            enabled: !_birthTimeUnknown && !_isLoading,
           ),
+          const SizedBox(height: 12),
+          _buildTimeZoneField(),
           const SizedBox(height: 12),
           BirthPlaceSelector(
             selectedPlace: _selectedBirthPlace,
@@ -1568,45 +1551,92 @@ class _AstralChartScreenState extends State<AstralChartScreen> {
   Widget _buildResultActions() {
     final l10n = context.l10n;
 
-    return Wrap(
-      spacing: 12,
-      runSpacing: 12,
-      children: [
-        SizedBox(
-          width: 220,
-          child: FilledButton.icon(
-            onPressed: _isExporting ? null : _exportChartPdf,
-            icon: _isExporting
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.picture_as_pdf_outlined),
-            label: Text(
-              _isExporting
-                  ? l10n.ts('Generando PDF...')
-                  : l10n.ts('Exportar PDF'),
-            ),
+    Widget actionLabel(String text) {
+      return Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        textAlign: TextAlign.center,
+      );
+    }
+
+    final filledStyle = FilledButton.styleFrom(
+      minimumSize: const Size.fromHeight(52),
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      textStyle: const TextStyle(fontWeight: FontWeight.w800),
+    );
+    final outlinedStyle = OutlinedButton.styleFrom(
+      minimumSize: const Size.fromHeight(52),
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      textStyle: const TextStyle(fontWeight: FontWeight.w800),
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final useWideLayout = constraints.maxWidth >= 720;
+        final useSingleColumn = constraints.maxWidth < 390;
+
+        final pdfButton = FilledButton.icon(
+          onPressed: _isExporting ? null : _exportChartPdf,
+          style: filledStyle,
+          icon: _isExporting
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.picture_as_pdf_outlined),
+          label: actionLabel(
+            _isExporting
+                ? l10n.ts('Generando PDF...')
+                : l10n.ts('Exportar PDF'),
           ),
-        ),
-        SizedBox(
-          width: 220,
-          child: OutlinedButton.icon(
-            onPressed: _isExporting ? null : _saveChartImageToPhotos,
-            icon: const Icon(Icons.photo_library_outlined),
-            label: Text(l10n.ts('Guardar imagen')),
-          ),
-        ),
-        SizedBox(
-          width: 220,
-          child: OutlinedButton.icon(
-            onPressed: _isExporting ? null : _shareCurrentChartImage,
-            icon: const Icon(Icons.ios_share_rounded),
-            label: Text(l10n.ts('Compartir imagen')),
-          ),
-        ),
-      ],
+        );
+        final saveImageButton = OutlinedButton.icon(
+          onPressed: _isExporting ? null : _saveChartImageToPhotos,
+          style: outlinedStyle,
+          icon: const Icon(Icons.photo_library_outlined),
+          label: actionLabel(l10n.ts('Guardar imagen')),
+        );
+        final shareImageButton = OutlinedButton.icon(
+          onPressed: _isExporting ? null : _shareCurrentChartImage,
+          style: outlinedStyle,
+          icon: const Icon(Icons.ios_share_rounded),
+          label: actionLabel(l10n.ts('Compartir imagen')),
+        );
+
+        if (useWideLayout) {
+          return Row(
+            children: [
+              Expanded(flex: 2, child: pdfButton),
+              const SizedBox(width: 12),
+              Expanded(child: saveImageButton),
+              const SizedBox(width: 12),
+              Expanded(child: shareImageButton),
+            ],
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            pdfButton,
+            const SizedBox(height: 10),
+            if (useSingleColumn) ...[
+              saveImageButton,
+              const SizedBox(height: 10),
+              shareImageButton,
+            ] else
+              Row(
+                children: [
+                  Expanded(child: saveImageButton),
+                  const SizedBox(width: 10),
+                  Expanded(child: shareImageButton),
+                ],
+              ),
+          ],
+        );
+      },
     );
   }
 
@@ -1617,25 +1647,37 @@ class _AstralChartScreenState extends State<AstralChartScreen> {
       title: l10n.ts('Planetas y casas'),
       child: Column(
         children: [
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: natalChart.planets
-                .take(8)
-                .map(
-                  (planet) => _PillStat(
-                    title: _displayAstroLabel(planet.label),
-                    value: l10n.ts(
-                      '{sign} · Casa {house}{retrograde}',
-                      {
-                        'sign': planet.sign,
-                        'house': '${planet.house}',
-                        'retrograde': planet.retrograde ? ' · R' : '',
-                      },
-                    ),
-                  ),
-                )
-                .toList(),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              const spacing = 10.0;
+              final itemWidth = ((constraints.maxWidth - spacing) / 2)
+                  .clamp(0.0, constraints.maxWidth)
+                  .toDouble();
+
+              return Wrap(
+                spacing: spacing,
+                runSpacing: spacing,
+                children: natalChart.planets
+                    .take(8)
+                    .map(
+                      (planet) => SizedBox(
+                        width: itemWidth,
+                        child: _PillStat(
+                          title: _displayAstroLabel(planet.label),
+                          value: l10n.ts(
+                            '{sign} · Casa {house}{retrograde}',
+                            {
+                              'sign': planet.sign,
+                              'house': '${planet.house}',
+                              'retrograde': planet.retrograde ? ' · R' : '',
+                            },
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(),
+              );
+            },
           ),
           const SizedBox(height: 16),
           Column(

@@ -16,6 +16,7 @@ import { registerBadgeRoutes } from "./modules/badges/routes.js";
 import { registerBootstrapRoutes } from "./modules/bootstrap/routes.js";
 import { registerChatRoutes } from "./modules/chat/routes.js";
 import { registerContentRoutes } from "./modules/content/routes.js";
+import { registerCourseRoutes } from "./modules/courses/routes.js";
 import { registerHomeRoutes } from "./modules/home/routes.js";
 import { registerNumerologyRoutes } from "./modules/numerology/routes.js";
 import { registerPaymentRoutes } from "./modules/payments/routes.js";
@@ -65,6 +66,19 @@ export async function buildServer() {
       done(null, body);
     },
   );
+  for (const binaryContentType of [
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ]) {
+    app.addContentTypeParser(
+      binaryContentType,
+      { parseAs: "buffer" },
+      (_request, body, done) => {
+        done(null, body);
+      },
+    );
+  }
 
   app.get("/", async () => {
     return {
@@ -116,6 +130,7 @@ export async function buildServer() {
   await app.register(registerPlanRoutes, { prefix: "/api/plans" });
   await app.register(registerServiceRoutes, { prefix: "/api/services" });
   await app.register(registerShopRoutes, { prefix: "/api/shop" });
+  await app.register(registerCourseRoutes, { prefix: "/api/courses" });
   await app.register(registerContentRoutes, { prefix: "/api/content" });
   await app.register(registerTarotRoutes, { prefix: "/api/tarot" });
   await app.register(registerSpecialistRoutes, { prefix: "/api/specialists" });

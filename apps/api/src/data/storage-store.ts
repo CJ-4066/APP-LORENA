@@ -15,7 +15,7 @@ const uploadSessionExpiresInSeconds = 10 * 60;
 const avatarMaxBytes = 5 * 1024 * 1024;
 const genericMaxBytes = 12 * 1024 * 1024;
 
-export type FileAssetCategory = "avatar" | "chat_attachment" | "admin_export";
+export type FileAssetCategory = "avatar" | "chat_attachment" | "admin_export" | "course" | "lesson";
 export type FileAssetStatus = "pending_upload" | "ready" | "failed";
 
 export interface FileAsset {
@@ -115,7 +115,15 @@ function buildObjectKey(
   const extension = extractFileExtension(filename);
   const suffix = extension ? `.${extension}` : "";
   const folder =
-    category === "avatar" ? "avatars" : category === "chat_attachment" ? "chat" : "exports";
+    category === "avatar"
+      ? "avatars"
+      : category === "chat_attachment"
+        ? "chat"
+        : category === "course"
+          ? "courses"
+          : category === "lesson"
+            ? "lessons"
+            : "exports";
   return `users/${userId}/${folder}/${randomUUID()}${suffix}`;
 }
 
@@ -164,7 +172,7 @@ function validateUploadSessionInput(input: CreateUploadSessionInput): {
   }
 
   const category = input.category ?? "avatar";
-  if (!["avatar", "chat_attachment", "admin_export"].includes(category)) {
+  if (!["avatar", "chat_attachment", "admin_export", "course", "lesson"].includes(category)) {
     throw new Error("La categoría del archivo no es válida.");
   }
 

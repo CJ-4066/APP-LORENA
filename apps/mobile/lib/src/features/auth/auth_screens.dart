@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../core/branding/renaciente_logo.dart';
-import '../../core/i18n/app_i18n.dart';
 import '../../core/data/birth_place_catalog.dart';
+import '../../core/i18n/app_i18n.dart';
+import '../../core/widgets/birth_date_fields.dart';
+import '../../core/widgets/birth_time_wheel_field.dart';
 import '../../models/app_models.dart';
 import '../../models/auth_models.dart';
 import '../profile/birth_place_selector.dart';
@@ -249,10 +251,9 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
   late final TextEditingController _firstNameController;
   late final TextEditingController _lastNameController;
   late final TextEditingController _emailController;
-  late final TextEditingController _birthDateController;
+  late final BirthDateInputControllers _birthDateControllers;
   late final TextEditingController _birthTimeController;
   BirthPlaceOption? _selectedBirthPlace;
-  late String _accountType;
 
   @override
   void initState() {
@@ -266,15 +267,12 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
       text: initialProfile?.lastName ?? '',
     );
     _emailController = TextEditingController(text: initialProfile?.email ?? '');
-    _birthDateController = TextEditingController(
-      text: initialNatalChart?.birthDate ?? '',
+    _birthDateControllers = BirthDateInputControllers.fromDate(
+      initialNatalChart?.birthDate ?? '',
     );
     _birthTimeController = TextEditingController(
       text: initialNatalChart?.birthTime ?? '',
     );
-    _accountType =
-        initialProfile?.accountType == 'specialist' ? 'specialist' : 'client';
-
     final initialCity = initialNatalChart?.city.trim() ?? '';
     final initialCountry = initialNatalChart?.country.trim() ?? '';
     _selectedBirthPlace = initialCity.isEmpty || initialCountry.isEmpty
@@ -290,7 +288,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     _firstNameController.dispose();
     _lastNameController.dispose();
     _emailController.dispose();
-    _birthDateController.dispose();
+    _birthDateControllers.dispose();
     _birthTimeController.dispose();
     super.dispose();
   }
@@ -318,39 +316,6 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
               'Nombre, apellido, lugar de nacimiento, fecha y hora de nacimiento.',
             ),
             style: Theme.of(context).textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            l10n.ts('¿Cómo entrarás a la app?'),
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const SizedBox(height: 10),
-          _AccountTypeCard(
-            title: l10n.ts('Cliente'),
-            subtitle: l10n.ts(
-              'Quiero comprar, reservar consultas, tomar cursos y participar en la comunidad.',
-            ),
-            icon: Icons.person_outline,
-            selected: _accountType == 'client',
-            onTap: () {
-              setState(() {
-                _accountType = 'client';
-              });
-            },
-          ),
-          const SizedBox(height: 10),
-          _AccountTypeCard(
-            title: l10n.ts('Especialista'),
-            subtitle: l10n.ts(
-              'Quiero gestionar consultas, precios, citas, contenido, comunidad y tienda.',
-            ),
-            icon: Icons.workspace_premium_outlined,
-            selected: _accountType == 'specialist',
-            onTap: () {
-              setState(() {
-                _accountType = 'specialist';
-              });
-            },
           ),
           const SizedBox(height: 16),
           TextField(
@@ -384,20 +349,14 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
             hintText: l10n.ts('Busca ciudad y país'),
           ),
           const SizedBox(height: 12),
-          TextField(
-            controller: _birthDateController,
-            decoration: InputDecoration(
-              labelText: l10n.ts('Fecha de nacimiento'),
-              hintText: '2000-11-28',
-            ),
+          BirthDateFields(
+            controllers: _birthDateControllers,
+            enabled: !widget.isBusy,
           ),
           const SizedBox(height: 12),
-          TextField(
+          BirthTimeWheelField(
             controller: _birthTimeController,
-            decoration: InputDecoration(
-              labelText: l10n.ts('Hora de nacimiento'),
-              hintText: '01:40',
-            ),
+            enabled: !widget.isBusy,
           ),
           if (widget.errorMessage != null) ...[
             const SizedBox(height: 12),
@@ -422,6 +381,20 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                       return;
                     }
 
+                    final birthDate = _birthDateControllers.normalizedIsoDate();
+                    if (birthDate == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            l10n.ts(
+                              'Ingresa una fecha de nacimiento válida en año, día y mes.',
+                            ),
+                          ),
+                        ),
+                      );
+                      return;
+                    }
+
                     widget.onSave(
                       CompletePhoneProfileInput(
                         firstName: _firstNameController.text,
@@ -430,13 +403,13 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                         city: place.city,
                         state: place.state,
                         country: place.country,
-                        birthDate: _birthDateController.text,
+                        birthDate: birthDate,
                         birthTime: _birthTimeController.text,
                         timeZoneId: place.timeZoneId,
                         utcOffset: place.utcOffset,
                         latitude: place.latitude,
                         longitude: place.longitude,
-                        accountType: _accountType,
+                        accountType: 'client',
                       ),
                     );
                   },
@@ -449,91 +422,6 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                 : Text(l10n.ts('Guardar perfil y entrar')),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _AccountTypeCard extends StatelessWidget {
-  const _AccountTypeCard({
-    required this.title,
-    required this.subtitle,
-    required this.icon,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String title;
-  final String subtitle;
-  final IconData icon;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final accent = selected ? const Color(0xFF5C3B52) : const Color(0xFF7A6B60);
-
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(22),
-        onTap: onTap,
-        child: Ink(
-          decoration: BoxDecoration(
-            color: selected
-                ? const Color(0xFF5C3B52).withValues(alpha: 0.10)
-                : const Color(0xFFFFFCF8),
-            borderRadius: BorderRadius.circular(22),
-            border: Border.all(
-              color:
-                  selected ? const Color(0xFF5C3B52) : const Color(0xFFE8DAC7),
-            ),
-          ),
-          padding: const EdgeInsets.all(14),
-          child: Row(
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: accent.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Icon(icon, color: accent),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w900,
-                            color: const Color(0xFF182127),
-                          ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: const Color(0xFF5E676E),
-                            height: 1.35,
-                          ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 10),
-              Icon(
-                selected
-                    ? Icons.radio_button_checked_rounded
-                    : Icons.radio_button_unchecked_rounded,
-                color: accent,
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

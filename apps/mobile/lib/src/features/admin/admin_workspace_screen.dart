@@ -44,7 +44,6 @@ class AdminWorkspaceScreen extends StatelessWidget {
               userName: userName,
               summary: data.admin,
               orderCount: data.shop.orders.length,
-              specialistAccess: data.user.accountType == 'specialist',
             ),
             const SizedBox(height: 18),
             _AdminMetricGrid(
@@ -137,16 +136,17 @@ class AdminWorkspaceScreen extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             ...data.specialists.take(4).map(
-              (specialist) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: _SpecialistPulseCard(
-                  specialist: specialist,
-                  serviceCount: data.services
-                      .where((service) => service.specialistIds.contains(specialist.id))
-                      .length,
+                  (specialist) => Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _SpecialistPulseCard(
+                      specialist: specialist,
+                      serviceCount: data.services
+                          .where((service) =>
+                              service.specialistIds.contains(specialist.id))
+                          .length,
+                    ),
+                  ),
                 ),
-              ),
-            ),
           ],
         ),
       ),
@@ -159,13 +159,11 @@ class _AdminHero extends StatelessWidget {
     required this.userName,
     required this.summary,
     required this.orderCount,
-    required this.specialistAccess,
   });
 
   final String userName;
   final AdminSummary summary;
   final int orderCount;
-  final bool specialistAccess;
 
   @override
   Widget build(BuildContext context) {
@@ -219,13 +217,9 @@ class _AdminHero extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            specialistAccess
-                ? l10n.ts(
-                    'Aquí ves la operación completa de la app y además conservas tus herramientas de especialista.',
-                  )
-                : l10n.ts(
-                    'Aquí ves la operación completa de la app sin mezclarla con el trabajo operativo de un especialista.',
-                  ),
+            l10n.ts(
+              'Aquí ves la operación completa de la app sin mezclarla con el trabajo operativo de un especialista.',
+            ),
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Colors.white.withValues(alpha: 0.82),
                   height: 1.4,
@@ -352,10 +346,11 @@ class _AdminMetricGrid extends StatelessWidget {
                         const SizedBox(height: 4),
                         Text(
                           card.label,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: AppPalette.mutedLavender,
-                                fontWeight: FontWeight.w700,
-                              ),
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    color: AppPalette.mutedLavender,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                         ),
                       ],
                     ),
@@ -621,6 +616,10 @@ class _AdminOrderCardState extends State<_AdminOrderCard> {
                 value: 'shipped',
                 child: Text(context.l10n.ts('Enviada')),
               ),
+              PopupMenuItem(
+                value: 'delivered',
+                child: Text(context.l10n.ts('Entregada')),
+              ),
             ],
             child: _isUpdating
                 ? const SizedBox(
@@ -844,6 +843,11 @@ _ShopOrderStatusCopy _shopOrderStatus(BuildContext context, String status) {
       return _ShopOrderStatusCopy(
         label: context.l10n.ts('Enviada'),
         color: AppPalette.indigo,
+      );
+    case 'delivered':
+      return _ShopOrderStatusCopy(
+        label: context.l10n.ts('Entregada'),
+        color: AppPalette.success,
       );
     default:
       return _ShopOrderStatusCopy(

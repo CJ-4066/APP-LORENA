@@ -286,17 +286,26 @@ class AstroChartWheelLegend extends StatelessWidget {
       ),
     ];
 
-    return Wrap(
-      spacing: 10,
-      runSpacing: 10,
-      children: items
-          .map(
-            (item) => SizedBox(
-              width: 156,
-              child: _LegendInfoChip(item: item),
-            ),
-          )
-          .toList(),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const spacing = 10.0;
+        final itemWidth = ((constraints.maxWidth - spacing) / 2)
+            .clamp(0.0, constraints.maxWidth)
+            .toDouble();
+
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: items
+              .map(
+                (item) => SizedBox(
+                  width: itemWidth,
+                  child: _LegendInfoChip(item: item),
+                ),
+              )
+              .toList(),
+        );
+      },
     );
   }
 }
@@ -653,7 +662,11 @@ String _planetGlyph(String label) {
 }
 
 double _toCanvasRadians(double longitude, double ascLongitude) {
-  final degrees = (180 + _normalizedDelta(ascLongitude, longitude)) % 360;
+  // Canvas angles grow downward; subtract the zodiacal delta so MC/house 10
+  // render at the top while the Ascendant remains on the left.
+  final degrees = normalizeLongitude(
+    180 - _normalizedDelta(ascLongitude, longitude),
+  );
   return _degreesToRadians(degrees);
 }
 
