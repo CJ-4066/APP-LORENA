@@ -676,6 +676,7 @@ class _ShopScreenState extends State<ShopScreen> {
         orderId: order.id,
         status: status,
       );
+      final shouldOpenChat = _shouldOpenCoordinationChat(updated.status);
       unawaited(_refreshChatThreads(silent: true));
       if (!mounted) {
         return;
@@ -693,6 +694,9 @@ class _ShopScreenState extends State<ShopScreen> {
           ),
         ),
       );
+      if (shouldOpenChat) {
+        unawaited(_openOrderChat(updated));
+      }
     } catch (error) {
       if (!mounted) {
         return;
@@ -703,6 +707,13 @@ class _ShopScreenState extends State<ShopScreen> {
         ),
       );
     }
+  }
+
+  bool _shouldOpenCoordinationChat(String status) {
+    return status == 'confirmed' ||
+        status == 'preparing' ||
+        status == 'shipped' ||
+        status == 'delivered';
   }
 }
 

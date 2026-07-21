@@ -3944,6 +3944,75 @@ export async function updateShopOrderStatus(
   return mapShopOrderRows(row, itemsResult.rows);
 }
 
+export async function updateShopOrderStatusAsAdmin(
+  orderId: string,
+  input: UpdateShopOrderStatusInput,
+): Promise<ShopOrder> {
+  if (!isDatabaseConfigured()) {
+    return updateShopOrderStatusMock(orderId, input);
+  }
+
+  const status = input.status;
+  if (!isShopOrderStatus(status)) {
+    throw new Error("Selecciona un estado de orden válido.");
+  }
+
+  const result = await runQuery<ShopOrderRow>(
+    `
+      update shop_orders
+      set status = $2,
+          updated_at = now()
+      where id = $1
+      returning
+        id,
+        user_id,
+        order_code,
+        status,
+        created_at,
+        specialist_id,
+        specialist_name,
+        store_id,
+        store_name,
+        delivery_address,
+        notes,
+        subtotal_amount,
+        subtotal_currency,
+        shipping_amount,
+        shipping_currency,
+        total_amount,
+        total_currency,
+        item_count
+    `,
+    [orderId, status],
+  );
+
+  const row = result.rows[0];
+  if (!row) {
+    throw new Error("La orden no existe.");
+  }
+
+  const itemsResult = await runQuery<ShopOrderItemRow>(
+    `
+      select
+        product_id,
+        product_name,
+        category,
+        quantity,
+        image_url,
+        unit_price_amount,
+        unit_price_currency,
+        line_total_amount,
+        line_total_currency
+      from shop_order_items
+      where order_id = $1
+      order by created_at asc
+    `,
+    [row.id],
+  );
+
+  return mapShopOrderRows(row, itemsResult.rows);
+}
+
 export function getCourses(): Course[] {
   return getCoursesMock();
 }

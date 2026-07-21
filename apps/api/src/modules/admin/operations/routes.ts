@@ -46,7 +46,7 @@ import {
   updateCourseModule,
   updateBooking,
   updateServiceOffer,
-  updateShopOrderStatus,
+  updateShopOrderStatusAsAdmin,
   updateShopProduct,
   unpublishCourse,
   upsertCourseResource,
@@ -785,10 +785,9 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
       }
 
       try {
-        const item = await updateShopOrderStatus(
+        const item = await updateShopOrderStatusAsAdmin(
           request.params.orderId,
           request.body ?? { status: order.status },
-          order.userId,
         );
         const chatThread = await maybeOpenOrderCoordinationChat(
           item,
