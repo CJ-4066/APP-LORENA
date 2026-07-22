@@ -25,7 +25,7 @@ export interface EnergyProfile {
 
 const zodiacRules: Record<
   string,
-  Omit<EnergyProfile, "focusArea" | "affirmation">
+  Omit<EnergyProfile, "affirmation">
 > = {
   Aries: {
     sign: "Aries",
@@ -38,7 +38,9 @@ const zodiacRules: Record<
     energyNumber: 9,
     energyStone: "Jaspe Rojo",
     chakra: "Raíz",
-    ritual: "Fuerza, valentía, liderazgo y protección.",
+    ritual:
+      "1. Enciende una vela roja o toca un objeto rojo. 2. Respira 3 veces con los pies firmes. 3. Escribe una acción valiente y hazla hoy.",
+    focusArea: "Fuerza, valentía, liderazgo y protección.",
     energyTheme: "Hoy tu energía se activa con Fuego, Marte y el chakra Raíz.",
   },
   Tauro: {
@@ -52,7 +54,9 @@ const zodiacRules: Record<
     energyNumber: 6,
     energyStone: "Cuarzo Rosa",
     chakra: "Corazón",
-    ritual: "Prosperidad, estabilidad, abundancia y bienestar.",
+    ritual:
+      "1. Coloca una moneda, semilla o piedra verde frente a ti. 2. Agradece 3 cosas concretas. 3. Ordena un pequeño espacio para abrir prosperidad.",
+    focusArea: "Prosperidad, estabilidad, abundancia y bienestar.",
     energyTheme: "Hoy tu energía se sostiene con Tierra, Venus y el chakra Corazón.",
   },
   Géminis: {
@@ -66,7 +70,9 @@ const zodiacRules: Record<
     energyNumber: 5,
     energyStone: "Ágata",
     chakra: "Garganta",
-    ritual: "Comunicación, creatividad y aprendizaje.",
+    ritual:
+      "1. Escribe la pregunta que te dispersa. 2. Respira 3 veces. 3. Respóndela con una sola frase y convierte esa claridad en un mensaje o apunte.",
+    focusArea: "Comunicación, creatividad y aprendizaje.",
     energyTheme: "Hoy tu energía se mueve con Aire, Mercurio y el chakra Garganta.",
   },
   Cáncer: {
@@ -80,7 +86,9 @@ const zodiacRules: Record<
     energyNumber: 2,
     energyStone: "Piedra Luna",
     chakra: "Corazón",
-    ritual: "Sanación emocional y protección familiar.",
+    ritual:
+      "1. Llena un vaso con agua. 2. Sosténlo junto al pecho y nombra lo que necesitas soltar. 3. Vacía el agua y abraza tu cuerpo 30 segundos.",
+    focusArea: "Sanación emocional y protección familiar.",
     energyTheme: "Hoy tu energía se sensibiliza con Agua, la Luna y el chakra Corazón.",
   },
   Leo: {
@@ -94,7 +102,9 @@ const zodiacRules: Record<
     energyNumber: 1,
     energyStone: "Ojo de tigre",
     chakra: "Plexo Solar",
-    ritual: "Éxito, autoestima, liderazgo y reconocimiento.",
+    ritual:
+      "1. Mira una luz cálida o el sol indirecto. 2. Di en voz alta una cualidad tuya. 3. Haz una acción visible sin pedir permiso.",
+    focusArea: "Éxito, autoestima, liderazgo y reconocimiento.",
     energyTheme: "Hoy tu energía irradia con Fuego, el Sol y el chakra Plexo Solar.",
   },
   Virgo: {
@@ -108,7 +118,9 @@ const zodiacRules: Record<
     energyNumber: 5,
     energyStone: "Amazonita",
     chakra: "Garganta",
-    ritual: "Organización, limpieza energética y salud.",
+    ritual:
+      "1. Limpia una superficie pequeña. 2. Coloca allí tu piedra o un objeto claro. 3. Escribe tres pendientes y termina el más simple.",
+    focusArea: "Organización, limpieza energética y salud.",
     energyTheme: "Hoy tu energía se ordena con Tierra, Mercurio y el chakra Garganta.",
   },
   Libra: {
@@ -122,7 +134,9 @@ const zodiacRules: Record<
     energyNumber: 6,
     energyStone: "Cuarzo rosa",
     chakra: "Corazón",
-    ritual: "Amor, armonía y equilibrio.",
+    ritual:
+      "1. Enciende una vela rosa o mira un objeto bello. 2. Respira equilibrando inhalación y exhalación. 3. Envía un mensaje amable o define un límite.",
+    focusArea: "Amor, armonía y equilibrio.",
     energyTheme: "Hoy tu energía armoniza con Aire, Venus y el chakra Corazón.",
   },
   Escorpio: {
@@ -136,7 +150,9 @@ const zodiacRules: Record<
     energyNumber: 8,
     energyStone: "Obsidiana",
     chakra: "Sacro",
-    ritual: "Transformación, protección y renacimiento.",
+    ritual:
+      "1. Escribe lo que ya terminó. 2. Dobla el papel y guárdalo fuera de vista. 3. Lava tus manos imaginando cierre y protección.",
+    focusArea: "Transformación, protección y renacimiento.",
     energyTheme: "Hoy tu energía transforma con Agua, Plutón y el chakra Sacro.",
   },
   Sagitario: {
@@ -150,7 +166,9 @@ const zodiacRules: Record<
     energyNumber: 3,
     energyStone: "Amatista",
     chakra: "Tercer Ojo",
-    ritual: "Expansión, sabiduría y prosperidad.",
+    ritual:
+      "1. Coloca una vela morada o una amatista. 2. Escribe una intención de expansión. 3. Da un paso concreto: estudiar, preguntar o planear una ruta.",
+    focusArea: "Expansión, sabiduría y prosperidad.",
     energyTheme: "Hoy tu energía expande con Fuego, Júpiter y el chakra Tercer Ojo.",
   },
   Capricornio: {
@@ -164,7 +182,9 @@ const zodiacRules: Record<
     energyNumber: 4,
     energyStone: "Ónix",
     chakra: "Raíz",
-    ritual: "Disciplina, estabilidad y éxito profesional.",
+    ritual:
+      "1. Ordena tu mesa por 3 minutos. 2. Escribe una meta y el primer paso medible. 3. Cierra con una respiración lenta tocando el suelo.",
+    focusArea: "Disciplina, estabilidad y éxito profesional.",
     energyTheme: "Hoy tu energía se estructura con Tierra, Saturno y el chakra Raíz.",
   },
   Acuario: {
@@ -178,7 +198,9 @@ const zodiacRules: Record<
     energyNumber: 7,
     energyStone: "Fluorita",
     chakra: "Corona",
-    ritual: "Innovación, creatividad e inspiración.",
+    ritual:
+      "1. Apaga una distracción por 5 minutos. 2. Escribe una idea distinta sin corregirla. 3. Compártela o conviértela en una miniacción.",
+    focusArea: "Innovación, creatividad e inspiración.",
     energyTheme: "Hoy tu energía innova con Aire, Urano y el chakra Corona.",
   },
   Piscis: {
@@ -192,7 +214,9 @@ const zodiacRules: Record<
     energyNumber: 12,
     energyStone: "Aguamarina",
     chakra: "Corona",
-    ritual: "Espiritualidad, intuición y conexión interior.",
+    ritual:
+      "1. Pon música suave o silencio. 2. Respira con una mano en el pecho. 3. Anota un sueño, señal o intuición y elige una acción compasiva.",
+    focusArea: "Espiritualidad, intuición y conexión interior.",
     energyTheme: "Hoy tu energía conecta con Agua, Neptuno y el chakra Corona.",
   },
 };
@@ -245,7 +269,9 @@ function buildAffirmation(
 export function buildEnergyProfile(seed: EnergySeed): EnergyProfile {
   const sign = normalizeSign(seed.zodiacSign) || "Sagitario";
   const rule = zodiacRules[sign] ?? zodiacRules.Sagitario;
-  const focusArea = seed.focusAreas?.find((item) => item.trim().length > 0)?.trim() || rule.ritual;
+  const focusArea =
+    seed.focusAreas?.find((item) => item.trim().length > 0)?.trim() ||
+    rule.focusArea;
 
   return {
     ...rule,

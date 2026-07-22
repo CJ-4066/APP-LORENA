@@ -28,56 +28,64 @@ const dailyCards: DailyCardSeed[] = [
     cardName: "La Estrella",
     message:
       "Hoy conviene bajar el ruido, recuperar fe en tu proceso y tomar una acción pequeña pero coherente.",
-    ritual: "Escribe una intención breve antes de iniciar tu jornada.",
+    ritual:
+      "1. Escribe una intención breve. 2. Respira 3 veces mirando esa frase. 3. Haz una acción pequeña antes del mediodía.",
   },
   {
     title: "Carta del día",
     cardName: "La Luna",
     message:
       "No todo se resuelve hoy. Observa lo que se repite y evita decidir desde la prisa.",
-    ritual: "Anota una duda y deja que el día te muestre una pista.",
+    ritual:
+      "1. Anota una duda. 2. Deja el papel cerrado durante el día. 3. Revísalo al final y escribe la pista que apareció.",
   },
   {
     title: "Carta del día",
     cardName: "El Sol",
     message:
       "Se abre un día para mostrarte, pedir lo que quieres y actuar con más claridad.",
-    ritual: "Haz una acción visible que te acerque a tu objetivo.",
+    ritual:
+      "1. Nombra en voz alta lo que quieres mostrar. 2. Elige una acción visible de 10 minutos. 3. Hazla antes de distraerte.",
   },
   {
     title: "Carta del día",
     cardName: "La Templanza",
     message:
       "Hoy gana quien regula el ritmo. Ajusta expectativas y encuentra el punto medio.",
-    ritual: "Respira antes de responder y busca equilibrio en una sola cosa.",
+    ritual:
+      "1. Bebe agua lentamente. 2. Inhala en 4 tiempos y exhala en 4. 3. Ajusta una expectativa antes de responder.",
   },
   {
     title: "Carta del día",
     cardName: "El Mago",
     message:
       "Tu ventaja hoy es elegir bien dónde pones la atención. Menos dispersión, más maniobra.",
-    ritual: "Empieza una tarea que venías postergando y termina la primera parte.",
+    ritual:
+      "1. Reúne lo necesario para una tarea. 2. Quita una distracción. 3. Trabaja 12 minutos sin cambiar de foco.",
   },
   {
     title: "Carta del día",
     cardName: "La Fuerza",
     message:
       "No necesitas empujar más fuerte; necesitas sostener lo importante con calma y firmeza.",
-    ritual: "Haz una pausa breve antes de tomar una decisión exigente.",
+    ritual:
+      "1. Pon una mano en el pecho. 2. Respira 3 veces sin apurar. 3. Responde desde calma a una decisión exigente.",
   },
   {
     title: "Carta del día",
     cardName: "El Mundo",
     message:
       "Hay cierres y completitudes disponibles. Ordena lo pendiente para pasar al siguiente nivel.",
-    ritual: "Cierra una tarea antigua antes de abrir algo nuevo.",
+    ritual:
+      "1. Elige una tarea antigua. 2. Ciérrala o define su último paso. 3. Limpia tu espacio al terminar.",
   },
   {
     title: "Carta del día",
     cardName: "La Sacerdotisa",
     message:
       "Hoy vale más observar que explicar. La respuesta madura si le das espacio.",
-    ritual: "Escribe una intuición y vuelve a leerla al final del día.",
+    ritual:
+      "1. Guarda silencio 2 minutos. 2. Escribe la primera intuición que aparezca. 3. Léela al final del día antes de actuar.",
   },
 ];
 

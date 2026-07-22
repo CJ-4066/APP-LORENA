@@ -17,7 +17,11 @@ test("energy profile uses zodiac sign table from esoteric system", () => {
   assert.equal(profile.energyNumber, 7);
   assert.equal(profile.energyStone, "Fluorita");
   assert.equal(profile.chakra, "Corona");
-  assert.equal(profile.ritual, "Innovación, creatividad e inspiración.");
+  assert.equal(
+    profile.ritual,
+    "1. Apaga una distracción por 5 minutos. 2. Escribe una idea distinta sin corregirla. 3. Compártela o conviértela en una miniacción.",
+  );
+  assert.equal(profile.focusArea, "Innovación, creatividad e inspiración.");
   assert.equal(
     profile.affirmation,
     "Canalizo la energía de acuario con claridad en innovación, creatividad e inspiración y activo mi número 7.",
