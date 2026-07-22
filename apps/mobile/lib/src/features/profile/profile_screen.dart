@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/i18n/app_i18n.dart';
 import '../../core/theme/app_palette.dart';
 import '../../core/utils/formatters.dart';
+import '../../core/widgets/energy_profile_card.dart';
 import '../../models/app_models.dart';
 import 'account_center_screens.dart';
 import 'profile_badges_screen.dart';
@@ -207,7 +208,12 @@ class ProfileScreen extends StatelessWidget {
                     ],
                     if (data.user.energyProfile.isAvailable) ...[
                       const SizedBox(height: 20),
-                      _EnergyProfileCard(profile: data.user.energyProfile),
+                      EnergyProfileCardView(
+                        profile: data.user.energyProfile,
+                        title: 'Perfil energético',
+                        showFocusArea: true,
+                        showModality: true,
+                      ),
                     ],
                     const SizedBox(height: 20),
                     if (isGuestMode) ...[
@@ -685,206 +691,6 @@ class ProfileScreen extends StatelessWidget {
       ),
     );
   }
-}
-
-class _EnergyProfileCard extends StatelessWidget {
-  const _EnergyProfileCard({
-    required this.profile,
-  });
-
-  final EnergyProfile profile;
-
-  @override
-  Widget build(BuildContext context) {
-    final swatch = _parseProfileEnergyHex(profile.powerColorHex);
-
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.white,
-            swatch.withValues(alpha: 0.12),
-            AppPalette.mistLilac,
-          ],
-        ),
-        border: Border.all(color: AppPalette.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Perfil energético',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: AppPalette.butterflyInk,
-                            fontWeight: FontWeight.w900,
-                          ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      profile.energyTheme,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: AppPalette.mutedLavender,
-                            height: 1.4,
-                          ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                width: 16,
-                height: 16,
-                decoration: BoxDecoration(
-                  color: swatch,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: AppPalette.butterflyInk.withValues(alpha: 0.08),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              _ProfileEnergyPill(label: 'Signo', value: profile.sign),
-              _ProfileEnergyPill(label: 'Elemento', value: profile.element),
-              _ProfileEnergyPill(label: 'Modalidad', value: profile.modality),
-              _ProfileEnergyPill(
-                label: 'Planeta',
-                value: profile.rulingPlanet,
-              ),
-              _ProfileEnergyPill(
-                label: 'Color',
-                value: profile.powerColorName,
-              ),
-              _ProfileEnergyPill(label: 'Día', value: profile.powerDay),
-              _ProfileEnergyPill(
-                label: 'Número',
-                value: '${profile.energyNumber}',
-              ),
-              _ProfileEnergyPill(
-                label: 'Piedra',
-                value: profile.energyStone,
-              ),
-              _ProfileEnergyPill(label: 'Chakra', value: profile.chakra),
-              _ProfileEnergyPill(label: 'Enfoque', value: profile.focusArea),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.8),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: AppPalette.border),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Ritual sugerido',
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: AppPalette.butterflyInk,
-                        fontWeight: FontWeight.w800,
-                      ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  profile.ritual,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppPalette.butterflyInk,
-                        height: 1.45,
-                      ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  'Afirmación',
-                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: AppPalette.butterflyInk,
-                        fontWeight: FontWeight.w800,
-                      ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  profile.affirmation,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppPalette.mutedLavender,
-                        fontStyle: FontStyle.italic,
-                        height: 1.45,
-                      ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ProfileEnergyPill extends StatelessWidget {
-  const _ProfileEnergyPill({
-    required this.label,
-    required this.value,
-  });
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.8),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppPalette.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: AppPalette.mutedLavender,
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            value,
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: AppPalette.butterflyInk,
-                  fontWeight: FontWeight.w800,
-                ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-Color _parseProfileEnergyHex(String value) {
-  final normalized = value.replaceAll('#', '').trim();
-  if (normalized.length == 6) {
-    return Color(int.parse('FF$normalized', radix: 16));
-  }
-
-  return AppPalette.royalViolet;
 }
 
 Color _badgeRarityColor(String rarity) {

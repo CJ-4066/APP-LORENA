@@ -6,6 +6,7 @@ import '../../core/branding/renaciente_logo.dart';
 import '../../core/i18n/app_i18n.dart';
 import '../../core/theme/app_palette.dart';
 import '../../core/utils/formatters.dart';
+import '../../core/widgets/energy_profile_card.dart';
 import '../../core/widgets/mystic_ui.dart';
 import '../../models/app_models.dart';
 import '../../models/astro_models.dart';
@@ -106,7 +107,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               if (data.user.energyProfile.isAvailable) ...[
                 const SizedBox(height: 18),
-                _HomeEnergyProfileCard(profile: data.user.energyProfile),
+                EnergyProfileCardView(profile: data.user.energyProfile),
               ],
               const SizedBox(height: 24),
               _DiscoverDaySection(
@@ -1789,168 +1790,6 @@ class _DiscoverDaySection extends StatelessWidget {
       ),
     );
   }
-}
-
-class _HomeEnergyProfileCard extends StatelessWidget {
-  const _HomeEnergyProfileCard({
-    required this.profile,
-  });
-
-  final EnergyProfile profile;
-
-  @override
-  Widget build(BuildContext context) {
-    final swatch = _parseEnergyHex(profile.powerColorHex);
-
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.white,
-            swatch.withValues(alpha: 0.12),
-            AppPalette.mistLilac,
-          ],
-        ),
-        border: Border.all(color: AppPalette.border),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Tu energía de hoy',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w900,
-                            color: AppPalette.butterflyInk,
-                          ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      profile.energyTheme,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: AppPalette.mutedLavender,
-                            height: 1.4,
-                          ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                width: 16,
-                height: 16,
-                decoration: BoxDecoration(
-                  color: swatch,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: AppPalette.butterflyInk.withValues(alpha: 0.08),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              _EnergyPill(label: 'Signo', value: profile.sign),
-              _EnergyPill(label: 'Elemento', value: profile.element),
-              _EnergyPill(label: 'Planeta', value: profile.rulingPlanet),
-              _EnergyPill(label: 'Color', value: profile.powerColorName),
-              _EnergyPill(label: 'Número', value: '${profile.energyNumber}'),
-              _EnergyPill(label: 'Piedra', value: profile.energyStone),
-              _EnergyPill(label: 'Chakra', value: profile.chakra),
-              _EnergyPill(label: 'Día', value: profile.powerDay),
-            ],
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Ritual sugerido',
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: AppPalette.butterflyInk,
-                  fontWeight: FontWeight.w800,
-                ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            profile.ritual,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: AppPalette.butterflyInk,
-                  height: 1.45,
-                ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EnergyPill extends StatelessWidget {
-  const _EnergyPill({
-    required this.label,
-    required this.value,
-  });
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.78),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppPalette.border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: AppPalette.mutedLavender,
-                  fontWeight: FontWeight.w700,
-                ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            value,
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: AppPalette.butterflyInk,
-                  fontWeight: FontWeight.w800,
-                ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-Color _parseEnergyHex(String value) {
-  final normalized = value.replaceAll('#', '').trim();
-  if (normalized.length == 6) {
-    return Color(int.parse('FF$normalized', radix: 16));
-  }
-
-  return AppPalette.royalViolet;
 }
 
 class _ModulePanel extends StatelessWidget {
