@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/app_models.dart';
 import '../theme/app_palette.dart';
+import 'zodiac_sign_icon.dart';
 
 class EnergyProfileCardView extends StatelessWidget {
   const EnergyProfileCardView({
@@ -78,6 +79,7 @@ class EnergyProfileCardView extends StatelessWidget {
         value: profile.sign,
         icon: Icons.auto_awesome_rounded,
         accent: swatch,
+        zodiacSign: profile.sign,
       ),
       _EnergyMetric(
         label: 'Elemento',
@@ -224,8 +226,6 @@ class _EnergySignMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final initials = _signInitials(sign);
-
     return Container(
       width: 68,
       height: 68,
@@ -252,13 +252,10 @@ class _EnergySignMark extends StatelessWidget {
             color: accent.withValues(alpha: 0.18),
             size: 42,
           ),
-          Text(
-            initials,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: AppPalette.butterflyInk,
-                  fontWeight: FontWeight.w900,
-                  height: 1,
-                ),
+          ZodiacSignIcon(
+            sign: sign,
+            color: AppPalette.butterflyInk,
+            size: 31,
           ),
         ],
       ),
@@ -328,11 +325,17 @@ class _EnergyMetricTile extends StatelessWidget {
               color: metric.accent.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(
-              metric.icon,
-              color: metric.accent,
-              size: 19,
-            ),
+            child: metric.zodiacSign == null
+                ? Icon(
+                    metric.icon,
+                    color: metric.accent,
+                    size: 19,
+                  )
+                : ZodiacSignIcon(
+                    sign: metric.zodiacSign!,
+                    color: metric.accent,
+                    size: 18,
+                  ),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -530,6 +533,7 @@ class _EnergyMetric {
     required this.icon,
     required this.accent,
     this.colorSwatch,
+    this.zodiacSign,
   });
 
   final String label;
@@ -537,6 +541,7 @@ class _EnergyMetric {
   final IconData icon;
   final Color accent;
   final Color? colorSwatch;
+  final String? zodiacSign;
 }
 
 Color _parseEnergyHex(String value) {
@@ -576,16 +581,6 @@ Color _elementColor(String value, Color fallback) {
   }
 
   return fallback;
-}
-
-String _signInitials(String value) {
-  final trimmed = value.trim();
-  if (trimmed.isEmpty) {
-    return 'ER';
-  }
-
-  final characters = trimmed.characters.take(2).toString().toUpperCase();
-  return characters;
 }
 
 String _foldEnergyText(String value) {

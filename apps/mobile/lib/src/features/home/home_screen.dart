@@ -8,6 +8,7 @@ import '../../core/theme/app_palette.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/widgets/energy_profile_card.dart';
 import '../../core/widgets/mystic_ui.dart';
+import '../../core/widgets/zodiac_sign_icon.dart';
 import '../../models/app_models.dart';
 import '../../models/astro_models.dart';
 import '../profile/account_center_screens.dart';
@@ -370,17 +371,17 @@ class _HomeAstroCard extends StatelessWidget {
                             height: 1.05,
                           ),
                         ),
-                        const SizedBox(height: 10),
-                        Text(
-                          canShowAstro
-                              ? _buildTriadSummary(overview!)
-                              : l10n.tr('homeAstralOverviewFallback'),
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 14,
-                            height: 1.34,
+                        if (!canShowAstro) ...[
+                          const SizedBox(height: 10),
+                          Text(
+                            l10n.tr('homeAstralOverviewFallback'),
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 14,
+                              height: 1.34,
+                            ),
                           ),
-                        ),
+                        ],
                       ],
                     ),
                   ),
@@ -415,6 +416,13 @@ class _HomeAstroCard extends StatelessWidget {
                 ),
               ],
               const SizedBox(height: 14),
+              if (canShowAstro) ...[
+                _SkyTriadAccordion(
+                  overview: overview!,
+                  profile: user.energyProfile,
+                ),
+                const SizedBox(height: 14),
+              ],
               if (isLoading)
                 Container(
                   padding: const EdgeInsets.all(14),
@@ -503,6 +511,381 @@ class _HomeAstroCard extends StatelessWidget {
       ),
     );
   }
+}
+
+class _SkyTriadAccordion extends StatefulWidget {
+  const _SkyTriadAccordion({
+    required this.overview,
+    required this.profile,
+  });
+
+  final AstroOverviewData overview;
+  final EnergyProfile profile;
+
+  @override
+  State<_SkyTriadAccordion> createState() => _SkyTriadAccordionState();
+}
+
+class _SkyTriadAccordionState extends State<_SkyTriadAccordion> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = context.l10n;
+    final profile = widget.profile;
+    final accent = profile.isAvailable
+        ? _parseHomeEnergyHex(profile.powerColorHex)
+        : AppPalette.flameGold;
+    final sign = profile.sign.trim().isNotEmpty
+        ? profile.sign.trim()
+        : widget.overview.natalChart.bigThree.sun.sign;
+    final entries = _buildTriadEntries(widget.overview.natalChart.bigThree);
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(24),
+        onTap: () {
+          setState(() {
+            _expanded = !_expanded;
+          });
+        },
+        child: Ink(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.16),
+            ),
+          ),
+          child: Column(
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: accent.withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.16),
+                      ),
+                    ),
+                    child: ZodiacSignIcon(
+                      sign: sign,
+                      color: AppPalette.moonIvory,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l10n.ts('Tu tríada del cielo'),
+                          style:
+                              Theme.of(context).textTheme.titleSmall?.copyWith(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w900,
+                                    height: 1.2,
+                                  ),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          _buildTriadSummary(widget.overview),
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            height: 1.35,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  AnimatedRotation(
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOutCubic,
+                    turns: _expanded ? 0.5 : 0,
+                    child: const Icon(
+                      Icons.keyboard_arrow_down_rounded,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+              AnimatedSize(
+                duration: const Duration(milliseconds: 260),
+                curve: Curves.easeOutCubic,
+                alignment: Alignment.topCenter,
+                child: _expanded
+                    ? Column(
+                        children: [
+                          const SizedBox(height: 14),
+                          ...entries.map(
+                            (entry) => Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: _TriadEntryTile(
+                                entry: entry,
+                                accent: accent,
+                              ),
+                            ),
+                          ),
+                          if (profile.isAvailable) ...[
+                            const SizedBox(height: 4),
+                            _TriadEnergySummary(
+                              profile: profile,
+                              accent: accent,
+                            ),
+                          ],
+                        ],
+                      )
+                    : const SizedBox.shrink(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TriadEntryTile extends StatelessWidget {
+  const _TriadEntryTile({
+    required this.entry,
+    required this.accent,
+  });
+
+  final _TriadEntry entry;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: accent.withValues(alpha: 0.16),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: ZodiacSignIcon(
+              sign: entry.sign,
+              color: AppPalette.moonIvory,
+              size: 19,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  entry.label,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: Colors.white70,
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${entry.sign} ${entry.degree}',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w900,
+                        height: 1.22,
+                      ),
+                ),
+                if (entry.detail.trim().isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    entry.detail,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      height: 1.3,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TriadEnergySummary extends StatelessWidget {
+  const _TriadEnergySummary({
+    required this.profile,
+    required this.accent,
+  });
+
+  final EnergyProfile profile;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = <String>[
+      if (profile.element.trim().isNotEmpty) profile.element,
+      if (profile.rulingPlanet.trim().isNotEmpty) profile.rulingPlanet,
+      if (profile.energyNumber > 0) 'N° ${profile.energyNumber}',
+      if (profile.powerDay.trim().isNotEmpty) profile.powerDay,
+    ];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: AppPalette.moonIvory.withValues(alpha: 0.96),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: accent.withValues(alpha: 0.24)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.13),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: ZodiacSignIcon(
+                  sign: profile.sign,
+                  color: accent,
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Signo energético: ${profile.sign}',
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: AppPalette.butterflyInk,
+                        fontWeight: FontWeight.w900,
+                      ),
+                ),
+              ),
+            ],
+          ),
+          if (profile.energyTheme.trim().isNotEmpty) ...[
+            const SizedBox(height: 9),
+            Text(
+              profile.energyTheme,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppPalette.mutedLavender,
+                    height: 1.4,
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+          ],
+          if (items.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: items
+                  .map(
+                    (item) => Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 7,
+                      ),
+                      decoration: BoxDecoration(
+                        color: accent.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        item,
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: AppPalette.butterflyInk,
+                              fontWeight: FontWeight.w900,
+                            ),
+                      ),
+                    ),
+                  )
+                  .toList(growable: false),
+            ),
+          ],
+          if (profile.ritual.trim().isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              profile.ritual,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: AppPalette.butterflyInk,
+                    height: 1.38,
+                  ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _TriadEntry {
+  const _TriadEntry({
+    required this.label,
+    required this.sign,
+    required this.degree,
+    required this.detail,
+  });
+
+  final String label;
+  final String sign;
+  final String degree;
+  final String detail;
+}
+
+List<_TriadEntry> _buildTriadEntries(AstroBigThree bigThree) {
+  return [
+    _TriadEntry(
+      label: 'Sol',
+      sign: bigThree.sun.sign,
+      degree: bigThree.sun.degreeFormatted,
+      detail: 'Casa ${bigThree.sun.house}',
+    ),
+    _TriadEntry(
+      label: 'Luna',
+      sign: bigThree.moon.sign,
+      degree: bigThree.moon.degreeFormatted,
+      detail: 'Casa ${bigThree.moon.house}',
+    ),
+    _TriadEntry(
+      label: 'Ascendente',
+      sign: bigThree.ascendant.sign,
+      degree: bigThree.ascendant.degreeFormatted,
+      detail: bigThree.ascendant.ruler.trim().isEmpty
+          ? 'Casa ${bigThree.ascendant.house}'
+          : 'Casa ${bigThree.ascendant.house} · Regente ${bigThree.ascendant.ruler}',
+    ),
+  ];
+}
+
+Color _parseHomeEnergyHex(String value) {
+  final normalized = value.replaceAll('#', '').trim();
+  if (normalized.length == 6) {
+    return Color(int.parse('FF$normalized', radix: 16));
+  }
+
+  return AppPalette.flameGold;
 }
 
 class _AstroContextPanel extends StatelessWidget {
