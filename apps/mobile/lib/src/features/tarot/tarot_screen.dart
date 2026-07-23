@@ -107,13 +107,22 @@ class _TarotScreenState extends State<TarotScreen> {
   }
 
   void _openDailyCardDetail() {
-    final l10n = context.l10n;
     final dailyCard = widget.data.home.cardOfTheDay;
+    final dailyMeaning = _tarotMeaningForCard(dailyCard.cardName);
     final card = _TarotCardMeaning(
       name: dailyCard.cardName,
-      message: l10n.ts(dailyCard.message),
-      action: l10n.ts(dailyCard.ritual),
-      caution: _tarotSupportLine(dailyCard.cardName, l10n),
+      message: dailyMeaning?.message ?? dailyCard.message,
+      action: dailyCard.ritual.trim().isNotEmpty
+          ? dailyCard.ritual
+          : dailyMeaning?.action ?? 'Avanza con un paso pequeño y coherente.',
+      caution: dailyMeaning?.caution ??
+          'Evita decidir desde la prisa; observa primero la señal central.',
+      summaryFragment:
+          dailyMeaning?.summaryFragment ?? 'leer tu momento con claridad',
+      keywords:
+          dailyMeaning?.keywords ?? const ['Claridad', 'Señal', 'Movimiento'],
+      reflectionQuestion: dailyMeaning?.reflectionQuestion ??
+          '¿Qué te está queriendo mostrar esta carta {suffix}?',
       imageUrl: dailyCard.imageUrl,
     );
 
@@ -126,7 +135,7 @@ class _TarotScreenState extends State<TarotScreen> {
         return _TarotCardDetailSheet(
           data: widget.data,
           item: _TarotDrawnCard(
-            positionLabel: l10n.tr('cardOfDay'),
+            positionLabel: context.l10n.tr('cardOfDay'),
             card: card,
           ),
           focus: _TarotSpreadFocus.daily,
@@ -1760,21 +1769,22 @@ class _DailySpreadShuffleStage extends StatelessWidget {
   final double? cardWidthOverride;
   final bool showAura;
 
-  static const int _deckCount = 78;
+  static final int _deckCount = _tarotDeck.length;
   static const int _visibleDeckCount = 14;
 
   static int _logicalIndexForVisual(int visualIndex) {
     final halfVisibleDeck = _visibleDeckCount ~/ 2;
+    final halfDeck = _deckCount ~/ 2;
     if (visualIndex < halfVisibleDeck) {
       final ratio =
           halfVisibleDeck == 1 ? 0.0 : visualIndex / (halfVisibleDeck - 1);
-      return (ratio * 38).round();
+      return (ratio * (halfDeck - 1)).round();
     }
 
     final rightVisualIndex = visualIndex - halfVisibleDeck;
     final ratio =
         halfVisibleDeck == 1 ? 0.0 : rightVisualIndex / (halfVisibleDeck - 1);
-    return 39 + (ratio * 38).round();
+    return halfDeck + (ratio * ((_deckCount - halfDeck) - 1)).round();
   }
 
   @override
@@ -1818,9 +1828,8 @@ class _DailySpreadShuffleStage extends StatelessWidget {
                       child: Stack(
                         clipBehavior: Clip.none,
                         alignment: Alignment.center,
-                        // Sample the 78-card deck instead of painting every
-                        // large card every frame. The motion still follows a
-                        // full deck, but the scene stays stable on iPhone.
+                        // Sample the major-arcana deck instead of painting
+                        // every large card every frame.
                         children: List.generate(_visibleDeckCount, (index) {
                           return _ShufflingDeckCard(
                             index: _logicalIndexForVisual(index),
@@ -1865,12 +1874,14 @@ class _ShufflingDeckCard extends StatelessWidget {
       ((progress - 0.82) / 0.18).clamp(0.0, 1.0),
     );
 
-    final side = index < 39 ? -1.0 : 1.0;
-    final packetIndex = side < 0 ? 38 - index : index - 39;
-    final targetOrder = side < 0 ? packetIndex * 2 : (packetIndex * 2) + 1;
+    final deckCount = _DailySpreadShuffleStage._deckCount;
+    final halfDeck = deckCount ~/ 2;
+    final side = index < halfDeck ? -1.0 : 1.0;
+    final packetIndex = side < 0 ? (halfDeck - 1) - index : index - halfDeck;
+    final targetOrder =
+        side < 0 ? packetIndex * 2 : min((packetIndex * 2) + 1, deckCount - 1);
     final orderRatio = targetOrder / (_DailySpreadShuffleStage._deckCount - 1);
-    final depthOffset =
-        (_DailySpreadShuffleStage._deckCount - targetOrder) * 0.34;
+    final depthOffset = (deckCount - targetOrder) * 0.34;
     final packetLift = packetIndex * 0.58;
     final riffleLocal = Curves.easeOutCubic.transform(
       ((riffle * 1.34) - (packetIndex * 0.026)).clamp(0.0, 1.0),
@@ -1878,7 +1889,8 @@ class _ShufflingDeckCard extends StatelessWidget {
     final flutter = sin((progress * pi * 8) + (packetIndex * 0.52));
 
     final splitX = side * ((width * 0.34) + (packetIndex * (width * 0.0022)));
-    final splitY = (packetIndex - 19) * (width * 0.0036) - packetLift;
+    final packetCenter = (halfDeck - 1) / 2;
+    final splitY = (packetIndex - packetCenter) * (width * 0.0036) - packetLift;
     final splitRotation = side * (0.18 + (packetIndex * 0.0022));
 
     var x = lerpDouble(0, splitX, split)!;
@@ -1908,8 +1920,7 @@ class _ShufflingDeckCard extends StatelessWidget {
     y = lerpDouble(y, -depthOffset * 0.22, square)!;
     rotation = lerpDouble(rotation, 0, square)!;
 
-    final scale =
-        0.95 + (targetOrder / _DailySpreadShuffleStage._deckCount) * 0.07;
+    final scale = 0.95 + (targetOrder / deckCount) * 0.07;
 
     return IgnorePointer(
       child: Transform(
@@ -3226,10 +3237,12 @@ class _TarotCardScene extends StatelessWidget {
           'La Estrella' => _buildStarScene(),
           'La Luna' => _buildMoonScene(),
           'El Sol' => _buildSunScene(),
+          'La Suma Sacerdotisa' => _buildPriestessScene(),
           'La Sacerdotisa' => _buildPriestessScene(),
           'El Mago' => _buildMagicianScene(),
           'La Emperatriz' => _buildEmpressScene(),
           'El Ermitaño' => _buildHermitScene(),
+          'La Rueda de la Fortuna' => _buildWheelScene(),
           'La Rueda' => _buildWheelScene(),
           'La Justicia' => _buildJusticeScene(),
           'La Fuerza' => _buildStrengthScene(),
@@ -4667,76 +4680,23 @@ String _displayUserName(UserProfile user) {
 
 String _tarotInterpretationLine(
   String cardName,
-  _TarotSpreadFocus focus,
+  _TarotSpreadFocus _,
   AppLocalizations l10n,
 ) {
-  final text = switch (cardName) {
-    'La Estrella' =>
-      'Tu calma vuelve a abrirte camino y te ayuda a confiar sin correr.',
-    'La Sacerdotisa' =>
-      'Tu intuición ya recoge señales valiosas; escuchar un poco más te dará una respuesta más nítida.',
-    'El Mago' =>
-      'Tienes recursos reales para mover esto si eliges un solo frente de acción.',
-    'La Emperatriz' =>
-      'Lo que nutres hoy puede crecer con suavidad y dejar mejores frutos.',
-    'El Ermitaño' =>
-      'La pausa te devuelve una claridad que el ruido suele esconder.',
-    'La Rueda' =>
-      'Un giro favorable ya está en marcha y te conviene leerlo con flexibilidad.',
-    'La Justicia' =>
-      'Cuando ordenas hechos y límites, todo empieza a alinearse contigo.',
-    'La Fuerza' =>
-      'La verdadera fuerza hoy es sostenerte con calma y sin perder sensibilidad.',
-    'El Sol' =>
-      'Hay claridad para mostrarte con confianza y ver resultados más visibles.',
-    'La Luna' =>
-      'Tu intuición trabaja a favor; si bajas el ruido, la respuesta aparece con más nitidez.',
-    'El Colgado' =>
-      'Mirarlo desde otro ángulo te ayuda a desbloquear una respuesta útil.',
-    'El Mundo' =>
-      'Hay una sensación clara de cierre positivo y de avance al siguiente nivel.',
-    _ =>
-      'Esta carta te acompaña con una señal amable para leer tu momento con más claridad.',
-  };
+  final text = _tarotMeaningForCard(cardName)?.message ??
+      'Esta carta te acompaña con una señal amable para leer tu momento con más claridad.';
   return l10n.ts(text);
 }
 
 String _tarotSupportLine(String cardName, AppLocalizations l10n) {
-  final text = switch (cardName) {
-    'La Estrella' => 'Recupera calma y avanza con un gesto simple.',
-    'La Sacerdotisa' => 'Escucha primero; la respuesta madura sola.',
-    'El Mago' => 'Elige una prioridad y ejecútala hoy.',
-    'La Emperatriz' => 'Nutre primero lo que quieres ver crecer.',
-    'El Ermitaño' => 'Haz pausa, revisa y luego responde.',
-    'La Rueda' => 'Ajusta expectativa y toma el giro a tiempo.',
-    'La Justicia' => 'Ordena, define o pon una regla clara.',
-    'La Fuerza' => 'Canaliza impulso sin perder ternura.',
-    'El Sol' => 'Muestra tu verdad con sencillez.',
-    'La Luna' => 'Pon nombre a la emoción antes de actuar.',
-    'El Colgado' => 'Suspende una reacción automática y mira distinto.',
-    'El Mundo' =>
-      'Cierra el ciclo con conciencia y prepara el siguiente nivel.',
-    _ => 'Avanza con un paso pequeño y coherente.',
-  };
+  final text = _tarotMeaningForCard(cardName)?.action ??
+      'Avanza con un paso pequeño y coherente.';
   return l10n.ts(text);
 }
 
 List<String> _tarotKeywords(String cardName, AppLocalizations l10n) {
-  final keywords = switch (cardName) {
-    'La Estrella' => ['Calma', 'Confianza', 'Reparación'],
-    'La Sacerdotisa' => ['Intuición', 'Silencio', 'Observación'],
-    'El Mago' => ['Foco', 'Iniciativa', 'Recursos'],
-    'La Emperatriz' => ['Nutrir', 'Expansión', 'Cuerpo'],
-    'El Ermitaño' => ['Pausa', 'Claridad', 'Honestidad'],
-    'La Rueda' => ['Cambio', 'Timing', 'Adaptación'],
-    'La Justicia' => ['Orden', 'Límites', 'Decisión'],
-    'La Fuerza' => ['Templanza', 'Coraje', 'Regulación'],
-    'El Sol' => ['Claridad', 'Visibilidad', 'Alegría'],
-    'La Luna' => ['Emoción', 'Intuición', 'Neblina'],
-    'El Colgado' => ['Perspectiva', 'Entrega', 'Reencuadre'],
-    'El Mundo' => ['Cierre', 'Integración', 'Madurez'],
-    _ => ['Claridad', 'Señal', 'Movimiento'],
-  };
+  final keywords = _tarotMeaningForCard(cardName)?.keywords ??
+      ['Claridad', 'Señal', 'Movimiento'];
   return keywords.map(l10n.ts).toList(growable: false);
 }
 
@@ -4753,28 +4713,24 @@ String _tarotReflectionQuestion(
     _TarotSpreadFocus.work => l10n.ts('en trabajo o dinero'),
   };
 
-  final text = switch (cardName) {
-    'La Estrella' => '¿Qué gesto pequeño puede devolverte confianza {suffix}?',
-    'La Sacerdotisa' =>
-      '¿Qué necesitas observar un poco más antes de responder {suffix}?',
-    'El Mago' =>
-      '¿Dónde sí tienes recursos reales y dónde te estás dispersando {suffix}?',
-    'La Emperatriz' => '¿Qué necesita más cuidado para crecer mejor {suffix}?',
-    'El Ermitaño' =>
-      '¿Qué ruido conviene bajar para escuchar mejor tu verdad {suffix}?',
-    'La Rueda' => '¿Qué cambio ya empezó y te pide ajustar el paso {suffix}?',
-    'La Justicia' =>
-      '¿Qué decisión se vuelve más simple si ordenas los hechos {suffix}?',
-    'La Fuerza' =>
-      '¿Cómo puedes sostenerte con firmeza sin endurecerte {suffix}?',
-    'El Sol' => '¿Qué puedes mostrar con más naturalidad y confianza {suffix}?',
-    'La Luna' =>
-      '¿Qué emoción necesita nombre antes de tomar una decisión {suffix}?',
-    'El Colgado' => '¿Desde qué otro ángulo podrías mirar esto {suffix}?',
-    'El Mundo' => '¿Qué vale cerrar bien para liberar energía nueva {suffix}?',
-    _ => '¿Qué te está queriendo mostrar esta carta {suffix}?',
-  };
+  final text = _tarotMeaningForCard(cardName)?.reflectionQuestion ??
+      '¿Qué te está queriendo mostrar esta carta {suffix}?';
   return l10n.ts(text, {'suffix': suffix});
+}
+
+_TarotCardMeaning? _tarotMeaningForCard(String cardName) {
+  final slug = _resolveTarotCardSlug(cardName);
+  if (slug.isEmpty) {
+    return null;
+  }
+
+  for (final meaning in _tarotDeck) {
+    if (_resolveTarotCardSlug(meaning.name) == slug) {
+      return meaning;
+    }
+  }
+
+  return null;
 }
 
 class _TarotCardMeaning {
@@ -4783,6 +4739,9 @@ class _TarotCardMeaning {
     required this.message,
     required this.action,
     required this.caution,
+    required this.summaryFragment,
+    required this.keywords,
+    required this.reflectionQuestion,
     this.imageUrl = '',
   });
 
@@ -4790,6 +4749,9 @@ class _TarotCardMeaning {
   final String message;
   final String action;
   final String caution;
+  final String summaryFragment;
+  final List<String> keywords;
+  final String reflectionQuestion;
   final String imageUrl;
 }
 
@@ -4854,10 +4816,12 @@ _TarotFocusConfig _focusConfig(_TarotSpreadFocus focus, AppLocalizations l10n) {
 
 const _tarotCardSlugAliases = <String, String>{
   'la-fuerza': 'fuerza',
+  'la-suma-sacerdotisa': 'la-sacerdotisa',
   'la-templanza': 'templanza',
   'la-justicia': 'justicia',
   'el-juicio': 'juicio',
   'la-muerte': 'muerte',
+  'los-enamorados': 'los-amantes',
   'la-rueda': 'rueda-de-la-fortuna',
   'la-rueda-de-la-fortuna': 'rueda-de-la-fortuna',
 };
@@ -4947,99 +4911,260 @@ String _buildDailySpreadSynthesis(
   final action = cards[2];
 
   return l10n.ts(
-    'Hoy el recorrido empieza en {release}, donde conviene aflojar una carga o una reacción automática; luego pasa por {pulse}, que marca el tono emocional y mental del día; y aterriza en {action}, que te pide una acción concreta, sobria y consciente.',
+    'Tu tirada une {release}, {pulse} y {action}: primero te invita a {releaseSummary}; luego suma {pulseSummary}; y finalmente aterriza en {actionSummary}. En conjunto, el mensaje es tomar un paso consciente hoy integrando esas tres señales.',
     {
       'release': l10n.ts(release.card.name),
       'pulse': l10n.ts(pulse.card.name),
       'action': l10n.ts(action.card.name),
+      'releaseSummary': l10n.ts(release.card.summaryFragment),
+      'pulseSummary': l10n.ts(pulse.card.summaryFragment),
+      'actionSummary': l10n.ts(action.card.summaryFragment),
     },
   );
 }
 
 const _tarotDeck = <_TarotCardMeaning>[
   _TarotCardMeaning(
-    name: 'La Estrella',
+    name: 'El Loco',
     message:
-        'Hay una capa de calma y confianza que conviene recuperar antes de hacer algo grande.',
-    action: 'Vuelve a tu intención central y avanza con un gesto simple.',
-    caution: 'No prometas más de lo que hoy puedes sostener.',
-  ),
-  _TarotCardMeaning(
-    name: 'La Sacerdotisa',
-    message:
-        'La información clave aún no está completa. Observa más antes de exponerlo todo.',
-    action: 'Escucha, registra señales y deja espacio a lo sutil.',
-    caution: 'No fuerces definiciones por ansiedad.',
+        'Atrévete a comenzar hoy: un hábito, un curso, un proyecto o una nueva forma de vivir. Tienes la energía a tu favor.',
+    action: 'Empieza algo concreto aunque todavía no tengas todo resuelto.',
+    caution: 'No confundas impulso con descuido; revisa el primer paso.',
+    summaryFragment: 'atreverte a comenzar una nueva forma de vivir',
+    keywords: ['Inicio', 'Riesgo', 'Libertad'],
+    reflectionQuestion:
+        '¿Qué comienzo estás postergando y podrías activar {suffix} con un primer paso simple?',
   ),
   _TarotCardMeaning(
     name: 'El Mago',
     message:
-        'Tienes recursos para mover la situación si concentras energía y dejas de dispersarte.',
-    action: 'Elige una prioridad y ejecútala hoy.',
-    caution: 'Evita manipular o sobreactuar para lograr atención.',
+        'Recuerda que tienes los recursos necesarios; usa tus conocimientos y habilidades para crear nuevas posibilidades.',
+    action: 'Usa una habilidad disponible y conviértela en una acción visible.',
+    caution: 'Evita dispersarte en demasiadas ideas al mismo tiempo.',
+    summaryFragment: 'usar tus recursos para crear nuevas posibilidades',
+    keywords: ['Recursos', 'Habilidad', 'Creación'],
+    reflectionQuestion:
+        '¿Qué recurso propio puedes usar {suffix} para abrir una posibilidad real?',
+  ),
+  _TarotCardMeaning(
+    name: 'La Sacerdotisa',
+    message:
+        'Explora tu interior; la reflexión, la terapia o la meditación pueden ayudarte a conectar con tu intuición y tus respuestas.',
+    action: 'Haz una pausa de escucha antes de hablar o decidir.',
+    caution: 'No tapes tu intuición con ruido, prisa o exceso de explicación.',
+    summaryFragment: 'explorar tu interior y escuchar tu intuición',
+    keywords: ['Intuición', 'Reflexión', 'Silencio'],
+    reflectionQuestion:
+        '¿Qué respuesta aparece si te das un espacio real de reflexión {suffix}?',
   ),
   _TarotCardMeaning(
     name: 'La Emperatriz',
     message:
-        'La expansión viene mejor cuando cuidas el proceso, el cuerpo y el entorno.',
-    action: 'Nutre primero lo que quieres ver crecer.',
-    caution: 'No confundas sostener con cargar con todo.',
+        'Permite que tu creatividad tome el protagonismo; es tiempo de crear, expandirte y confiar en tu potencial.',
+    action: 'Dale forma a una idea creativa sin esperar validación perfecta.',
+    caution: 'No abandones lo que necesita cuidado constante para crecer.',
+    summaryFragment: 'crear, expandirte y confiar en tu potencial',
+    keywords: ['Creatividad', 'Expansión', 'Potencial'],
+    reflectionQuestion:
+        '¿Qué parte de tu creatividad necesita tomar protagonismo {suffix}?',
   ),
   _TarotCardMeaning(
-    name: 'El Ermitaño',
+    name: 'El Emperador',
     message:
-        'La claridad baja cuando reduces ruido y vuelves a una voz más profunda y honesta.',
-    action: 'Haz pausa, revisa tus motivos y después responde.',
-    caution: 'No te aísles por completo ni congeles decisiones urgentes.',
+        'Proyecta tu camino y toma decisiones con responsabilidad; lo que construyes hoy sostendrá tu futuro.',
+    action: 'Define una estructura, una regla o una decisión responsable.',
+    caution: 'No confundas control con dirección; construye sin rigidez.',
+    summaryFragment: 'proyectar tu camino con responsabilidad',
+    keywords: ['Estructura', 'Responsabilidad', 'Futuro'],
+    reflectionQuestion:
+        '¿Qué decisión responsable puede sostener mejor tu futuro {suffix}?',
   ),
   _TarotCardMeaning(
-    name: 'La Rueda',
+    name: 'El Hierofante',
     message:
-        'Hay un cambio de ritmo en marcha. Lo mejor es leer el momento en lugar de resistirlo.',
-    action: 'Ajusta expectativa y toma el giro a tiempo.',
-    caution: 'No te aferres a un escenario que ya cambió.',
+        'Hoy puedes encontrar aprendizaje en un guía, un profesor o una práctica que te ayude a volver a tu centro.',
+    action: 'Busca guía, estudia o vuelve a una práctica que te ordene.',
+    caution: 'No sigas una voz externa si te aleja de tu centro.',
+    summaryFragment: 'recibir aprendizaje y volver a tu centro',
+    keywords: ['Guía', 'Aprendizaje', 'Centro'],
+    reflectionQuestion:
+        '¿Qué guía, práctica o aprendizaje puede devolverte al centro {suffix}?',
   ),
   _TarotCardMeaning(
-    name: 'La Justicia',
+    name: 'Los Enamorados',
     message:
-        'Hoy conviene mirar hechos, límites y consecuencias con menos fantasía y más rigor.',
-    action: 'Ordena, firma, define o pon una regla clara.',
-    caution: 'No castigues ni te castigues más de la cuenta.',
+        'El amor, la amistad y los encuentros de hoy pueden recordarte quién eres y hacia dónde quieres ir.',
+    action: 'Elige desde el vínculo que te recuerda tu verdad.',
+    caution: 'No decidas solo por agradar o evitar una conversación honesta.',
+    summaryFragment: 'escuchar lo que los vínculos te recuerdan de ti',
+    keywords: ['Elección', 'Vínculos', 'Encuentro'],
+    reflectionQuestion:
+        '¿Qué vínculo te recuerda quién eres y hacia dónde quieres ir {suffix}?',
+  ),
+  _TarotCardMeaning(
+    name: 'El Carro',
+    message:
+        'Decide y avanza; no esperes tener todo claro, el camino se revela mientras das cada paso.',
+    action:
+        'Elige una dirección y da el siguiente paso sin esperar certeza total.',
+    caution: 'Evita quedarte inmóvil por querer controlar todo el mapa.',
+    summaryFragment: 'decidir y avanzar paso a paso',
+    keywords: ['Avance', 'Dirección', 'Movimiento'],
+    reflectionQuestion:
+        '¿Qué paso te permitiría avanzar {suffix} aunque el camino no esté completo?',
   ),
   _TarotCardMeaning(
     name: 'La Fuerza',
     message:
-        'No necesitas imponerte; necesitas regular tu energía para sostener la dirección.',
-    action: 'Canaliza impulso sin perder ternura ni firmeza.',
-    caution: 'Evita explotar por acumulación.',
+        'Es momento de confiar en tu poder, tomar las riendas y avanzar; el camino se revelará mientras lo recorres.',
+    action: 'Toma las riendas con calma y actúa desde tu poder interno.',
+    caution: 'No uses tu fuerza para presionarte más de lo necesario.',
+    summaryFragment: 'confiar en tu poder y tomar las riendas',
+    keywords: ['Poder', 'Confianza', 'Dominio'],
+    reflectionQuestion:
+        '¿Dónde necesitas confiar más en tu poder para avanzar {suffix}?',
   ),
   _TarotCardMeaning(
-    name: 'El Sol',
+    name: 'El Ermitaño',
     message:
-        'La lectura abre una etapa de visibilidad, alivio y validación más directa.',
-    action: 'Muestra tu trabajo o tu verdad con sencillez.',
-    caution: 'No minimices lo que sí está funcionando.',
+        'Dedícate un momento de silencio; conectar contigo puede ayudarte a conocerte mejor y fortalecer tu confianza.',
+    action: 'Regálate silencio antes de responder desde afuera.',
+    caution: 'No conviertas la pausa en aislamiento permanente.',
+    summaryFragment: 'hacer silencio para fortalecer tu confianza',
+    keywords: ['Silencio', 'Confianza', 'Autoconocimiento'],
+    reflectionQuestion:
+        '¿Qué podrías comprender si te dedicas un momento de silencio {suffix}?',
   ),
   _TarotCardMeaning(
-    name: 'La Luna',
+    name: 'La Rueda de la Fortuna',
     message:
-        'Hay emoción, intuición y algo de neblina. No todo lo que sientes debe decidirse hoy.',
-    action: 'Pon nombre a la emoción antes de actuar.',
-    caution: 'No confundas miedo con certeza.',
+        'La vida puede sorprenderte; fluye con sus cambios y recibe cada experiencia con confianza y gratitud.',
+    action: 'Ajusta el paso y recibe el cambio sin pelear con el movimiento.',
+    caution: 'No te aferres a una forma que ya está cambiando.',
+    summaryFragment: 'fluir con los cambios con confianza y gratitud',
+    keywords: ['Cambio', 'Fluidez', 'Gratitud'],
+    reflectionQuestion:
+        '¿Qué cambio puedes recibir con más confianza y gratitud {suffix}?',
+  ),
+  _TarotCardMeaning(
+    name: 'La Justicia',
+    message:
+        'Reflexiona antes de actuar; ver el panorama completo te ayudará a tomar la decisión más acertada.',
+    action: 'Ordena los hechos antes de tomar una decisión.',
+    caution: 'No actúes desde una sola versión del panorama.',
+    summaryFragment: 'ver el panorama completo antes de decidir',
+    keywords: ['Decisión', 'Claridad', 'Equilibrio'],
+    reflectionQuestion:
+        '¿Qué parte del panorama necesitas ver mejor antes de actuar {suffix}?',
   ),
   _TarotCardMeaning(
     name: 'El Colgado',
     message:
-        'La situación pide otro ángulo. Lo productivo ahora no es apurar sino reencuadrar.',
+        'Haz una pausa consciente; cambia tu perspectiva y permite que la claridad revele lo que antes no veías.',
+    action: 'Suspende la reacción automática y mira desde otro ángulo.',
+    caution: 'No confundas pausa consciente con resignación.',
+    summaryFragment: 'cambiar de perspectiva para recuperar claridad',
+    keywords: ['Pausa', 'Perspectiva', 'Claridad'],
+    reflectionQuestion: '¿Qué se revela si cambias tu perspectiva {suffix}?',
+  ),
+  _TarotCardMeaning(
+    name: 'La Muerte',
+    message:
+        'Reconoce lo que necesita cambiar; transformar lo viejo puede ayudarte a recuperar energía y crecer.',
+    action: 'Nombra lo que termina y libera energía para lo nuevo.',
+    caution: 'No sostengas lo viejo solo por costumbre.',
+    summaryFragment: 'transformar lo viejo para recuperar energía',
+    keywords: ['Cambio', 'Transformación', 'Renovación'],
+    reflectionQuestion:
+        '¿Qué necesita cambiar para que puedas recuperar energía {suffix}?',
+  ),
+  _TarotCardMeaning(
+    name: 'La Templanza',
+    message:
+        'Te recomienda no reaccionar impulsivamente; cultiva la calma interior y permite que la reflexión guíe tus decisiones.',
+    action: 'Respira, regula el ritmo y decide desde calma interior.',
+    caution: 'No respondas desde impulso cuando todavía puedes reflexionar.',
+    summaryFragment: 'cultivar calma interior antes de decidir',
+    keywords: ['Calma', 'Reflexión', 'Medida'],
+    reflectionQuestion:
+        '¿Qué decisión necesita más calma interior y menos impulso {suffix}?',
+  ),
+  _TarotCardMeaning(
+    name: 'El Diablo',
+    message:
+        'Mira más allá de lo evidente; no dejes que influencias externas guíen decisiones que solo te corresponden a ti. No todo lo tentador es lo que parece, revisa detalles e intenciones.',
+    action: 'Revisa detalles e intenciones antes de aceptar algo tentador.',
+    caution: 'No entregues tu decisión a influencias externas.',
+    summaryFragment: 'mirar más allá de lo evidente y revisar intenciones',
+    keywords: ['Tentación', 'Influencia', 'Detalle'],
+    reflectionQuestion:
+        '¿Qué influencia externa conviene revisar antes de decidir {suffix}?',
+  ),
+  _TarotCardMeaning(
+    name: 'La Torre',
+    message:
+        'Suelta el desgaste de sostener lo que ya no funciona; redirige tu energía hacia una nueva construcción.',
+    action: 'Deja de sostener lo que drena y redirige energía a reconstruir.',
+    caution: 'No repares una estructura que ya mostró que no funciona.',
+    summaryFragment: 'soltar lo que no funciona y reconstruir',
+    keywords: ['Ruptura', 'Liberación', 'Reconstrucción'],
+    reflectionQuestion:
+        '¿Qué desgaste puedes soltar para construir algo más honesto {suffix}?',
+  ),
+  _TarotCardMeaning(
+    name: 'La Estrella',
+    message:
+        'Mantente abierto a las señales; recuerda que eres parte de un todo y estás acompañado por infinitas posibilidades.',
+    action: 'Observa una señal y avanza con confianza en una posibilidad real.',
+    caution: 'No cierres la mirada solo porque todavía no ves todo el camino.',
+    summaryFragment: 'abrirte a las señales y a nuevas posibilidades',
+    keywords: ['Señales', 'Confianza', 'Posibilidades'],
+    reflectionQuestion:
+        '¿Qué señal puede ayudarte a confiar en una posibilidad nueva {suffix}?',
+  ),
+  _TarotCardMeaning(
+    name: 'La Luna',
+    message:
+        'Permítete mirar hacia dentro; profundizar en tus emociones y tu intuición pueden brindarte una mayor comprensión.',
+    action: 'Pon nombre a una emoción y escucha qué intenta mostrarte.',
+    caution: 'No tomes la confusión emocional como una certeza final.',
+    summaryFragment: 'mirar hacia dentro y comprender tus emociones',
+    keywords: ['Emoción', 'Intuición', 'Comprensión'],
+    reflectionQuestion:
+        '¿Qué emoción necesita ser escuchada para darte mayor comprensión {suffix}?',
+  ),
+  _TarotCardMeaning(
+    name: 'El Sol',
+    message:
+        'Brilla con confianza. Cualquier situación puede resolverse a tu favor cuando actúas desde el optimismo.',
+    action: 'Actúa desde el optimismo y muestra tu luz con sencillez.',
+    caution: 'No minimices lo que ya puede resolverse a tu favor.',
+    summaryFragment: 'brillar con confianza y actuar desde el optimismo',
+    keywords: ['Confianza', 'Optimismo', 'Resolución'],
+    reflectionQuestion:
+        '¿Dónde puedes actuar con más confianza y optimismo {suffix}?',
+  ),
+  _TarotCardMeaning(
+    name: 'El Juicio',
+    message:
+        'Reconoce tu camino hasta hoy con total honestidad. Comprender lo vivido te permitirá aprender, crecer y disfrutar de mayor sabiduría.',
     action:
-        'Suspende una reacción automática y revisa la escena desde otro lugar.',
-    caution: 'No te quedes inmóvil por puro desgaste.',
+        'Mira tu recorrido con honestidad y extrae un aprendizaje concreto.',
+    caution: 'No juzgues tu proceso sin reconocer lo que ya aprendiste.',
+    summaryFragment: 'comprender lo vivido para crecer con sabiduría',
+    keywords: ['Honestidad', 'Aprendizaje', 'Sabiduría'],
+    reflectionQuestion:
+        '¿Qué aprendizaje aparece al mirar tu camino con honestidad {suffix}?',
   ),
   _TarotCardMeaning(
     name: 'El Mundo',
     message:
-        'Hay cierre, integración y capacidad de completar algo con más madurez.',
-    action: 'Cierra el ciclo con conciencia y prepara el siguiente nivel.',
-    caution: 'No vuelvas a abrir lo que ya estaba listo para concluir.',
+        'Expande tu visión; un ciclo se completa y es momento de abrirte a nuevos intereses. Celebra el recorrido y mira más allá; te esperan nuevas posibilidades.',
+    action: 'Celebra lo completado y abre espacio a una posibilidad mayor.',
+    caution: 'No te quedes en un ciclo terminado por miedo a mirar más allá.',
+    summaryFragment: 'completar un ciclo y abrirte a nuevas posibilidades',
+    keywords: ['Cierre', 'Expansión', 'Celebración'],
+    reflectionQuestion:
+        '¿Qué ciclo puedes celebrar para mirar más allá {suffix}?',
   ),
 ];
