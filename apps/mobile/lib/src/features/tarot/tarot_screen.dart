@@ -4387,78 +4387,87 @@ class _TarotCardDetailSheet extends StatelessWidget {
           color: AppPalette.moonIvory,
           borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
         ),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 10, 20, 28),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 48,
-                  height: 5,
-                  decoration: BoxDecoration(
-                    color: AppPalette.border,
-                    borderRadius: BorderRadius.circular(99),
+        child: DefaultTextStyle.merge(
+          style: const TextStyle(
+            decoration: TextDecoration.none,
+            decorationColor: Colors.transparent,
+          ),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 28),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 48,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: AppPalette.border,
+                      borderRadius: BorderRadius.circular(99),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 18),
-              Center(
-                child: _TarotCardPoster(
-                  cardName: item.card.name,
-                  imageUrl: item.card.imageUrl,
+                const SizedBox(height: 18),
+                Center(
+                  child: _TarotCardPoster(
+                    cardName: item.card.name,
+                    imageUrl: item.card.imageUrl,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 20),
-              _DetailSectionLabel(label: l10n.tr('tarotGentleInterpretation')),
-              const SizedBox(height: 8),
-              Text(
-                userName.isEmpty
-                    ? interpretation
-                    : '$userName, $interpretation',
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: _tarotSecondaryText,
-                      height: 1.45,
-                    ),
-              ),
-              const SizedBox(height: 16),
-              _DetailSectionLabel(label: l10n.tr('tarotMoreAboutCard')),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: keywords
-                    .map(
-                      (keyword) => _InfoPill(
-                        label: keyword,
-                        accent: AppPalette.royalViolet,
+                const SizedBox(height: 20),
+                _DetailSectionLabel(
+                  label: l10n.tr('tarotGentleInterpretation'),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  userName.isEmpty
+                      ? interpretation
+                      : '$userName, $interpretation',
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: _tarotSecondaryText,
+                        height: 1.45,
+                        decoration: TextDecoration.none,
                       ),
-                    )
-                    .toList(),
-              ),
-              const SizedBox(height: 14),
-              _TarotInsightCard(
-                title: l10n.tr('tarotWhatAsksToday'),
-                body: l10n.ts(item.card.action),
-                accent: AppPalette.royalViolet,
-                icon: Icons.bolt_rounded,
-              ),
-              const SizedBox(height: 10),
-              _TarotInsightCard(
-                title: l10n.tr('tarotWhatAvoidToday'),
-                body: l10n.ts(item.card.caution),
-                accent: AppPalette.flameGold,
-                icon: Icons.visibility_outlined,
-              ),
-              const SizedBox(height: 10),
-              _TarotInsightCard(
-                title: l10n.tr('tarotGuidingQuestion'),
-                body: reflectionQuestion,
-                accent: AppPalette.indigo,
-                icon: Icons.help_outline_rounded,
-              ),
-              const SizedBox(height: 16),
-            ],
+                ),
+                const SizedBox(height: 16),
+                _DetailSectionLabel(label: l10n.tr('tarotMoreAboutCard')),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: keywords
+                      .map(
+                        (keyword) => _InfoPill(
+                          label: keyword,
+                          accent: AppPalette.royalViolet,
+                        ),
+                      )
+                      .toList(),
+                ),
+                const SizedBox(height: 14),
+                _TarotInsightCard(
+                  title: l10n.tr('tarotWhatAsksToday'),
+                  body: l10n.ts(item.card.action),
+                  accent: AppPalette.royalViolet,
+                  icon: Icons.bolt_rounded,
+                ),
+                const SizedBox(height: 10),
+                _TarotInsightCard(
+                  title: l10n.tr('tarotWhatAvoidToday'),
+                  body: l10n.ts(item.card.caution),
+                  accent: AppPalette.flameGold,
+                  icon: Icons.visibility_outlined,
+                ),
+                const SizedBox(height: 10),
+                _TarotInsightCard(
+                  title: l10n.tr('tarotGuidingQuestion'),
+                  body: reflectionQuestion,
+                  accent: AppPalette.indigo,
+                  icon: Icons.help_outline_rounded,
+                ),
+                const SizedBox(height: 16),
+              ],
+            ),
           ),
         ),
       ),
@@ -4482,6 +4491,8 @@ class _DetailSectionLabel extends StatelessWidget {
         fontSize: 12,
         fontWeight: FontWeight.w800,
         letterSpacing: 0.35,
+        decoration: TextDecoration.none,
+        decorationColor: Colors.transparent,
       ),
     );
   }
@@ -4538,6 +4549,8 @@ class _TarotInsightCard extends StatelessWidget {
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
                     letterSpacing: 0.2,
+                    decoration: TextDecoration.none,
+                    decorationColor: Colors.transparent,
                   ),
                 ),
                 const SizedBox(height: 6),
@@ -4546,6 +4559,8 @@ class _TarotInsightCard extends StatelessWidget {
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: _tarotSecondaryText,
                         height: 1.4,
+                        decoration: TextDecoration.none,
+                        decorationColor: Colors.transparent,
                       ),
                 ),
               ],
@@ -4590,6 +4605,8 @@ class _InfoPill extends StatelessWidget {
           fontSize: 13,
           fontWeight: FontWeight.w600,
           letterSpacing: 0.18,
+          decoration: TextDecoration.none,
+          decorationColor: Colors.transparent,
         ),
       ),
     );
