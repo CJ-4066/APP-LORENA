@@ -2,8 +2,8 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'package:http/http.dart' as http;
+import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 
 import '../../core/config/app_config.dart';
 import '../../core/i18n/app_i18n.dart';
@@ -27,19 +27,12 @@ class LibraryPdfViewerScreen extends StatefulWidget {
 class _LibraryPdfViewerScreenState extends State<LibraryPdfViewerScreen> {
   final http.Client _client = http.Client();
   final PdfViewerController _pdfViewerController = PdfViewerController();
-  final TextEditingController _pageController =
-      TextEditingController(text: '1');
-  final TextEditingController _searchController = TextEditingController();
 
   _LibraryPdfMetadata? _metadata;
   Uint8List? _pdfBytes;
-  PdfTextSearchResult? _searchResult;
   bool _loading = true;
-  bool _searchBusy = false;
   bool _fallbackNavigationScheduled = false;
-  int _currentPage = 1;
   String? _errorMessage;
-  String? _loadFailureMessage;
 
   String get _baseUrl => AppConfig.apiBaseUrl;
   String get _metaUrl =>
@@ -57,10 +50,6 @@ class _LibraryPdfViewerScreenState extends State<LibraryPdfViewerScreen> {
   void dispose() {
     _client.close();
     _pdfViewerController.dispose();
-    _pageController.dispose();
-    _searchController.dispose();
-    _searchResult?.removeListener(_onSearchResultChanged);
-    _searchResult?.dispose();
     super.dispose();
   }
 
@@ -68,7 +57,6 @@ class _LibraryPdfViewerScreenState extends State<LibraryPdfViewerScreen> {
     setState(() {
       _loading = true;
       _errorMessage = null;
-      _loadFailureMessage = null;
       _pdfBytes = null;
     });
 
@@ -83,8 +71,6 @@ class _LibraryPdfViewerScreenState extends State<LibraryPdfViewerScreen> {
         _metadata = meta;
         _pdfBytes = pdfBytes;
         _loading = false;
-        _currentPage = 1;
-        _pageController.text = '1';
       });
     } catch (error) {
       if (!mounted) {
@@ -155,13 +141,10 @@ class _LibraryPdfViewerScreenState extends State<LibraryPdfViewerScreen> {
             )
           : _metadata!.copyWith(pageCount: _pdfViewerController.pageCount);
       _loading = false;
-      _loadFailureMessage = null;
-      _currentPage = _pdfViewerController.pageNumber;
-      _pageController.text = '${_pdfViewerController.pageNumber}';
     });
   }
 
-  void _onDocumentLoadFailed(PdfDocumentLoadFailedDetails details) {
+  void _onDocumentLoadFailed(PdfDocumentLoadFailedDetails _) {
     if (!mounted) {
       return;
     }
@@ -187,231 +170,8 @@ class _LibraryPdfViewerScreenState extends State<LibraryPdfViewerScreen> {
     });
   }
 
-  void _onPageChanged(PdfPageChangedDetails details) {
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {
-      _currentPage = details.newPageNumber;
-      _pageController.text = '${details.newPageNumber}';
-    });
-  }
-
-  void _attachSearchResult(PdfTextSearchResult result) {
-    _searchResult?.removeListener(_onSearchResultChanged);
-    _searchResult?.dispose();
-    _searchResult = result;
-    _searchResult!.addListener(_onSearchResultChanged);
-  }
-
-  void _onSearchResultChanged() {
-    if (!mounted) {
-      return;
-    }
-
-    setState(() {});
-  }
-
-  Future<void> _jumpToPage(int pageNumber) async {
-    final meta = _metadata;
-    if (meta == null) {
-      return;
-    }
-
-    final target = pageNumber.clamp(1, meta.pageCount);
-    _pageController.text = '$target';
-    _pdfViewerController.jumpToPage(target);
-  }
-
-  Future<void> _search() async {
-    final query = _searchController.text.trim();
-    final currentResult = _searchResult;
-    if (currentResult != null) {
-      currentResult.clear();
-    }
-
-    if (query.isEmpty) {
-      setState(() {
-        _searchBusy = false;
-      });
-      return;
-    }
-
-    setState(() {
-      _searchBusy = true;
-      _errorMessage = null;
-    });
-
-    try {
-      final result = _pdfViewerController.searchText(query);
-      _attachSearchResult(result);
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {});
-      if (result.hasResult) {
-        result.nextInstance();
-      }
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      setState(() {
-        _errorMessage = error.toString();
-      });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _searchBusy = false;
-        });
-      }
-    }
-  }
-
-  void _clearSearch() {
-    _searchController.clear();
-    _searchResult?.clear();
-    setState(() {});
-  }
-
-  Widget _buildTopControls(BuildContext context) {
-    final meta = _metadata;
-    if (meta == null) {
-      return const SizedBox.shrink();
-    }
-
-    final searchResult = _searchResult;
-    final searchLabel = searchResult == null || !searchResult.hasResult
-        ? context.l10n.ts('Sin búsqueda')
-        : searchResult.isSearchCompleted
-            ? '${searchResult.currentInstanceIndex}/${searchResult.totalInstanceCount}'
-            : '${searchResult.currentInstanceIndex}/${searchResult.totalInstanceCount}...';
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: AppPalette.borderSoft)),
-      ),
-      child: Wrap(
-        runSpacing: 10,
-        spacing: 10,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          Chip(
-            avatar: const Icon(Icons.auto_stories_rounded, size: 18),
-            label: Text('Página $_currentPage / ${meta.pageCount}'),
-          ),
-          SizedBox(
-            width: 92,
-            child: TextField(
-              controller: _pageController,
-              keyboardType: TextInputType.number,
-              textAlign: TextAlign.center,
-              autocorrect: false,
-              enableSuggestions: false,
-              spellCheckConfiguration: const SpellCheckConfiguration.disabled(),
-              decoration: InputDecoration(
-                hintText: context.l10n.ts('Página'),
-              ),
-              onSubmitted: (_) {
-                final page = int.tryParse(_pageController.text.trim());
-                if (page != null) {
-                  _jumpToPage(page);
-                }
-              },
-            ),
-          ),
-          FilledButton.icon(
-            onPressed: () {
-              final page = int.tryParse(_pageController.text.trim());
-              if (page != null) {
-                _jumpToPage(page);
-              }
-            },
-            icon: const Icon(Icons.search_rounded),
-            label: Text(context.l10n.ts('Ir')),
-          ),
-          OutlinedButton.icon(
-            onPressed:
-                _currentPage > 1 ? () => _jumpToPage(_currentPage - 1) : null,
-            icon: const Icon(Icons.chevron_left_rounded),
-            label: Text(context.l10n.ts('Anterior')),
-          ),
-          OutlinedButton.icon(
-            onPressed: _metadata != null && _currentPage < meta.pageCount
-                ? () => _jumpToPage(_currentPage + 1)
-                : null,
-            icon: const Icon(Icons.chevron_right_rounded),
-            label: Text(context.l10n.ts('Siguiente')),
-          ),
-          SizedBox(
-            width: 190,
-            child: TextField(
-              controller: _searchController,
-              textInputAction: TextInputAction.search,
-              autocorrect: false,
-              enableSuggestions: false,
-              spellCheckConfiguration: const SpellCheckConfiguration.disabled(),
-              onSubmitted: (_) => _search(),
-              decoration: InputDecoration(
-                hintText: context.l10n.ts('Buscar texto'),
-                prefixIcon: const Icon(Icons.search_rounded),
-                suffixIcon: _searchController.text.isEmpty
-                    ? null
-                    : IconButton(
-                        onPressed: _clearSearch,
-                        icon: const Icon(Icons.clear_rounded),
-                      ),
-              ),
-            ),
-          ),
-          FilledButton(
-            onPressed: _searchBusy ? null : _search,
-            child: Text(context.l10n.ts('Buscar')),
-          ),
-          OutlinedButton.icon(
-            onPressed: searchResult == null || !searchResult.hasResult
-                ? null
-                : searchResult.previousInstance,
-            icon: const Icon(Icons.keyboard_arrow_up_rounded),
-            label: Text(context.l10n.ts('Previa')),
-          ),
-          OutlinedButton.icon(
-            onPressed: searchResult == null || !searchResult.hasResult
-                ? null
-                : searchResult.nextInstance,
-            icon: const Icon(Icons.keyboard_arrow_down_rounded),
-            label: Text(context.l10n.ts('Siguiente')),
-          ),
-          Text(
-            searchLabel,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppPalette.mutedLavender,
-                  fontWeight: FontWeight.w600,
-                ),
-          ),
-          IconButton(
-            onPressed: () => _loadMetadata(),
-            icon: const Icon(Icons.refresh_rounded),
-            tooltip: context.l10n.ts('Recargar'),
-          ),
-          IconButton(
-            onPressed: () => _loadMetadata(refresh: true),
-            icon: const Icon(Icons.bolt_rounded),
-            tooltip: context.l10n.ts('Forzar recarga'),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildErrorPanel(BuildContext context) {
-    final message = _errorMessage ?? _loadFailureMessage;
+    final message = _errorMessage;
     return Padding(
       padding: const EdgeInsets.all(18),
       child: Container(
@@ -440,16 +200,6 @@ class _LibraryPdfViewerScreenState extends State<LibraryPdfViewerScreen> {
                   .titleMedium
                   ?.copyWith(fontWeight: FontWeight.w800),
             ),
-            const SizedBox(height: 8),
-            Text(
-              context.l10n.ts(
-                'La API no devolvió un documento legible. Podemos forzar una nueva lectura desde el servidor.',
-              ),
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppPalette.mutedLavender,
-                    height: 1.35,
-                  ),
-            ),
             if (message != null) ...[
               const SizedBox(height: 10),
               Text(
@@ -460,75 +210,60 @@ class _LibraryPdfViewerScreenState extends State<LibraryPdfViewerScreen> {
                     ),
               ),
             ],
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: [
-                FilledButton.icon(
-                  onPressed: () => _loadMetadata(),
-                  icon: const Icon(Icons.refresh_rounded),
-                  label: Text(context.l10n.ts('Reintentar')),
-                ),
-                OutlinedButton.icon(
-                  onPressed: () => _loadMetadata(refresh: true),
-                  icon: const Icon(Icons.bolt_rounded),
-                  label: Text(context.l10n.ts('Forzar recarga')),
-                ),
-              ],
-            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildPdfViewer(BuildContext context) {
+  Widget _buildPdfViewer() {
     final bytes = _pdfBytes;
     if (bytes == null) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    return SfPdfViewer.memory(
-      bytes,
-      controller: _pdfViewerController,
-      canShowScrollHead: true,
-      canShowScrollStatus: true,
-      canShowPaginationDialog: true,
-      enableTextSelection: true,
-      enableDoubleTapZooming: true,
-      currentSearchTextHighlightColor:
-          AppPalette.flameGold.withValues(alpha: 0.55),
-      otherSearchTextHighlightColor: AppPalette.indigo.withValues(alpha: 0.18),
-      onDocumentLoaded: _onDocumentLoaded,
-      onDocumentLoadFailed: _onDocumentLoadFailed,
-      onPageChanged: _onPageChanged,
-      onTextSelectionChanged: (_) {},
+    return ColoredBox(
+      color: Colors.white,
+      child: SfPdfViewer.memory(
+        bytes,
+        controller: _pdfViewerController,
+        canShowScrollHead: false,
+        canShowScrollStatus: false,
+        canShowPaginationDialog: false,
+        canShowHyperlinkDialog: false,
+        canShowPasswordDialog: false,
+        canShowSignaturePadDialog: false,
+        canShowTextSelectionMenu: false,
+        pageLayoutMode: PdfPageLayoutMode.continuous,
+        pageSpacing: 0,
+        scrollDirection: PdfScrollDirection.vertical,
+        initialPageNumber: 1,
+        initialZoomLevel: 1,
+        maxZoomLevel: 6,
+        interactionMode: PdfInteractionMode.pan,
+        enableTextSelection: false,
+        enableDoubleTapZooming: true,
+        enableDocumentLinkAnnotation: false,
+        enableHyperlinkNavigation: false,
+        onDocumentLoaded: _onDocumentLoaded,
+        onDocumentLoadFailed: _onDocumentLoadFailed,
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final title = _metadata?.title ?? widget.document.title;
+    final Widget content = _loading
+        ? const Center(child: CircularProgressIndicator())
+        : _errorMessage != null
+            ? _buildErrorPanel(context)
+            : _buildPdfViewer();
 
     return Scaffold(
-      backgroundColor: AppPalette.petalSoft,
-      appBar: AppBar(
-        backgroundColor: AppPalette.petalSoft,
-        foregroundColor: AppPalette.butterflyInk,
-        elevation: 0,
-        title: Text(title),
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        child: content,
       ),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _errorMessage != null || _loadFailureMessage != null
-              ? _buildErrorPanel(context)
-              : Column(
-                  children: [
-                    _buildTopControls(context),
-                    Expanded(child: _buildPdfViewer(context)),
-                  ],
-                ),
     );
   }
 }
