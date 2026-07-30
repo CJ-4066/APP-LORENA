@@ -11,10 +11,18 @@ import '../../core/widgets/mystic_ui.dart';
 import '../../core/widgets/premium_access.dart';
 import '../../models/app_models.dart';
 import 'course_pdf_viewer_screen.dart';
+import 'library_pdf_bookmark_service.dart';
 import 'library_pdf_image_viewer_screen.dart';
 import 'library_pdf_viewer_screen.dart';
 import 'library_pdf_thumbnail_service.dart';
 import 'shared_drive_library_service.dart';
+
+const String _savedLibraryCategoryId = '__saved__';
+const SharedDriveCategory _savedLibraryCategory = SharedDriveCategory(
+  id: _savedLibraryCategoryId,
+  title: 'Guardados',
+  url: '',
+);
 
 typedef CourseAssetUploader = Future<String> Function({
   required Uint8List bytes,
@@ -1262,8 +1270,11 @@ class _CoursesPanelState extends State<_CoursesPanel> {
   final TextEditingController _librarySearchController =
       TextEditingController();
   final SharedDriveLibraryService _libraryService = SharedDriveLibraryService();
+  final LibraryPdfBookmarkService _bookmarkService =
+      LibraryPdfBookmarkService();
   final LibraryPdfThumbnailService _thumbnailService =
       LibraryPdfThumbnailService(client: http.Client());
+  final Map<String, int> _savedPagesByDocumentId = <String, int>{};
   late Future<List<SharedDriveCategory>> _categoriesFuture;
   Future<List<SharedDriveDocument>>? _documentsFuture;
   SharedDriveCategory? _selectedCategory;
@@ -1335,27 +1346,54 @@ class _CoursesPanelState extends State<_CoursesPanel> {
   }
 
   Future<List<SharedDriveCategory>> _loadCategories() async {
-    final categories = await _libraryService.fetchRootCategories();
+    final serverCategories = await _libraryService.fetchRootCategories();
+    final categories = <SharedDriveCategory>[
+      _savedLibraryCategory,
+      ...serverCategories.where(
+        (category) => category.id != _savedLibraryCategoryId,
+      ),
+    ];
     if (categories.isNotEmpty) {
-      final preferredCategory = categories.firstWhere(
+      final preferredCategory = serverCategories.firstWhere(
         (category) => category.id == 'general',
-        orElse: () => categories.first,
+        orElse: () => serverCategories.isNotEmpty
+            ? serverCategories.first
+            : categories.first,
       );
       if (mounted) {
         setState(() {
           _selectedCategory = preferredCategory;
-          _documentsFuture = _libraryService.fetchDocumentsForCategory(
-            preferredCategory.id,
-          );
+          _documentsFuture = _fetchDocumentsForCategory(preferredCategory);
         });
       } else {
         _selectedCategory = preferredCategory;
-        _documentsFuture = _libraryService.fetchDocumentsForCategory(
-          preferredCategory.id,
-        );
+        _documentsFuture = _fetchDocumentsForCategory(preferredCategory);
       }
     }
     return categories;
+  }
+
+  Future<List<SharedDriveDocument>> _fetchDocumentsForCategory(
+    SharedDriveCategory category,
+  ) {
+    if (category.id == _savedLibraryCategoryId) {
+      return _loadSavedDocuments();
+    }
+    return _libraryService.fetchDocumentsForCategory(category.id);
+  }
+
+  Future<List<SharedDriveDocument>> _loadSavedDocuments() async {
+    final bookmarks = await _bookmarkService.loadBookmarks();
+    _savedPagesByDocumentId
+      ..clear()
+      ..addEntries(
+        bookmarks.map(
+          (bookmark) => MapEntry(bookmark.document.id, bookmark.page),
+        ),
+      );
+    return bookmarks
+        .map((bookmark) => bookmark.document)
+        .toList(growable: false);
   }
 
   void _selectCategory(SharedDriveCategory category) {
@@ -1365,23 +1403,37 @@ class _CoursesPanelState extends State<_CoursesPanel> {
 
     setState(() {
       _selectedCategory = category;
-      _documentsFuture = _libraryService.fetchDocumentsForCategory(category.id);
+      _documentsFuture = _fetchDocumentsForCategory(category);
     });
   }
 
-  void _openDocument(BuildContext context, SharedDriveDocument document) {
-    Navigator.of(context).push(
+  Future<void> _openDocument(
+    BuildContext context,
+    SharedDriveDocument document, {
+    int? initialPage,
+  }) async {
+    await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => Platform.isAndroid
             ? LibraryPdfImageViewerScreen(
                 title: document.title,
                 document: document,
+                initialPage: initialPage ?? 1,
               )
             : LibraryPdfViewerScreen(
                 document: document,
+                initialPage: initialPage ?? 1,
               ),
       ),
     );
+
+    if (!mounted || _selectedCategory?.id != _savedLibraryCategoryId) {
+      return;
+    }
+
+    setState(() {
+      _documentsFuture = _loadSavedDocuments();
+    });
   }
 
   @override
@@ -1404,6 +1456,7 @@ class _CoursesPanelState extends State<_CoursesPanel> {
             selectedCategory: _selectedCategory,
             searchController: _librarySearchController,
             searchQuery: _librarySearchQuery,
+            savedPagesByDocumentId: _savedPagesByDocumentId,
             onSelectCategory: _selectCategory,
             onSearchChanged: (value) {
               setState(() {
@@ -1411,7 +1464,11 @@ class _CoursesPanelState extends State<_CoursesPanel> {
               });
             },
             thumbnailService: _thumbnailService,
-            onOpenDocument: (document) => _openDocument(context, document),
+            onOpenDocument: (document, {initialPage}) => _openDocument(
+              context,
+              document,
+              initialPage: initialPage,
+            ),
           )
         else
           PremiumLockedCard(
@@ -1445,6 +1502,7 @@ class _DriveLibrarySection extends StatelessWidget {
     required this.selectedCategory,
     required this.searchController,
     required this.searchQuery,
+    required this.savedPagesByDocumentId,
     required this.onSelectCategory,
     required this.onSearchChanged,
     required this.thumbnailService,
@@ -1456,10 +1514,12 @@ class _DriveLibrarySection extends StatelessWidget {
   final SharedDriveCategory? selectedCategory;
   final TextEditingController searchController;
   final String searchQuery;
+  final Map<String, int> savedPagesByDocumentId;
   final ValueChanged<SharedDriveCategory> onSelectCategory;
   final ValueChanged<String> onSearchChanged;
   final LibraryPdfThumbnailService thumbnailService;
-  final ValueChanged<SharedDriveDocument> onOpenDocument;
+  final void Function(SharedDriveDocument document, {int? initialPage})
+      onOpenDocument;
 
   @override
   Widget build(BuildContext context) {
@@ -1581,12 +1641,21 @@ class _DriveLibrarySection extends StatelessWidget {
                   );
                 }
 
+                final isSavedCategory =
+                    selectedCategory?.id == _savedLibraryCategoryId;
+
                 if (documentsSnapshot.data?.isEmpty ?? true) {
                   return MysticMiniBanner(
-                    title: l10n.ts('Sin PDFs publicados'),
-                    subtitle: l10n.ts(
-                      'No hay documentos publicados dentro de esta categoría en el servidor.',
-                    ),
+                    title: isSavedCategory
+                        ? l10n.ts('Sin libros guardados')
+                        : l10n.ts('Sin PDFs publicados'),
+                    subtitle: isSavedCategory
+                        ? l10n.ts(
+                            'Abre un PDF y toca el marcador para guardar tu página.',
+                          )
+                        : l10n.ts(
+                            'No hay documentos publicados dentro de esta categoría en el servidor.',
+                          ),
                     glyphKind: MysticGlyphKind.course,
                     accent: AppPalette.indigo,
                   );
@@ -1636,10 +1705,15 @@ class _DriveLibrarySection extends StatelessWidget {
                       ),
                       itemBuilder: (context, index) {
                         final document = filteredDocuments[index];
+                        final savedPage = savedPagesByDocumentId[document.id];
                         return _DriveBookCard(
                           document: document,
+                          savedPage: savedPage,
                           thumbnailService: thumbnailService,
-                          onTap: () => onOpenDocument(document),
+                          onTap: () => onOpenDocument(
+                            document,
+                            initialPage: savedPage,
+                          ),
                         );
                       },
                     );
@@ -1657,16 +1731,19 @@ class _DriveLibrarySection extends StatelessWidget {
 class _DriveBookCard extends StatelessWidget {
   const _DriveBookCard({
     required this.document,
+    required this.savedPage,
     required this.thumbnailService,
     required this.onTap,
   });
 
   final SharedDriveDocument document;
+  final int? savedPage;
   final LibraryPdfThumbnailService thumbnailService;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final page = savedPage;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -1749,20 +1826,20 @@ class _DriveBookCard extends StatelessWidget {
                           ),
                     ),
                     const SizedBox(height: 8),
-                    const Row(
+                    Row(
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.picture_as_pdf_outlined,
                           size: 16,
                           color: AppPalette.flameGold,
                         ),
-                        SizedBox(width: 6),
+                        const SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            'Abrir PDF',
+                            page == null ? 'Abrir PDF' : 'Página $page',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
+                            style: const TextStyle(
                               color: AppPalette.mutedLavender,
                               fontSize: 12,
                               fontWeight: FontWeight.w700,

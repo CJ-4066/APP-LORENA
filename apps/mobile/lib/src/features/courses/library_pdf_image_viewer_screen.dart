@@ -8,6 +8,7 @@ import '../../core/config/app_config.dart';
 import '../../core/i18n/app_i18n.dart';
 import '../../core/theme/app_palette.dart';
 import '../../core/widgets/mystic_ui.dart';
+import 'library_pdf_bookmark_service.dart';
 import 'shared_drive_library_service.dart';
 
 class LibraryPdfImageViewerScreen extends StatefulWidget {
@@ -15,10 +16,12 @@ class LibraryPdfImageViewerScreen extends StatefulWidget {
     super.key,
     required this.title,
     required this.document,
+    this.initialPage = 1,
   });
 
   final String title;
   final SharedDriveDocument document;
+  final int initialPage;
 
   @override
   State<LibraryPdfImageViewerScreen> createState() =>
@@ -28,12 +31,17 @@ class LibraryPdfImageViewerScreen extends StatefulWidget {
 class _LibraryPdfImageViewerScreenState
     extends State<LibraryPdfImageViewerScreen> {
   final http.Client _client = http.Client();
-  final PageController _viewerController = PageController();
+  final LibraryPdfBookmarkService _bookmarkService =
+      LibraryPdfBookmarkService();
+  late final PageController _viewerController;
   final Map<int, Future<Uint8List?>> _pageImageCache = {};
+  final Set<int> _activePointers = <int>{};
 
   _LibraryPdfMetadata? _metadata;
   bool _loading = true;
   bool _refreshing = false;
+  int _currentPage = 1;
+  Offset? _swipeStart;
   String? _errorMessage;
 
   int get _pageRenderWidth =>
@@ -85,6 +93,8 @@ class _LibraryPdfImageViewerScreenState
   @override
   void initState() {
     super.initState();
+    _currentPage = widget.initialPage < 1 ? 1 : widget.initialPage;
+    _viewerController = PageController(initialPage: _currentPage - 1);
     _loadMetadata();
   }
 
@@ -136,6 +146,7 @@ class _LibraryPdfImageViewerScreenState
         );
         _loading = false;
         _refreshing = false;
+        _currentPage = _currentPage.clamp(1, pageCount);
         _pageImageCache.clear();
       });
     } catch (error) {
@@ -192,6 +203,88 @@ class _LibraryPdfImageViewerScreenState
             ],
           ],
         ),
+      ),
+    );
+  }
+
+  void _handlePointerDown(PointerDownEvent event) {
+    _activePointers.add(event.pointer);
+    _swipeStart = _activePointers.length == 1 ? event.position : null;
+  }
+
+  void _handlePointerUp(PointerUpEvent event) {
+    final shouldReadSwipe =
+        _activePointers.length == 1 && _activePointers.contains(event.pointer);
+    final start = _swipeStart;
+    _activePointers.remove(event.pointer);
+    _swipeStart = _activePointers.isEmpty ? null : _swipeStart;
+
+    if (!shouldReadSwipe || start == null) {
+      return;
+    }
+
+    final delta = event.position - start;
+    if (delta.dx.abs() < 72 || delta.dx.abs() < delta.dy.abs() * 1.2) {
+      return;
+    }
+
+    if (delta.dx > 0) {
+      _goToPage(_currentPage + 1);
+    } else {
+      _goToPage(_currentPage - 1);
+    }
+  }
+
+  void _handlePointerCancel(PointerCancelEvent event) {
+    _activePointers.remove(event.pointer);
+    if (_activePointers.isEmpty) {
+      _swipeStart = null;
+    }
+  }
+
+  Future<void> _goToPage(int page) async {
+    final meta = _metadata;
+    if (meta == null) {
+      return;
+    }
+
+    final targetPage = page.clamp(1, meta.pageCount);
+    if (targetPage == _currentPage) {
+      return;
+    }
+
+    setState(() {
+      _currentPage = targetPage;
+    });
+    if (_viewerController.hasClients) {
+      await _viewerController.animateToPage(
+        targetPage - 1,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+      );
+    }
+  }
+
+  Future<void> _saveCurrentPage() async {
+    final meta = _metadata;
+    if (meta == null) {
+      return;
+    }
+
+    final savedPage = _currentPage.clamp(1, meta.pageCount);
+    await _bookmarkService.saveBookmark(
+      document: widget.document,
+      page: savedPage,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(context.l10n.ts('Página guardada')),
+        duration: const Duration(milliseconds: 900),
       ),
     );
   }
@@ -265,6 +358,9 @@ class _LibraryPdfImageViewerScreenState
                 onPageChanged: (index) {
                   final nextPage = index + 1;
                   _trimPageImageCache(nextPage);
+                  setState(() {
+                    _currentPage = nextPage;
+                  });
                   if (nextPage < meta.pageCount) {
                     _loadPageBytes(nextPage + 1);
                   }
@@ -279,8 +375,47 @@ class _LibraryPdfImageViewerScreenState
 
     return Scaffold(
       backgroundColor: Colors.black,
-      body: SafeArea(
-        child: content,
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: SafeArea(
+              child: Listener(
+                onPointerDown: _handlePointerDown,
+                onPointerUp: _handlePointerUp,
+                onPointerCancel: _handlePointerCancel,
+                child: content,
+              ),
+            ),
+          ),
+          if (!_loading && _errorMessage == null) _buildSaveButton(context),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSaveButton(BuildContext context) {
+    return SafeArea(
+      child: Align(
+        alignment: Alignment.topRight,
+        child: Padding(
+          padding: const EdgeInsets.all(8),
+          child: Material(
+            color: Colors.black.withValues(alpha: 0.42),
+            shape: const CircleBorder(),
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: _saveCurrentPage,
+              child: const SizedBox.square(
+                dimension: 34,
+                child: Icon(
+                  Icons.bookmark_add_rounded,
+                  color: Colors.white,
+                  size: 18,
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
