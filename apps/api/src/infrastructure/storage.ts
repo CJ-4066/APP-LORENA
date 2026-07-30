@@ -41,7 +41,7 @@ export function describeStorageError(error: unknown): string {
 function getStorageClient(): S3Client {
   const env = getAppEnv();
   if (!isStorageConfigured()) {
-    throw new Error("S3/MinIO no esta configurado.");
+    throw new Error("S3/MinIO no está configurado.");
   }
 
   if (!storageClient) {
@@ -62,7 +62,7 @@ function getStorageClient(): S3Client {
 async function ensureBucketExists(): Promise<void> {
   const env = getAppEnv();
   if (!env.s3Bucket) {
-    throw new Error("S3_BUCKET no esta configurado.");
+    throw new Error("S3_BUCKET no está configurado.");
   }
 
   const client = getStorageClient();
@@ -140,7 +140,7 @@ export async function putStorageObject(input: {
 }): Promise<void> {
   const env = getAppEnv();
   if (!env.s3Bucket) {
-    throw new Error("S3_BUCKET no esta configurado.");
+    throw new Error("S3_BUCKET no está configurado.");
   }
 
   await ensureStorageReady();
@@ -163,7 +163,7 @@ export async function putStorageObject(input: {
 export async function getStorageObjectBytes(objectKey: string): Promise<Uint8Array> {
   const env = getAppEnv();
   if (!env.s3Bucket) {
-    throw new Error("S3_BUCKET no esta configurado.");
+    throw new Error("S3_BUCKET no está configurado.");
   }
 
   await ensureStorageReady();

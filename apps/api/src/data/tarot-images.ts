@@ -146,7 +146,7 @@ export async function getTarotImageContent(slug: string): Promise<{
   const item = catalog.get(normalizedSlug);
 
   if (!item) {
-    throw new Error("No se encontro la imagen solicitada.");
+    throw new Error("No se encontró la imagen solicitada.");
   }
 
   return {

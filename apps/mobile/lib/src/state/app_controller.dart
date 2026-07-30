@@ -1606,7 +1606,7 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
         consultationProvider: 'Mercado Pago',
         premiumProvider: 'Apple In-App Purchase',
         supportedMethods: const [
-          'Tarjetas crédito/débito',
+          'Tarjetas de crédito/débito',
           'Suscripción mensual',
         ],
         notes: const [

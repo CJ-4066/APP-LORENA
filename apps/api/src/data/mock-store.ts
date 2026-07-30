@@ -970,14 +970,14 @@ let courses: Course[] = [
             format: "audio",
             durationMinutes: 10,
             prompt:
-              "Define que necesitas entender hoy y que no necesitas controlar.",
+              "Define qué necesitas entender hoy y qué no necesitas controlar.",
             order: 1,
             status: "published",
             isActive: true,
           },
           {
             id: "course-tarot-sin-ruido-m3-l2",
-            title: "Presente, tension y salida",
+            title: "Presente, tensión y salida",
             format: "video",
             durationMinutes: 18,
             prompt:
@@ -1445,14 +1445,14 @@ const paymentsConfig: PaymentsConfig = {
   consultationProvider: "Mercado Pago",
   premiumProvider: "Apple In-App Purchase / Google Play Billing",
   supportedMethods: [
-    "Tarjetas crédito/débito",
+    "Tarjetas de crédito/débito",
     "Transferencias",
     "Pago en efectivo habilitado por Mercado Pago",
-    "Suscripcion mensual o anual en stores",
+    "Suscripción mensual o anual en tiendas",
   ],
   notes: [
     "Premium y contenido digital se gestionan por billing de tienda.",
-    "Consultas 1:1 pueden evaluarse con Mercado Pago segun el flujo final.",
+    "Consultas 1:1 pueden evaluarse con Mercado Pago según el flujo final.",
   ],
 };
 

@@ -449,7 +449,7 @@ const zodiacSigns: ZodiacSignDefinition[] = [
     element: "Aire",
     quality: "Cardinal",
     ruler: "Venus",
-    keyword: "vinculo y equilibrio",
+    keyword: "vínculo y equilibrio",
   },
   {
     index: 7,
@@ -481,7 +481,7 @@ const zodiacSigns: ZodiacSignDefinition[] = [
     element: "Aire",
     quality: "Fijo",
     ruler: "Urano",
-    keyword: "vision y diferencia",
+    keyword: "visión y diferencia",
   },
   {
     index: 11,

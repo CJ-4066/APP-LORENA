@@ -49,7 +49,7 @@ export async function registerSubscriptionRoutes(app: FastifyInstance) {
         error:
           error instanceof Error
             ? error.message
-            : "No se pudo cancelar la suscripcion.",
+            : "No se pudo cancelar la suscripción.",
       };
     }
   });

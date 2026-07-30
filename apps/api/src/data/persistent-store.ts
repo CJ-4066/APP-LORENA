@@ -2008,7 +2008,7 @@ export async function startPhoneAuth(
     try {
       await setRedisString(cooldownKey, "1", env.otpResendInSeconds);
     } catch {
-      // Si Redis no esta disponible, el flujo sigue funcionando con la base principal.
+      // Si Redis no está disponible, el flujo sigue funcionando con la base principal.
     }
   }
 

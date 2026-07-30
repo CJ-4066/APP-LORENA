@@ -899,7 +899,7 @@ class _AstralChartScreenState extends State<AstralChartScreen> {
     await _shareFilePayload(
       payload,
       text: context.l10n.ts(
-        'Mi carta astral de Lo Renaciente. Puedes guardarla tambien en Archivos o compartirla.',
+        'Mi carta astral de Lo Renaciente. Puedes guardarla también en Archivos o compartirla.',
       ),
       subject: context.l10n.ts('Carta astral Lo Renaciente'),
     );
@@ -1811,7 +1811,7 @@ class _AstralChartScreenState extends State<AstralChartScreen> {
     final l10n = context.l10n;
 
     return _SectionCard(
-      title: l10n.ts('Transitos del momento'),
+      title: l10n.ts('Tránsitos del momento'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

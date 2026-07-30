@@ -90,7 +90,7 @@ const NUMBER_MEANINGS: Record<number, NumberMeaning> = {
   },
   6: {
     archetype: "Cuidador",
-    essence: "Responsabilidad, belleza y vinculo.",
+    essence: "Responsabilidad, belleza y vínculo.",
     gifts: ["cuidado", "sentido estético", "compromiso"],
     shadows: ["sobre-responsabilidad", "culpa", "control afectivo"],
     guidance:
@@ -108,7 +108,7 @@ const NUMBER_MEANINGS: Record<number, NumberMeaning> = {
     archetype: "Gestor",
     essence: "Poder, logro y administración.",
     gifts: ["liderazgo material", "eficiencia", "capacidad ejecutiva"],
-    shadows: ["dureza", "obsesion por resultados", "tension con el control"],
+    shadows: ["dureza", "obsesión por resultados", "tensión con el control"],
     guidance:
       "Tu potencial crece cuando haces que ambición y ética trabajen juntas.",
   },
@@ -116,7 +116,7 @@ const NUMBER_MEANINGS: Record<number, NumberMeaning> = {
     archetype: "Humanitario",
     essence: "Servicio, cierre de ciclos y mirada amplia.",
     gifts: ["compasión", "visión", "capacidad de soltar"],
-    shadows: ["desgaste", "idealizacion", "sacrificio excesivo"],
+    shadows: ["desgaste", "idealización", "sacrificio excesivo"],
     guidance:
       "Tu aprendizaje es dar con amplitud sin abandonar tus propios límites.",
   },
@@ -467,7 +467,7 @@ function calculateLifePath(date: Date): NumerologyCard {
 }
 
 function calculateBirthday(date: Date): NumerologyCard {
-  return createNumberCard("Dia de nacimiento", date.getUTCDate());
+  return createNumberCard("Día de nacimiento", date.getUTCDate());
 }
 
 function calculateAttitude(date: Date): NumerologyCard {
@@ -542,7 +542,7 @@ function findLetterTone(
   }
 
   const value = getLetterValue(letter);
-  const meaning = NUMBER_MEANINGS[value]?.essence ?? "Matiz numerologico base.";
+  const meaning = NUMBER_MEANINGS[value]?.essence ?? "Matiz numerológico base.";
   return { letter, value, meaning };
 }
 
@@ -573,13 +573,13 @@ function buildPatterns(fullName: string) {
     .sort((left, right) => right[1] - left[1] || left[0] - right[0])[0];
 
   const hiddenPassion = hiddenPassionEntry
-    ? createNumberCard("Pasion oculta", hiddenPassionEntry[0])
+    ? createNumberCard("Pasión oculta", hiddenPassionEntry[0])
     : null;
 
   const karmicLessons = Array.from({ length: 9 }, (_, index) => index + 1)
     .filter((value) => !counts.has(value))
     .map((value) => {
-      const card = createNumberCard(`Leccion karmica ${value}`, value, {
+      const card = createNumberCard(`Lección kármica ${value}`, value, {
         allowMaster: false,
         useKarmicLabel: false,
       });
@@ -771,7 +771,7 @@ export function getNumerologyGuide(): NumerologyGuideResult {
         id: "name",
         title: "Nombre natal vs. nombre actual",
         summary:
-          "El nombre de nacimiento sostiene la estructura base. El nombre actual puede matizar como te presentas hoy.",
+          "El nombre de nacimiento sostiene la estructura base. El nombre actual puede matizar cómo te presentas hoy.",
       },
     ],
     references: NUMEROLOGY_REFERENCES,

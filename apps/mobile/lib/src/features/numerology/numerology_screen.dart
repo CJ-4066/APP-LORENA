@@ -1012,7 +1012,7 @@ class _NumerologySectionBody extends StatelessWidget {
               ),
               const SizedBox(height: 16),
               _SectionCard(
-                title: l10n.ts('Vinculos y deseo'),
+                title: l10n.ts('Vínculos y deseo'),
                 eyebrow: l10n.ts('Relaciones'),
                 subtitle: l10n.ts(
                   'El pulso afectivo del mapa y la forma en que pides, das y sostienes energía.',

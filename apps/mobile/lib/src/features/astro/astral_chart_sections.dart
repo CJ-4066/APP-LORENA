@@ -4,10 +4,10 @@ const _planetSelectionOptions = <({String key, String label, String note})>[
   (key: 'sun', label: 'Sol', note: 'Identidad y centro vital'),
   (key: 'moon', label: 'Luna', note: 'Emociones y memoria'),
   (key: 'mercury', label: 'Mercurio', note: 'Mente y lenguaje'),
-  (key: 'venus', label: 'Venus', note: 'Vinculos y deseo'),
+  (key: 'venus', label: 'Venus', note: 'Vínculos y deseo'),
   (key: 'mars', label: 'Marte', note: 'Acción y deseo'),
   (key: 'jupiter', label: 'Júpiter', note: 'Expansión y fe'),
-  (key: 'saturn', label: 'Saturno', note: 'Limites y estructura'),
+  (key: 'saturn', label: 'Saturno', note: 'Límites y estructura'),
   (key: 'uranus', label: 'Urano', note: 'Cambio y visión'),
   (key: 'neptune', label: 'Neptuno', note: 'Sensibilidad e ideal'),
   (key: 'pluto', label: 'Plutón', note: 'Poder y transformación'),
@@ -561,7 +561,7 @@ class _BigThreeItemTheme {
   const _BigThreeItemTheme.ascendant()
       : emoji = '⬆️',
         label = 'Ascendente',
-        note = 'Como te perciben',
+        note = 'Cómo te perciben',
         startColor = AppPalette.midnight,
         endColor = AppPalette.royalViolet;
 

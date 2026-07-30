@@ -1,5 +1,5 @@
 name: lo_renaciente
-description: Aplicacion movil base para tarot, astrologia y consultas.
+description: Aplicación móvil base para tarot, astrología y consultas.
 publish_to: "none"
 version: 0.1.13+14
 
@@ -35,7 +35,7 @@ dev_dependencies:
 
 dependency_overrides:
   # path_provider_foundation 2.6.x cambia a FFI nativo via objective_c y nos
-  # genero fallas de firma/arranque en iPhone fisico. Mantener este pin hasta
+  # generó fallas de firma/arranque en iPhone físico. Mantener este pin hasta
   # validar un upgrade estable en dispositivo real.
   path_provider_foundation: 2.5.1
 

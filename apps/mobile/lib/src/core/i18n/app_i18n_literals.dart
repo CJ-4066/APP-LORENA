@@ -995,7 +995,7 @@ const literalEnglishFallbackValues = <String, String>{
       "Describes the persistent challenge that refines your maturity.",
   "desgaste": "weariness",
   "determinación": "determination",
-  "Dia de nacimiento": "Birth day",
+  "Día de nacimiento": "Birth day",
   "dificultad para delegar": "difficulty delegating",
   "diplomacia": "diplomacy",
   "discernimiento": "discernment",
@@ -1011,7 +1011,7 @@ const literalEnglishFallbackValues = <String, String>{
   "El Sol": "The Sun",
   "El Año Personal {personalYear} describe el clima actual de tus decisiones. Toma este ciclo como una capa externa: abre oportunidades y pruebas, pero se expresa mejor cuando la alineas con tus números base.":
       "Personal Year {personalYear} describes the current climate of your decisions. Take this cycle as an outer layer: it opens opportunities and tests, but expresses itself better when you align it with your core numbers.",
-  "El nombre de nacimiento sostiene la estructura base. El nombre actual puede matizar como te presentas hoy.":
+  "El nombre de nacimiento sostiene la estructura base. El nombre actual puede matizar cómo te presentas hoy.":
       "The birth name holds the base structure. The current name can nuance how you present yourself today.",
   "El servicio real no pide inmolarte; pide sostener tu energía con madurez.":
       "Real service does not ask you to sacrifice yourself; it asks you to hold your energy with maturity.",
@@ -1094,7 +1094,7 @@ const literalEnglishFallbackValues = <String, String>{
       "Today it is worth more to observe than to explain. The answer matures if you give it space.",
   "Humanitario": "Humanitarian",
   "hipersensibilidad": "hypersensitivity",
-  "idealizacion": "idealization",
+  "idealización": "idealization",
   "impacto colectivo": "collective impact",
   "Impulso, autonomía y liderazgo.": "Drive, autonomy, and leadership.",
   "impulsividad": "impulsiveness",
@@ -1146,7 +1146,7 @@ const literalEnglishFallbackValues = <String, String>{
   "Marca pruebas de consolidación personal y emocional.":
       "Marks tests of personal and emotional consolidation.",
   "martirio": "martyrdom",
-  "Matiz numerologico base.": "Base numerological nuance.",
+  "Matiz numerológico base.": "Base numerological nuance.",
   "Mediador": "Mediator",
   "Miedo": "Fear",
   "miedo a fallar": "fear of failing",
@@ -1202,8 +1202,8 @@ const literalEnglishFallbackValues = <String, String>{
   "Nutrir": "Nourish",
   "Números nucleares": "Core numbers",
   "Observación": "Observation",
-  "Obsesion por resultados": "obsession with results",
-  "obsesion por resultados": "obsession with results",
+  "Obsesión por resultados": "obsession with results",
+  "obsesión por resultados": "obsession with results",
   "Orden": "Order",
   "Orden, método y base estable.": "Order, method, and stable foundation.",
   "organización": "organization",
@@ -1211,7 +1211,7 @@ const literalEnglishFallbackValues = <String, String>{
   "Para regular tu energía diaria necesitas":
       "To regulate your daily energy, you need to",
   "Pausa": "Pause",
-  "Pasion oculta": "Hidden passion",
+  "Pasión oculta": "Hidden passion",
   "percepción sutil": "subtle perception",
   "Perspectiva": "Perspective",
   "Personalidad": "Personality",
@@ -1233,7 +1233,7 @@ const literalEnglishFallbackValues = <String, String>{
   "Reparación": "Repair",
   "Relacionarte mejor con poder, dinero y autoridad.":
       "Relate better to power, money, and authority.",
-  "Responsabilidad, belleza y vinculo.": "Responsibility, beauty, and bond.",
+  "Responsabilidad, belleza y vínculo.": "Responsibility, beauty, and bond.",
   "Respira antes de responder y busca equilibrio en una sola cosa.":
       "Breathe before responding and seek balance in one single thing.",
   "Respira dos veces antes de abrir el siguiente módulo.":
@@ -1304,7 +1304,7 @@ const literalEnglishFallbackValues = <String, String>{
       "Your advantage today is choosing well where you place your attention. Less scattering, more maneuvering.",
   "Toma una pausa real antes de responder mensajes importantes.":
       "Take a real pause before answering important messages.",
-  "tension con el control": "tension with control",
+  "tensión con el control": "tension with control",
   "Un giro favorable ya está en marcha y te conviene leerlo con flexibilidad.":
       "A favorable turn is already underway, and it is wise to read it with flexibility.",
   "Una zona de menor fricción donde el aprendizaje no se concentra en un único número.":
@@ -1322,15 +1322,15 @@ const literalEnglishFallbackValues = <String, String>{
       "Return to center, enter without rushing, and let the app finish syncing.",
   "Año, mes y día personal funcionan como clima externo para el momento presente.":
       "Personal year, month, and day work as the outer climate for the present moment.",
-  "Leccion karmica 1": "Karmic lesson 1",
-  "Leccion karmica 2": "Karmic lesson 2",
-  "Leccion karmica 3": "Karmic lesson 3",
-  "Leccion karmica 4": "Karmic lesson 4",
-  "Leccion karmica 5": "Karmic lesson 5",
-  "Leccion karmica 6": "Karmic lesson 6",
-  "Leccion karmica 7": "Karmic lesson 7",
-  "Leccion karmica 8": "Karmic lesson 8",
-  "Leccion karmica 9": "Karmic lesson 9",
+  "Lección kármica 1": "Karmic lesson 1",
+  "Lección kármica 2": "Karmic lesson 2",
+  "Lección kármica 3": "Karmic lesson 3",
+  "Lección kármica 4": "Karmic lesson 4",
+  "Lección kármica 5": "Karmic lesson 5",
+  "Lección kármica 6": "Karmic lesson 6",
+  "Lección kármica 7": "Karmic lesson 7",
+  "Lección kármica 8": "Karmic lesson 8",
+  "Lección kármica 9": "Karmic lesson 9",
   "Los números ausentes en el nombre al nacer indican áreas a desarrollar con más conciencia.":
       "Numbers absent from the birth name indicate areas to develop with more awareness.",
   "Los pináculos muestran grandes etapas; los desafíos marcan aprendizajes persistentes.":
@@ -1623,7 +1623,7 @@ const literalEnglishFallbackValues = <String, String>{
   "Mes personal": "Personal month",
   "Meta": "Goal",
   "Min": "Min",
-  "Mi carta astral de Lo Renaciente. Puedes guardarla tambien en Archivos o compartirla.":
+  "Mi carta astral de Lo Renaciente. Puedes guardarla también en Archivos o compartirla.":
       "My Lo Renaciente astral chart. You can also save it to Files or share it.",
   "Mie": "Wed",
   "Modos preferidos: {modes}": "Preferred modes: {modes}",
@@ -1801,7 +1801,7 @@ const literalEnglishFallbackValues = <String, String>{
   "Toca para abrir": "Tap to open",
   "Todavía no hay insignias activas": "There are no active badges yet",
   "Todavía no hay técnica para revisar": "There is no technique to review yet",
-  "Transitos del momento": "Current transits",
+  "Tránsitos del momento": "Current transits",
   "Tropical/geocéntrico · Carta eclíptica · Casas: {houses}":
       "Tropical/geocentric · Ecliptic chart · Houses: {houses}",
   "Tránsitos": "Transits",
@@ -1835,7 +1835,7 @@ const literalEnglishFallbackValues = <String, String>{
   "Ver detalle astral": "View astral detail",
   "Ver upgrade": "View upgrade",
   "Vie": "Fri",
-  "Vinculos y deseo": "Bonds and desire",
+  "Vínculos y deseo": "Bonds and desire",
   "Vista previa": "Preview",
   "Ya alcanzaste el rango más alto disponible.":
       "You have reached the highest available rank.",
