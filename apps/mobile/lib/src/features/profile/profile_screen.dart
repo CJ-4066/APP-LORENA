@@ -445,42 +445,6 @@ class ProfileScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Card(
-              child: Padding(
-                padding: const EdgeInsets.all(18),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      l10n.tr('payments'),
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      l10n.tr(
-                        'consultations',
-                        {'provider': data.payments.consultationProvider},
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      l10n.tr(
-                        'premium',
-                        {'provider': data.payments.premiumProvider},
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    ...data.payments.notes.map(
-                      (item) => Padding(
-                        padding: const EdgeInsets.only(bottom: 6),
-                        child: Text('• $item'),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Card(
               child: Column(
                 children: [
                   ListTile(
