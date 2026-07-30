@@ -1,6 +1,6 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
@@ -38,16 +38,30 @@ class _LibraryPdfImageViewerScreenState
   int _currentPage = 1;
   String? _errorMessage;
 
+  int get _pageRenderWidth =>
+      defaultTargetPlatform == TargetPlatform.android ? 1200 : 1800;
   String get _metaUrl =>
       '${AppConfig.apiBaseUrl}/api/content/library/pdfs/${widget.document.id}/meta';
 
   String _pageImageUrl(int pageNumber, {bool refresh = false}) {
     final base =
-        '${AppConfig.apiBaseUrl}/api/content/library/pdfs/${widget.document.id}/pages/$pageNumber/image?width=1800';
+        '${AppConfig.apiBaseUrl}/api/content/library/pdfs/${widget.document.id}/pages/$pageNumber/image?width=$_pageRenderWidth';
     return refresh ? '$base&refresh=1' : base;
   }
 
+  void _trimPageImageCache(int centerPage) {
+    final allowedPages = <int>{
+      if (centerPage > 1) centerPage - 1,
+      centerPage,
+      centerPage + 1,
+    };
+    _pageImageCache.removeWhere(
+      (key, _) => !allowedPages.contains(key.abs()),
+    );
+  }
+
   Future<Uint8List?> _loadPageBytes(int pageNumber) {
+    _trimPageImageCache(pageNumber);
     final key = _refreshing ? -pageNumber : pageNumber;
     return _pageImageCache.putIfAbsent(key, () async {
       try {
@@ -368,7 +382,9 @@ class _LibraryPdfImageViewerScreenState
                 maxScale: 5.0,
                 child: Image.memory(
                   bytes,
+                  cacheWidth: _pageRenderWidth,
                   fit: BoxFit.contain,
+                  filterQuality: FilterQuality.medium,
                   gaplessPlayback: true,
                 ),
               );
