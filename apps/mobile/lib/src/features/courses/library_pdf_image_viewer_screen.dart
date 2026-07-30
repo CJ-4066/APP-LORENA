@@ -1,5 +1,8 @@
+import 'dart:convert';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:webview_flutter/webview_flutter.dart';
+import 'package:http/http.dart' as http;
 
 import '../../core/config/app_config.dart';
 import '../../core/i18n/app_i18n.dart';
@@ -24,220 +27,265 @@ class LibraryPdfImageViewerScreen extends StatefulWidget {
 
 class _LibraryPdfImageViewerScreenState
     extends State<LibraryPdfImageViewerScreen> {
-  late final WebViewController _webViewController;
+  final http.Client _client = http.Client();
+  final PageController _viewerController = PageController();
+  final Map<int, Future<Uint8List?>> _pageImageCache = {};
 
+  _LibraryPdfMetadata? _metadata;
   bool _loading = true;
-  int _progress = 0;
+  bool _refreshing = false;
   String? _errorMessage;
 
-  String get _readerUrl {
-    final parsed = Uri.tryParse(widget.document.viewUrl);
-    final base = parsed?.hasScheme == true
-        ? parsed!
-        : Uri.parse('${AppConfig.apiBaseUrl}${widget.document.viewUrl}');
-    return base.replace(
-      queryParameters: {
-        ...base.queryParameters,
-        'reader': '1',
-      },
-    ).toString();
+  int get _pageRenderWidth =>
+      defaultTargetPlatform == TargetPlatform.android ? 1200 : 1800;
+  String get _metaUrl =>
+      '${AppConfig.apiBaseUrl}/api/content/library/pdfs/${widget.document.id}/meta';
+
+  String _pageImageUrl(int pageNumber, {bool refresh = false}) {
+    final base =
+        '${AppConfig.apiBaseUrl}/api/content/library/pdfs/${widget.document.id}/pages/$pageNumber/image?width=$_pageRenderWidth';
+    return refresh ? '$base&refresh=1' : base;
+  }
+
+  void _trimPageImageCache(int centerPage) {
+    final allowedPages = <int>{
+      if (centerPage > 1) centerPage - 1,
+      centerPage,
+      centerPage + 1,
+    };
+    _pageImageCache.removeWhere(
+      (key, _) => !allowedPages.contains(key.abs()),
+    );
+  }
+
+  Future<Uint8List?> _loadPageBytes(int pageNumber) {
+    _trimPageImageCache(pageNumber);
+    final key = _refreshing ? -pageNumber : pageNumber;
+    return _pageImageCache.putIfAbsent(key, () async {
+      try {
+        final response = await _client.get(Uri.parse(
+          _pageImageUrl(pageNumber, refresh: _refreshing),
+        ));
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          return null;
+        }
+
+        final contentType = response.headers['content-type'] ?? '';
+        if (!contentType.contains('image/png') || response.bodyBytes.isEmpty) {
+          return null;
+        }
+
+        return response.bodyBytes;
+      } catch (_) {
+        return null;
+      }
+    });
   }
 
   @override
   void initState() {
     super.initState();
-    _webViewController = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(Colors.white)
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onProgress: (progress) {
-            if (!mounted) {
-              return;
-            }
-            setState(() {
-              _progress = progress.clamp(0, 100);
-            });
-          },
-          onPageStarted: (_) {
-            if (!mounted) {
-              return;
-            }
-            setState(() {
-              _loading = true;
-              _errorMessage = null;
-            });
-          },
-          onPageFinished: (_) async {
-            await _applyReaderLayout();
-            if (!mounted) {
-              return;
-            }
-            setState(() {
-              _loading = false;
-            });
-          },
-          onWebResourceError: (error) {
-            if (error.isForMainFrame == false) {
-              return;
-            }
-            if (!mounted) {
-              return;
-            }
-            setState(() {
-              _loading = false;
-              _errorMessage = error.description;
-            });
-          },
-        ),
-      )
-      ..loadRequest(Uri.parse(_readerUrl));
+    _loadMetadata();
   }
 
-  Future<void> _applyReaderLayout() async {
+  @override
+  void dispose() {
+    _client.close();
+    _viewerController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadMetadata({bool refresh = false}) async {
+    setState(() {
+      _loading = true;
+      _errorMessage = null;
+      if (refresh) {
+        _refreshing = true;
+      }
+    });
+
     try {
-      await _webViewController.runJavaScript(r'''
-        (function () {
-          const existing = document.getElementById('lo-renaciente-reader-style');
-          if (!existing) {
-            const style = document.createElement('style');
-            style.id = 'lo-renaciente-reader-style';
-            style.textContent = `
-              html, body {
-                margin: 0 !important;
-                padding: 0 !important;
-                height: 100% !important;
-                overflow: hidden !important;
-                background: #ffffff !important;
-              }
-              .toolbar, .meta, .pageHeader {
-                display: none !important;
-              }
-              #viewer {
-                position: fixed !important;
-                inset: 0 !important;
-                width: 100vw !important;
-                height: 100vh !important;
-                overflow: auto !important;
-                padding: 0 0 18px !important;
-                background: #ffffff !important;
-                -webkit-overflow-scrolling: touch !important;
-              }
-              .page {
-                width: 100vw !important;
-                max-width: none !important;
-                margin: 0 auto 8px !important;
-                border: 0 !important;
-                border-radius: 0 !important;
-                box-shadow: none !important;
-                background: #ffffff !important;
-                overflow: visible !important;
-              }
-              .pageCanvas {
-                display: block !important;
-                width: 100% !important;
-                height: auto !important;
-                max-width: none !important;
-                background: #ffffff !important;
-              }
-              .empty {
-                padding-top: 42vh !important;
-                color: #555 !important;
-              }
-            `;
-            document.head.appendChild(style);
-          }
+      final uri = Uri.parse(refresh ? '$_metaUrl?refresh=1' : _metaUrl);
+      final response = await _client.get(uri);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception('No se pudo leer el documento.');
+      }
 
-          const fitPages = function () {
-            document.querySelectorAll('.page').forEach(function (page) {
-              page.style.width = '100vw';
-              page.style.maxWidth = 'none';
-              page.style.margin = '0 auto 8px';
-              page.style.border = '0';
-              page.style.borderRadius = '0';
-              page.style.boxShadow = 'none';
-            });
-            document.querySelectorAll('canvas.pageCanvas').forEach(function (canvas) {
-              canvas.style.width = '100%';
-              canvas.style.height = 'auto';
-              canvas.style.maxWidth = 'none';
-            });
-          };
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      final item = json['item'];
+      if (item is! Map<String, dynamic>) {
+        throw Exception('No se encontro la metadata del documento.');
+      }
 
-          fitPages();
-          window.clearInterval(window.__loRenacientePdfFitTimer);
-          window.__loRenacientePdfFitTimer = window.setInterval(fitPages, 400);
-        })();
-      ''');
-    } catch (_) {
-      // The viewer can still work with the server defaults if injection fails.
+      final pageCount = (item['pageCount'] as num?)?.toInt() ?? 0;
+      if (pageCount < 1) {
+        throw Exception('El documento no tiene paginas legibles.');
+      }
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _metadata = _LibraryPdfMetadata(
+          id: widget.document.id,
+          title: (item['title'] as String?)?.trim().isNotEmpty == true
+              ? (item['title'] as String).trim()
+              : widget.document.title,
+          pageCount: pageCount,
+        );
+        _loading = false;
+        _refreshing = false;
+        _pageImageCache.clear();
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _loading = false;
+        _refreshing = false;
+        _errorMessage = error.toString();
+      });
     }
   }
 
   Widget _buildErrorPanel(BuildContext context) {
-    final message = _errorMessage;
-    return SafeArea(
-      child: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(18),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: AppPalette.moonIvory,
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: AppPalette.border),
+    return Padding(
+      padding: const EdgeInsets.all(18),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: AppPalette.moonIvory,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: AppPalette.border),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            MysticGlyphBadge(
+              kind: MysticGlyphKind.course,
+              accent: AppPalette.indigo,
+              background: AppPalette.indigo.withValues(alpha: 0.16),
+              size: 58,
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                MysticGlyphBadge(
-                  kind: MysticGlyphKind.course,
-                  accent: AppPalette.indigo,
-                  background: AppPalette.indigo.withValues(alpha: 0.16),
-                  size: 58,
-                ),
-                const SizedBox(height: 14),
-                Text(
-                  context.l10n.ts('No pudimos abrir este PDF'),
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w800),
-                ),
-                if (message != null) ...[
-                  const SizedBox(height: 10),
-                  Text(
-                    message,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: AppPalette.mutedLavender,
-                          height: 1.4,
-                        ),
+            const SizedBox(height: 14),
+            Text(
+              context.l10n.ts('No pudimos abrir este PDF'),
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              context.l10n.ts(
+                'La API no devolvio un documento legible. Podemos forzar una nueva lectura desde el servidor.',
+              ),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppPalette.mutedLavender,
+                    height: 1.35,
                   ),
-                ],
-                const SizedBox(height: 14),
+            ),
+            if (_errorMessage != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                _errorMessage!,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: AppPalette.mutedLavender,
+                      height: 1.4,
+                    ),
+              ),
+            ],
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
                 FilledButton.icon(
-                  onPressed: () => _webViewController.reload(),
+                  onPressed: () => _loadMetadata(),
                   icon: const Icon(Icons.refresh_rounded),
                   label: Text(context.l10n.ts('Reintentar')),
                 ),
+                OutlinedButton.icon(
+                  onPressed: () => _loadMetadata(refresh: true),
+                  icon: const Icon(Icons.bolt_rounded),
+                  label: Text(context.l10n.ts('Forzar recarga')),
+                ),
               ],
             ),
-          ),
+          ],
         ),
       ),
+    );
+  }
+
+  Widget _buildPageImage(BuildContext context, int pageNumber) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return FutureBuilder<Uint8List?>(
+          future: _loadPageBytes(pageNumber),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            final bytes = snapshot.data;
+            if (bytes == null) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(28),
+                  child: Text(
+                    context.l10n.ts('No se pudo cargar esta pagina.'),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Colors.white70,
+                        ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              );
+            }
+
+            return SizedBox.expand(
+              child: InteractiveViewer(
+                minScale: 1,
+                maxScale: 6,
+                boundaryMargin: EdgeInsets.zero,
+                clipBehavior: Clip.hardEdge,
+                child: ColoredBox(
+                  color: Colors.black,
+                  child: SizedBox.expand(
+                    child: Image.memory(
+                      bytes,
+                      width: constraints.maxWidth,
+                      height: constraints.maxHeight,
+                      cacheWidth: _pageRenderWidth,
+                      fit: BoxFit.contain,
+                      alignment: Alignment.center,
+                      filterQuality: FilterQuality.medium,
+                      gaplessPlayback: true,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
   Widget _buildBackButton(BuildContext context) {
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.all(10),
+        padding: const EdgeInsets.all(12),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(16),
+            color: Colors.black.withValues(alpha: 0.46),
+            borderRadius: BorderRadius.circular(18),
           ),
           child: IconButton(
             onPressed: () => Navigator.of(context).maybePop(),
@@ -252,38 +300,50 @@ class _LibraryPdfImageViewerScreenState
 
   @override
   Widget build(BuildContext context) {
+    final meta = _metadata;
+    final Widget content = _loading
+        ? const Center(child: CircularProgressIndicator())
+        : meta == null
+            ? _buildErrorPanel(context)
+            : PageView.builder(
+                controller: _viewerController,
+                scrollDirection: Axis.vertical,
+                itemCount: meta.pageCount,
+                onPageChanged: (index) {
+                  final nextPage = index + 1;
+                  _trimPageImageCache(nextPage);
+                  if (nextPage < meta.pageCount) {
+                    _loadPageBytes(nextPage + 1);
+                  }
+                  if (nextPage > 1) {
+                    _loadPageBytes(nextPage - 1);
+                  }
+                },
+                itemBuilder: (context, index) {
+                  return _buildPageImage(context, index + 1);
+                },
+              );
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.black,
       body: Stack(
         children: [
-          Positioned.fill(
-            child: SafeArea(
-              bottom: false,
-              child: _errorMessage == null
-                  ? WebViewWidget(controller: _webViewController)
-                  : _buildErrorPanel(context),
-            ),
-          ),
-          if (_loading)
-            Positioned(
-              left: 0,
-              right: 0,
-              top: 0,
-              child: SafeArea(
-                bottom: false,
-                child: LinearProgressIndicator(
-                  value: _progress <= 0 || _progress >= 100
-                      ? null
-                      : _progress / 100,
-                  minHeight: 2,
-                  backgroundColor: Colors.transparent,
-                  color: AppPalette.flameGold,
-                ),
-              ),
-            ),
+          Positioned.fill(child: SafeArea(child: content)),
           _buildBackButton(context),
         ],
       ),
     );
   }
+}
+
+class _LibraryPdfMetadata {
+  const _LibraryPdfMetadata({
+    required this.id,
+    required this.title,
+    required this.pageCount,
+  });
+
+  final String id;
+  final String title;
+  final int pageCount;
 }
