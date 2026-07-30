@@ -112,6 +112,7 @@ export interface AdminManagedUserInput {
   nickname?: string;
   email?: string;
   phoneNumber?: string;
+  avatarUrl?: string;
   planId?: string;
   accountType?: AccountType;
   roles?: Array<"admin" | "specialist">;
@@ -3173,6 +3174,7 @@ export function createAdminUser(input: AdminManagedUserInput): AdminManagedUserR
   const nickname = input.nickname?.trim() ?? "";
   const email = input.email?.trim().toLowerCase() ?? "";
   const phoneNumber = input.phoneNumber?.trim() ?? "";
+  const avatarUrl = input.avatarUrl?.trim() ?? "";
   const planId = input.planId?.trim() || "free";
   const accountType = input.accountType ?? "client";
   const roles = normalizeAdminRoles(input.roles);
@@ -3197,7 +3199,7 @@ export function createAdminUser(input: AdminManagedUserInput): AdminManagedUserR
     lastName,
     nickname,
     email,
-    avatarUrl: "",
+    avatarUrl,
     location: "",
     timezone: "America/Lima",
     zodiacSign: "",
@@ -3255,6 +3257,7 @@ export function updateAdminUser(
   const nextNickname = input.nickname?.trim() ?? existingUser.nickname;
   const nextEmail = input.email?.trim().toLowerCase() ?? existingUser.email;
   const nextPhone = input.phoneNumber?.trim() ?? getUserPhoneNumber(existingUser.id);
+  const nextAvatarUrl = input.avatarUrl?.trim() ?? existingUser.avatarUrl;
   const nextPlanId = input.planId?.trim() || existingUser.planId;
   const nextAccountType = input.accountType ?? existingUser.accountType;
   const nextRoles = normalizeAdminRoles(input.roles ?? (existingUser.roles as Array<"admin" | "specialist"> | undefined));
@@ -3265,6 +3268,7 @@ export function updateAdminUser(
     lastName: nextLastName,
     nickname: nextNickname,
     email: nextEmail,
+    avatarUrl: nextAvatarUrl,
     planId: nextPlanId,
     accountType: nextAccountType,
     roles: nextRoles,

@@ -2737,6 +2737,7 @@ function App() {
     nickname: "",
     email: "",
     phoneNumber: "",
+    avatarUrl: "",
     planId: "free",
     accountType: "client" as "client" | "specialist",
     adminAccess: false,
@@ -5186,6 +5187,7 @@ function App() {
       nickname: "",
       email: nextUser?.email ?? "",
       phoneNumber: nextUser?.phoneNumber ?? "",
+      avatarUrl: nextUser?.avatarUrl ?? "",
       planId: nextUser?.planId ?? "free",
       accountType: nextUser?.accountType ?? "client",
       adminAccess: nextUser?.roles.includes("admin") ?? false,
@@ -5219,6 +5221,7 @@ function App() {
       nickname: userForm.nickname.trim(),
       email: userForm.email.trim(),
       phoneNumber: userForm.phoneNumber.trim(),
+      avatarUrl: userForm.avatarUrl.trim(),
       planId: userForm.planId.trim() || "free",
       accountType: userForm.accountType,
       roles: [
@@ -5286,6 +5289,18 @@ function App() {
     const paymentDate = parseDateInputValue(premiumPaymentDate);
     if (!paymentDate) {
       setUserError("Selecciona una fecha de pago válida.");
+      return;
+    }
+
+    const premiumActionLabel = isPremiumActiveUser(user)
+      ? "renovar Premium por 30 días"
+      : "activar Premium por 30 días";
+    const targetName = user.fullName || user.email || "este usuario";
+
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm(`¿Quieres ${premiumActionLabel} para ${targetName}?`)
+    ) {
       return;
     }
 
@@ -7373,6 +7388,7 @@ function App() {
                     ? "nav-item nav-item-active"
                     : "nav-item"
                 }
+                aria-current={activeSection === section ? "page" : undefined}
                 onClick={() => handleNavigateSection(section)}
               >
                 <span className="nav-item-icon" aria-hidden="true">
@@ -7403,8 +7419,6 @@ function App() {
         </aside>
 
         <div className="admin-content">
-          <header className="admin-topbar" />
-
           {error ? (
             <section className="admin-panel admin-error">
               <h2>Conexión pendiente</h2>
@@ -9293,15 +9307,40 @@ function App() {
               </div>
 
               {filteredUsers.length > 0 ? (
-                <div className="user-grid">
-                  {filteredUsers.map((user) => {
-                    const effectiveRoles =
-                      user.roles.length > 0 ? user.roles : [];
-                    const accessSummary = getUserAccessSummary(user);
-                    return (
-                      <article key={user.id} className="user-card">
-                        <div className="user-card-head">
-                          <div className="user-card-identity">
+                <div
+                  className="user-list-panel"
+                  role="table"
+                  aria-label="Usuarios y accesos"
+                >
+                  <div className="user-list-header" role="row">
+                    <span role="columnheader">Usuario</span>
+                    <span role="columnheader">Rol</span>
+                    <span role="columnheader">Contacto</span>
+                    <span role="columnheader">Accesos</span>
+                    <span role="columnheader">Premium</span>
+                    <span role="columnheader">Acciones</span>
+                  </div>
+                  <div className="user-list" role="rowgroup">
+                    {filteredUsers.map((user) => {
+                      const effectiveRoles =
+                        user.roles.length > 0 ? user.roles : [];
+                      const accessSummary = getUserAccessSummary(user);
+                      const premiumCopy = isPremiumActiveUser(user)
+                        ? user.premiumRenewsAt
+                          ? `Hasta ${formatDate(user.premiumRenewsAt)}`
+                          : "Sin vencimiento"
+                        : "Sin Premium";
+                      const premiumActionLabel = isPremiumActiveUser(user)
+                        ? "Renovar 30 días"
+                        : "Activar Premium";
+
+                      return (
+                        <article
+                          key={user.id}
+                          className="user-row"
+                          role="row"
+                        >
+                          <div className="user-row-identity" role="cell">
                             <div className="user-card-avatar" aria-hidden="true">
                               {user.avatarUrl ? (
                                 <img
@@ -9312,83 +9351,99 @@ function App() {
                                 <span>{getNameInitials(user.fullName)}</span>
                               )}
                             </div>
-                            <div>
-                              <p className="product-card-meta">
-                                {formatPremiumAccessLabel(user)}
-                              </p>
-                              <h3>{user.fullName || user.id}</h3>
-                              <p className="muted-copy">
+                            <div className="user-row-copy">
+                              <div className="user-row-titleline">
+                                <h3>{user.fullName || user.id}</h3>
+                                <span
+                                  className={`user-profile-pill ${
+                                    user.profileCompleted
+                                      ? "user-profile-pill-ready"
+                                      : "user-profile-pill-pending"
+                                  }`}
+                                >
+                                  {user.profileCompleted
+                                    ? "Perfil listo"
+                                    : "Pendiente"}
+                                </span>
+                              </div>
+                              <p className="muted-copy user-row-email">
                                 {user.email || "sin email"}
                               </p>
+                              <span className="user-row-created">
+                                Alta {formatOptionalDate(user.createdAt)}
+                              </span>
                             </div>
                           </div>
-                          <span className="topbar-pill">
-                            {user.profileCompleted
-                              ? "Perfil listo"
-                              : "Pendiente"}
-                          </span>
-                        </div>
 
-                        <div className="badge-pill-row user-role-row">
-                          {effectiveRoles.length > 0 ? (
-                            effectiveRoles.map((role) => (
-                              <span
-                                key={`${user.id}-${role}`}
-                                className="badge-pill badge-pill-type"
-                              >
-                                {userRoleLabels[role as UserAccessPreset]}
-                              </span>
-                            ))
-                          ) : (
-                            <span className="badge-pill badge-pill-rarity">
-                              {userRoleLabels.client}
-                            </span>
-                          )}
-                        </div>
+                          <div className="user-row-cell user-row-roles" role="cell">
+                            <span className="user-row-label">Rol</span>
+                            <div className="badge-pill-row user-role-row">
+                              {effectiveRoles.length > 0 ? (
+                                effectiveRoles.map((role) => (
+                                  <span
+                                    key={`${user.id}-${role}`}
+                                    className="badge-pill badge-pill-type"
+                                  >
+                                    {userRoleLabels[role as UserAccessPreset]}
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="badge-pill badge-pill-rarity">
+                                  {userRoleLabels.client}
+                                </span>
+                              )}
+                            </div>
+                          </div>
 
-                        <div className="user-contact">
-                          <p>{user.phoneNumber || "sin teléfono"}</p>
-                          <span>{formatOptionalDate(user.createdAt)}</span>
-                        </div>
+                          <div className="user-row-cell user-row-contact" role="cell">
+                            <span className="user-row-label">Contacto</span>
+                            <p>{user.phoneNumber || "sin teléfono"}</p>
+                            <small>
+                              Cuenta{" "}
+                              {user.accountType === "specialist"
+                                ? "especialista"
+                                : "cliente"}
+                            </small>
+                          </div>
 
-                        <div className="user-access">
-                          <span>Accesos</span>
-                          <p>{accessSummary.join(" · ")}</p>
-                        </div>
+                          <div className="user-row-cell user-row-access" role="cell">
+                            <span className="user-row-label">Accesos</span>
+                            <p>{accessSummary.join(" · ")}</p>
+                          </div>
 
-                        <div className="user-access">
-                          <span>Premium</span>
-                          <p>
-                            {isPremiumActiveUser(user)
-                              ? user.premiumRenewsAt
-                                ? `Habilitado hasta ${formatDate(user.premiumRenewsAt)}`
-                                : "Habilitado sin vencimiento"
-                              : "Bloqueado para funciones Premium"}
-                          </p>
-                        </div>
+                          <div className="user-row-cell user-row-premium" role="cell">
+                            <span className="user-row-label">Premium</span>
+                            <strong>{formatPremiumAccessLabel(user)}</strong>
+                            <p>{premiumCopy}</p>
+                          </div>
 
-                        <div className="product-card-actions">
-                          <button
-                            type="button"
-                            className="secondary-button"
-                            onClick={() => handleOpenUserDrawer(user)}
-                          >
-                            Editar
-                          </button>
-                          <button
-                            type="button"
-                            className="primary-button"
-                            onClick={() => void handleGrantPremium(user)}
-                            disabled={grantingPremiumUserId === user.id}
-                          >
-                            {grantingPremiumUserId === user.id
-                              ? "Habilitando..."
-                              : "Habilitar Premium 30 días"}
-                          </button>
-                        </div>
-                      </article>
-                    );
-                  })}
+                          <div className="user-row-actions" role="cell">
+                            <button
+                              type="button"
+                              className="secondary-button"
+                              aria-label={`Editar ${user.fullName || user.email}`}
+                              onClick={() => handleOpenUserDrawer(user)}
+                            >
+                              Editar
+                            </button>
+                            <button
+                              type="button"
+                              className="primary-button"
+                              aria-label={`${premiumActionLabel} para ${
+                                user.fullName || user.email
+                              }`}
+                              onClick={() => void handleGrantPremium(user)}
+                              disabled={grantingPremiumUserId === user.id}
+                            >
+                              {grantingPremiumUserId === user.id
+                                ? "Habilitando..."
+                                : premiumActionLabel}
+                            </button>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
                 </div>
               ) : (
                 <div className="empty-state">
@@ -12194,6 +12249,37 @@ function App() {
                     }
                     placeholder="+598..."
                   />
+                </label>
+                <label className="user-avatar-field">
+                  <span>Foto de perfil</span>
+                  <div className="user-avatar-editor">
+                    <div className="user-card-avatar" aria-hidden="true">
+                      {userForm.avatarUrl.trim() ? (
+                        <img
+                          src={resolveMediaUrl(userForm.avatarUrl)}
+                          alt=""
+                        />
+                      ) : (
+                        <span>
+                          {getNameInitials(
+                            `${userForm.firstName} ${userForm.lastName}`.trim() ||
+                              userForm.email ||
+                              "Usuario",
+                          )}
+                        </span>
+                      )}
+                    </div>
+                    <input
+                      value={userForm.avatarUrl}
+                      onChange={(event) =>
+                        setUserForm((current) => ({
+                          ...current,
+                          avatarUrl: event.target.value,
+                        }))
+                      }
+                      placeholder="URL de imagen o ruta subida"
+                    />
+                  </div>
                 </label>
                 <label>
                   <span>Plan base</span>

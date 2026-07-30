@@ -66,6 +66,7 @@ export interface AdminUserDraftInput {
   nickname?: string;
   email?: string;
   phoneNumber?: string;
+  avatarUrl?: string;
   planId?: string;
   accountType?: "client" | "specialist";
   roles?: UserRole[];
@@ -403,6 +404,7 @@ export async function createAdminUser(
   const nickname = input.nickname?.trim() ?? "";
   const email = input.email?.trim().toLowerCase() ?? "";
   const phoneNumber = input.phoneNumber?.trim() ?? "";
+  const avatarUrl = input.avatarUrl?.trim() ?? "";
   const planId = input.planId?.trim() || "free";
   const accountType = input.accountType ?? "client";
   const roles = Array.from(new Set((input.roles ?? []).filter((role): role is UserRole => role === "admin" || role === "specialist")));
@@ -444,11 +446,11 @@ export async function createAdminUser(
         account_type
       ) values (
         $7,
-        $1, $2, $3, $4, '', '', 'America/Lima', '', $5, $1, '', '', true, '', '', '', '', '', null, null, '[]'::jsonb, '[]'::jsonb, true, $6
+        $1, $2, $3, $4, $8, '', 'America/Lima', '', $5, $1, '', '', true, '', '', '', '', '', null, null, '[]'::jsonb, '[]'::jsonb, true, $6
       )
       returning id
     `,
-    [firstName, lastName, nickname, email, planId, accountType, randomUUID()],
+    [firstName, lastName, nickname, email, planId, accountType, randomUUID(), avatarUrl],
   );
 
   const userId = result.rows[0]?.id;
@@ -497,7 +499,7 @@ export async function createAdminUser(
     fullName: `${firstName} ${lastName}`.trim() || nickname || email,
     email,
     phoneNumber,
-    avatarUrl: "",
+    avatarUrl,
     planId,
     profileCompleted: Boolean(input.profileCompleted),
     createdAt: new Date().toISOString(),
@@ -531,6 +533,7 @@ export async function updateAdminUser(
   const nickname = input.nickname?.trim();
   const email = input.email?.trim().toLowerCase();
   const phoneNumber = input.phoneNumber?.trim();
+  const avatarUrl = input.avatarUrl?.trim();
   const planId = input.planId?.trim();
   const accountType = input.accountType;
   const roles = input.roles
@@ -547,10 +550,20 @@ export async function updateAdminUser(
         email = coalesce($5, email),
         plan_id = coalesce($6, plan_id),
         account_type = coalesce($7, account_type),
+        avatar_url = coalesce($8, avatar_url),
         updated_at = now()
       where id = $1
     `,
-    [userId, firstName ?? null, lastName ?? null, nickname ?? null, email ?? null, planId ?? null, accountType ?? null],
+    [
+      userId,
+      firstName ?? null,
+      lastName ?? null,
+      nickname ?? null,
+      email ?? null,
+      planId ?? null,
+      accountType ?? null,
+      avatarUrl ?? null,
+    ],
   );
 
   if (phoneNumber !== undefined) {
