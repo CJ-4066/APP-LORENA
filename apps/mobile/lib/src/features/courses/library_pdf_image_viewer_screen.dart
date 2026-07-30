@@ -2,7 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:pdfx/pdfx.dart';
+import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 
 import '../../core/config/app_config.dart';
 import '../../core/i18n/app_i18n.dart';
@@ -28,8 +28,9 @@ class LibraryPdfImageViewerScreen extends StatefulWidget {
 class _LibraryPdfImageViewerScreenState
     extends State<LibraryPdfImageViewerScreen> {
   final http.Client _client = http.Client();
+  final PdfViewerController _pdfViewerController = PdfViewerController();
 
-  PdfControllerPinch? _pdfController;
+  Uint8List? _pdfBytes;
   bool _loading = true;
   String? _errorMessage;
 
@@ -44,7 +45,7 @@ class _LibraryPdfImageViewerScreenState
 
   @override
   void dispose() {
-    _pdfController?.dispose();
+    _pdfViewerController.dispose();
     _client.close();
     super.dispose();
   }
@@ -55,27 +56,17 @@ class _LibraryPdfImageViewerScreenState
       _errorMessage = null;
     });
 
-    PdfControllerPinch? nextController;
     try {
       final bytes = await _fetchPdfBytes(refresh: refresh);
-      nextController = PdfControllerPinch(
-        document: PdfDocument.openData(bytes),
-        initialPage: 1,
-      );
-
       if (!mounted) {
-        nextController.dispose();
         return;
       }
 
-      final previousController = _pdfController;
       setState(() {
-        _pdfController = nextController;
+        _pdfBytes = bytes;
         _loading = false;
       });
-      previousController?.dispose();
     } catch (error) {
-      nextController?.dispose();
       if (!mounted) {
         return;
       }
@@ -101,6 +92,20 @@ class _LibraryPdfImageViewerScreenState
     }
 
     return response.bodyBytes;
+  }
+
+  void _handleDocumentLoadFailed(PdfDocumentLoadFailedDetails details) {
+    if (!mounted) {
+      return;
+    }
+
+    final description = details.description.trim();
+    setState(() {
+      _errorMessage = description.isNotEmpty
+          ? description
+          : 'El visor no pudo renderizar el PDF.';
+      _loading = false;
+    });
   }
 
   Widget _buildErrorPanel(BuildContext context) {
@@ -179,36 +184,37 @@ class _LibraryPdfImageViewerScreenState
     );
   }
 
-  Widget _buildPdfViewer(BuildContext context, PdfControllerPinch controller) {
-    return PdfViewPinch(
-      controller: controller,
-      scrollDirection: Axis.vertical,
-      padding: 0,
-      minScale: 1,
-      maxScale: 8,
-      backgroundDecoration: const BoxDecoration(color: Colors.white),
-      builders: PdfViewPinchBuilders<DefaultBuilderOptions>(
-        options: const DefaultBuilderOptions(
-          loaderSwitchDuration: Duration(milliseconds: 150),
-        ),
-        documentLoaderBuilder: (_) => const Center(
-          child: CircularProgressIndicator(),
-        ),
-        pageLoaderBuilder: (_) => const Center(
-          child: CircularProgressIndicator(strokeWidth: 2),
-        ),
-        errorBuilder: (context, error) => Center(
-          child: Padding(
-            padding: const EdgeInsets.all(28),
-            child: Text(
-              context.l10n.ts('No se pudo renderizar este PDF.'),
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.white70,
-                  ),
-              textAlign: TextAlign.center,
-            ),
-          ),
-        ),
+  Widget _buildPdfViewer() {
+    final bytes = _pdfBytes;
+    if (bytes == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return ColoredBox(
+      color: Colors.white,
+      child: SfPdfViewer.memory(
+        bytes,
+        key: ValueKey('${widget.document.id}-${bytes.length}'),
+        controller: _pdfViewerController,
+        canShowScrollHead: false,
+        canShowScrollStatus: false,
+        canShowPaginationDialog: false,
+        canShowHyperlinkDialog: false,
+        canShowPasswordDialog: false,
+        canShowSignaturePadDialog: false,
+        canShowTextSelectionMenu: false,
+        pageLayoutMode: PdfPageLayoutMode.continuous,
+        pageSpacing: 0,
+        scrollDirection: PdfScrollDirection.vertical,
+        initialPageNumber: 1,
+        initialZoomLevel: 1,
+        maxZoomLevel: 8,
+        interactionMode: PdfInteractionMode.pan,
+        enableTextSelection: false,
+        enableDoubleTapZooming: true,
+        enableDocumentLinkAnnotation: false,
+        enableHyperlinkNavigation: false,
+        onDocumentLoadFailed: _handleDocumentLoadFailed,
       ),
     );
   }
@@ -235,12 +241,11 @@ class _LibraryPdfImageViewerScreenState
 
   @override
   Widget build(BuildContext context) {
-    final controller = _pdfController;
     final Widget content = _loading
         ? const Center(child: CircularProgressIndicator())
-        : controller == null
+        : _errorMessage != null
             ? _buildErrorPanel(context)
-            : _buildPdfViewer(context, controller);
+            : _buildPdfViewer();
 
     return Scaffold(
       backgroundColor: Colors.black,
