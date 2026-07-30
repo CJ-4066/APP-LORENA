@@ -40,7 +40,7 @@
   display: grid;
   gap: 18px;
   padding: 20px;
-  border-radius: 28px;
+  border-radius: 24px;
   border: 1px solid var(--panel-border);
   background: var(--panel-bg);
   box-shadow: var(--panel-shadow);
@@ -57,6 +57,7 @@
 
 .nav-item {
   width: 100%;
+  min-height: 48px;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -96,6 +97,13 @@
 .nav-item-copy {
   display: grid;
   gap: 2px;
+  min-width: 0;
+}
+
+.nav-item-copy strong,
+.nav-item-copy span {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .nav-item-active {
@@ -134,7 +142,7 @@
   align-items: flex-end;
   gap: 20px;
   padding: 20px 22px;
-  border-radius: 28px;
+  border-radius: 24px;
   border: 1px solid var(--panel-border);
   background: var(--panel-bg);
   box-shadow: var(--panel-shadow);
@@ -756,7 +764,7 @@
   grid-template-columns: minmax(0, 1.3fr) minmax(300px, 0.9fr);
   gap: 20px;
   padding: 28px;
-  border-radius: 28px;
+  border-radius: 24px;
   margin-bottom: 22px;
 }
 
@@ -812,7 +820,7 @@
 .status-card,
 .metric-card {
   padding: 18px;
-  border-radius: 22px;
+  border-radius: 18px;
 }
 
 .status-card span,
@@ -848,7 +856,7 @@
 
 .admin-panel {
   padding: 22px;
-  border-radius: 26px;
+  border-radius: 22px;
   min-width: 0;
 }
 
@@ -1494,8 +1502,8 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 34px;
-  padding: 0 14px;
+  min-height: 42px;
+  padding: 0 16px;
   border-radius: 999px;
   border: 1px solid var(--border-soft);
   background: rgba(255, 255, 255, 0.7);
@@ -2159,7 +2167,7 @@
 
 .specialist-summary-card {
   padding: 16px 18px;
-  border-radius: 20px;
+  border-radius: 18px;
   box-shadow: none;
 }
 
@@ -2180,7 +2188,7 @@
   display: grid;
   gap: 10px;
   padding: 16px;
-  border-radius: 18px;
+  border-radius: 16px;
   border: 1px solid var(--panel-border);
   background:
     radial-gradient(
@@ -2201,6 +2209,8 @@
   font-family: var(--heading-font);
   color: var(--text-strong);
   font-size: 1rem;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .specialist-card-top {
@@ -2235,15 +2245,17 @@
 }
 
 .specialist-card-head {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 10px;
   align-items: flex-start;
+  min-width: 0;
 }
 
 .specialist-card-head .topbar-pill {
   padding: 5px 9px;
   font-size: 0.68rem;
+  max-width: 100%;
 }
 
 .specialist-headline {
@@ -2252,6 +2264,19 @@
 
 .specialist-card .product-card-meta {
   font-size: 0.72rem;
+}
+
+.specialist-card .specialist-headline {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.4;
+  letter-spacing: 0;
+  text-transform: none;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
 }
 
 .specialist-card .muted-copy {
@@ -2281,7 +2306,7 @@
 
 .specialist-status-card {
   padding: 12px 14px;
-  border-radius: 16px;
+  border-radius: 14px;
   background: rgba(255, 255, 255, 0.5);
   border: 1px solid var(--border-soft);
   box-shadow: none;
@@ -2406,7 +2431,7 @@
 
 .specialist-card .product-card-actions .primary-button,
 .specialist-card .product-card-actions .secondary-button {
-  min-height: 38px;
+  min-height: 42px;
   border-radius: 12px;
   box-shadow: none;
 }
@@ -2452,7 +2477,7 @@
   align-items: end;
   padding: 14px;
   border: 1px solid var(--panel-border);
-  border-radius: 20px;
+  border-radius: 18px;
   background: linear-gradient(135deg, var(--surface-strong), var(--surface-soft));
   box-shadow: var(--card-shadow);
 }
@@ -2505,7 +2530,7 @@
   display: grid;
   gap: 10px;
   padding: 14px;
-  border-radius: 20px;
+  border-radius: 16px;
   border: 1px solid var(--panel-border);
   background:
     radial-gradient(
@@ -4483,6 +4508,72 @@
   box-shadow: inset 0 1px 0 var(--warning-soft);
 }
 
+/* Visual consistency pass */
+.admin-sidebar,
+.admin-topbar,
+.admin-hero,
+.admin-panel,
+.admin-auth-panel,
+.badge-route-card,
+.product-card,
+.course-card,
+.library-link-card,
+.library-category-card,
+.support-ticket-list,
+.support-detail,
+.premium-grant-panel {
+  border-radius: 20px;
+}
+
+.status-card,
+.metric-card,
+.specialist-card,
+.service-editor-card,
+.user-card,
+.support-ticket-card,
+.library-mini-row,
+.library-list-row,
+.course-item-row {
+  border-radius: 16px;
+}
+
+.product-card,
+.course-card,
+.specialist-card,
+.user-card,
+.support-ticket-card,
+.library-link-card,
+.library-category-card,
+.library-list-row,
+.course-item-row,
+.table-row {
+  min-width: 0;
+}
+
+.product-card h3,
+.course-card h3,
+.specialist-card h3,
+.user-card h3,
+.support-ticket-card strong,
+.library-link-card h3,
+.library-category-card h3,
+.course-item-row strong {
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.product-card p,
+.course-card p,
+.specialist-card p,
+.user-card p,
+.support-ticket-card p,
+.library-link-card p,
+.library-category-card p,
+.course-item-row p,
+.table-row p {
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 1080px) {
   .metric-grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -4629,13 +4720,29 @@
 
   .admin-nav {
     grid-auto-flow: column;
+    grid-auto-columns: max-content;
     grid-template-columns: none;
     overflow-x: auto;
-    padding-bottom: 4px;
+    gap: 8px;
+    padding-bottom: 6px;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+  }
+
+  .admin-nav::-webkit-scrollbar {
+    display: none;
   }
 
   .nav-item {
-    min-width: 142px;
+    width: max-content;
+    min-width: max-content;
+    max-width: 220px;
+    scroll-snap-align: start;
+  }
+
+  .nav-item-copy strong,
+  .nav-item-copy span {
+    white-space: nowrap;
   }
 
   .badge-detail-wide {
