@@ -249,20 +249,26 @@ class _LibraryPdfImageViewerScreenState
               );
             }
 
-            return Center(
+            return SizedBox.expand(
               child: InteractiveViewer(
                 minScale: 1,
                 maxScale: 6,
-                constrained: false,
-                boundaryMargin: const EdgeInsets.all(120),
-                clipBehavior: Clip.none,
-                child: Image.memory(
-                  bytes,
-                  width: constraints.maxWidth,
-                  cacheWidth: _pageRenderWidth,
-                  fit: BoxFit.fitWidth,
-                  filterQuality: FilterQuality.medium,
-                  gaplessPlayback: true,
+                boundaryMargin: EdgeInsets.zero,
+                clipBehavior: Clip.hardEdge,
+                child: ColoredBox(
+                  color: Colors.black,
+                  child: SizedBox.expand(
+                    child: Image.memory(
+                      bytes,
+                      width: constraints.maxWidth,
+                      height: constraints.maxHeight,
+                      cacheWidth: _pageRenderWidth,
+                      fit: BoxFit.contain,
+                      alignment: Alignment.center,
+                      filterQuality: FilterQuality.medium,
+                      gaplessPlayback: true,
+                    ),
+                  ),
                 ),
               ),
             );
@@ -322,7 +328,11 @@ class _LibraryPdfImageViewerScreenState
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          Positioned.fill(child: content),
+          Positioned.fill(
+            child: SafeArea(
+              child: content,
+            ),
+          ),
           _buildBackButton(context),
         ],
       ),
