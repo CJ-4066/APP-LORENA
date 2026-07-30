@@ -1,8 +1,5 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../core/config/app_config.dart';
 import '../../core/i18n/app_i18n.dart';
@@ -27,88 +24,158 @@ class LibraryPdfImageViewerScreen extends StatefulWidget {
 
 class _LibraryPdfImageViewerScreenState
     extends State<LibraryPdfImageViewerScreen> {
-  final http.Client _client = http.Client();
-  final PdfViewerController _pdfViewerController = PdfViewerController();
+  late final WebViewController _webViewController;
 
-  Uint8List? _pdfBytes;
   bool _loading = true;
+  int _progress = 0;
   String? _errorMessage;
 
-  String get _pdfUrl =>
-      '${AppConfig.apiBaseUrl}/api/content/library/pdfs/${widget.document.id}/file';
+  String get _readerUrl {
+    final parsed = Uri.tryParse(widget.document.viewUrl);
+    final base = parsed?.hasScheme == true
+        ? parsed!
+        : Uri.parse('${AppConfig.apiBaseUrl}${widget.document.viewUrl}');
+    return base.replace(
+      queryParameters: {
+        ...base.queryParameters,
+        'reader': '1',
+      },
+    ).toString();
+  }
 
   @override
   void initState() {
     super.initState();
-    _loadPdf();
+    _webViewController = WebViewController()
+      ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..setBackgroundColor(Colors.white)
+      ..setNavigationDelegate(
+        NavigationDelegate(
+          onProgress: (progress) {
+            if (!mounted) {
+              return;
+            }
+            setState(() {
+              _progress = progress.clamp(0, 100);
+            });
+          },
+          onPageStarted: (_) {
+            if (!mounted) {
+              return;
+            }
+            setState(() {
+              _loading = true;
+              _errorMessage = null;
+            });
+          },
+          onPageFinished: (_) async {
+            await _applyReaderLayout();
+            if (!mounted) {
+              return;
+            }
+            setState(() {
+              _loading = false;
+            });
+          },
+          onWebResourceError: (error) {
+            if (error.isForMainFrame == false) {
+              return;
+            }
+            if (!mounted) {
+              return;
+            }
+            setState(() {
+              _loading = false;
+              _errorMessage = error.description;
+            });
+          },
+        ),
+      )
+      ..loadRequest(Uri.parse(_readerUrl));
   }
 
-  @override
-  void dispose() {
-    _pdfViewerController.dispose();
-    _client.close();
-    super.dispose();
-  }
-
-  Future<void> _loadPdf({bool refresh = false}) async {
-    setState(() {
-      _loading = true;
-      _errorMessage = null;
-    });
-
+  Future<void> _applyReaderLayout() async {
     try {
-      final bytes = await _fetchPdfBytes(refresh: refresh);
-      if (!mounted) {
-        return;
-      }
+      await _webViewController.runJavaScript(r'''
+        (function () {
+          const existing = document.getElementById('lo-renaciente-reader-style');
+          if (!existing) {
+            const style = document.createElement('style');
+            style.id = 'lo-renaciente-reader-style';
+            style.textContent = `
+              html, body {
+                margin: 0 !important;
+                padding: 0 !important;
+                height: 100% !important;
+                overflow: hidden !important;
+                background: #ffffff !important;
+              }
+              .toolbar, .meta, .pageHeader {
+                display: none !important;
+              }
+              #viewer {
+                position: fixed !important;
+                inset: 0 !important;
+                width: 100vw !important;
+                height: 100vh !important;
+                overflow: auto !important;
+                padding: 0 0 18px !important;
+                background: #ffffff !important;
+                -webkit-overflow-scrolling: touch !important;
+              }
+              .page {
+                width: 100vw !important;
+                max-width: none !important;
+                margin: 0 auto 8px !important;
+                border: 0 !important;
+                border-radius: 0 !important;
+                box-shadow: none !important;
+                background: #ffffff !important;
+                overflow: visible !important;
+              }
+              .pageCanvas {
+                display: block !important;
+                width: 100% !important;
+                height: auto !important;
+                max-width: none !important;
+                background: #ffffff !important;
+              }
+              .empty {
+                padding-top: 42vh !important;
+                color: #555 !important;
+              }
+            `;
+            document.head.appendChild(style);
+          }
 
-      setState(() {
-        _pdfBytes = bytes;
-        _loading = false;
-      });
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
+          const fitPages = function () {
+            document.querySelectorAll('.page').forEach(function (page) {
+              page.style.width = '100vw';
+              page.style.maxWidth = 'none';
+              page.style.margin = '0 auto 8px';
+              page.style.border = '0';
+              page.style.borderRadius = '0';
+              page.style.boxShadow = 'none';
+            });
+            document.querySelectorAll('canvas.pageCanvas').forEach(function (canvas) {
+              canvas.style.width = '100%';
+              canvas.style.height = 'auto';
+              canvas.style.maxWidth = 'none';
+            });
+          };
 
-      setState(() {
-        _loading = false;
-        _errorMessage = error.toString();
-      });
+          fitPages();
+          window.clearInterval(window.__loRenacientePdfFitTimer);
+          window.__loRenacientePdfFitTimer = window.setInterval(fitPages, 400);
+        })();
+      ''');
+    } catch (_) {
+      // The viewer can still work with the server defaults if injection fails.
     }
-  }
-
-  Future<Uint8List> _fetchPdfBytes({bool refresh = false}) async {
-    final uri = Uri.parse(refresh ? '$_pdfUrl?refresh=1' : _pdfUrl);
-    final response = await _client.get(uri);
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception('No se pudo descargar el PDF.');
-    }
-
-    final contentType = response.headers['content-type'] ?? '';
-    if (!contentType.contains('application/pdf') ||
-        response.bodyBytes.isEmpty) {
-      throw Exception('La API no devolvio un PDF valido.');
-    }
-
-    return response.bodyBytes;
-  }
-
-  void _handleDocumentLoadFailed(PdfDocumentLoadFailedDetails details) {
-    if (!mounted) {
-      return;
-    }
-
-    final description = details.description.trim();
-    setState(() {
-      _errorMessage = description.isNotEmpty
-          ? description
-          : 'El visor no pudo renderizar el PDF.';
-      _loading = false;
-    });
   }
 
   Widget _buildErrorPanel(BuildContext context) {
+    final message = _errorMessage;
     return SafeArea(
       child: Center(
         child: SingleChildScrollView(
@@ -139,20 +206,10 @@ class _LibraryPdfImageViewerScreenState
                       .titleMedium
                       ?.copyWith(fontWeight: FontWeight.w800),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  context.l10n.ts(
-                    'El documento no se pudo descargar como PDF legible.',
-                  ),
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppPalette.mutedLavender,
-                        height: 1.35,
-                      ),
-                ),
-                if (_errorMessage != null) ...[
+                if (message != null) ...[
                   const SizedBox(height: 10),
                   Text(
-                    _errorMessage!,
+                    message,
                     style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: AppPalette.mutedLavender,
                           height: 1.4,
@@ -160,21 +217,10 @@ class _LibraryPdfImageViewerScreenState
                   ),
                 ],
                 const SizedBox(height: 14),
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children: [
-                    FilledButton.icon(
-                      onPressed: () => _loadPdf(),
-                      icon: const Icon(Icons.refresh_rounded),
-                      label: Text(context.l10n.ts('Reintentar')),
-                    ),
-                    OutlinedButton.icon(
-                      onPressed: () => _loadPdf(refresh: true),
-                      icon: const Icon(Icons.bolt_rounded),
-                      label: Text(context.l10n.ts('Forzar recarga')),
-                    ),
-                  ],
+                FilledButton.icon(
+                  onPressed: () => _webViewController.reload(),
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: Text(context.l10n.ts('Reintentar')),
                 ),
               ],
             ),
@@ -184,48 +230,13 @@ class _LibraryPdfImageViewerScreenState
     );
   }
 
-  Widget _buildPdfViewer() {
-    final bytes = _pdfBytes;
-    if (bytes == null) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    return ColoredBox(
-      color: Colors.white,
-      child: SfPdfViewer.memory(
-        bytes,
-        key: ValueKey('${widget.document.id}-${bytes.length}'),
-        controller: _pdfViewerController,
-        canShowScrollHead: false,
-        canShowScrollStatus: false,
-        canShowPaginationDialog: false,
-        canShowHyperlinkDialog: false,
-        canShowPasswordDialog: false,
-        canShowSignaturePadDialog: false,
-        canShowTextSelectionMenu: false,
-        pageLayoutMode: PdfPageLayoutMode.continuous,
-        pageSpacing: 0,
-        scrollDirection: PdfScrollDirection.vertical,
-        initialPageNumber: 1,
-        initialZoomLevel: 1,
-        maxZoomLevel: 8,
-        interactionMode: PdfInteractionMode.pan,
-        enableTextSelection: false,
-        enableDoubleTapZooming: true,
-        enableDocumentLinkAnnotation: false,
-        enableHyperlinkNavigation: false,
-        onDocumentLoadFailed: _handleDocumentLoadFailed,
-      ),
-    );
-  }
-
   Widget _buildBackButton(BuildContext context) {
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(10),
         child: DecoratedBox(
           decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.56),
+            color: Colors.black.withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(16),
           ),
           child: IconButton(
@@ -241,17 +252,35 @@ class _LibraryPdfImageViewerScreenState
 
   @override
   Widget build(BuildContext context) {
-    final Widget content = _loading
-        ? const Center(child: CircularProgressIndicator())
-        : _errorMessage != null
-            ? _buildErrorPanel(context)
-            : _buildPdfViewer();
-
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: Colors.white,
       body: Stack(
         children: [
-          Positioned.fill(child: content),
+          Positioned.fill(
+            child: SafeArea(
+              bottom: false,
+              child: _errorMessage == null
+                  ? WebViewWidget(controller: _webViewController)
+                  : _buildErrorPanel(context),
+            ),
+          ),
+          if (_loading)
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
+              child: SafeArea(
+                bottom: false,
+                child: LinearProgressIndicator(
+                  value: _progress <= 0 || _progress >= 100
+                      ? null
+                      : _progress / 100,
+                  minHeight: 2,
+                  backgroundColor: Colors.transparent,
+                  color: AppPalette.flameGold,
+                ),
+              ),
+            ),
           _buildBackButton(context),
         ],
       ),
