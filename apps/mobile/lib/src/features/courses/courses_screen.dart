@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import '../../core/i18n/app_i18n.dart';
 import '../../core/theme/app_palette.dart';
 import '../../core/widgets/mystic_ui.dart';
+import '../../core/widgets/premium_access.dart';
 import '../../models/app_models.dart';
 import 'course_pdf_viewer_screen.dart';
 import 'library_pdf_viewer_screen.dart';
@@ -71,6 +72,8 @@ class _CoursesScreenState extends State<CoursesScreen> {
       );
     }
 
+    final premiumActive = hasPremiumAccess(widget.data);
+
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -93,6 +96,7 @@ class _CoursesScreenState extends State<CoursesScreen> {
                 courses: widget.data.courses,
                 refreshTick: _refreshTick,
                 contentVersion: widget.contentVersion,
+                hasPremiumAccess: premiumActive,
               ),
             ],
           ),
@@ -600,6 +604,9 @@ class _CourseTextField extends StatelessWidget {
       controller: controller,
       maxLines: maxLines,
       keyboardType: keyboardType,
+      autocorrect: false,
+      enableSuggestions: false,
+      spellCheckConfiguration: const SpellCheckConfiguration.disabled(),
       decoration: InputDecoration(
         labelText: label,
         filled: true,
@@ -1238,11 +1245,13 @@ class _CoursesPanel extends StatefulWidget {
     required this.courses,
     required this.refreshTick,
     required this.contentVersion,
+    required this.hasPremiumAccess,
   });
 
   final List<Course> courses;
   final int refreshTick;
   final String contentVersion;
+  final bool hasPremiumAccess;
 
   @override
   State<_CoursesPanel> createState() => _CoursesPanelState();
@@ -1264,7 +1273,8 @@ class _CoursesPanelState extends State<_CoursesPanel> {
   void initState() {
     super.initState();
     _coursesSnapshot = widget.courses;
-    _categoriesFuture = _loadCategories();
+    _categoriesFuture =
+        widget.hasPremiumAccess ? _loadCategories() : Future.value(const []);
   }
 
   @override
@@ -1279,9 +1289,12 @@ class _CoursesPanelState extends State<_CoursesPanel> {
     super.didUpdateWidget(oldWidget);
     final coursesChanged = !_sameCourses(oldWidget.courses, widget.courses);
     final contentChanged = oldWidget.contentVersion != widget.contentVersion;
+    final premiumAccessChanged =
+        oldWidget.hasPremiumAccess != widget.hasPremiumAccess;
     if (coursesChanged ||
         oldWidget.refreshTick != widget.refreshTick ||
-        contentChanged) {
+        contentChanged ||
+        premiumAccessChanged) {
       _reloadLibrary();
     }
   }
@@ -1297,7 +1310,8 @@ class _CoursesPanelState extends State<_CoursesPanel> {
     for (var index = 0; index < left.length; index += 1) {
       if (left[index].id != right[index].id ||
           left[index].title != right[index].title ||
-          left[index].coverImageUrl != right[index].coverImageUrl) {
+          left[index].coverImageUrl != right[index].coverImageUrl ||
+          left[index].premium != right[index].premium) {
         return false;
       }
     }
@@ -1314,7 +1328,8 @@ class _CoursesPanelState extends State<_CoursesPanel> {
       _librarySearchController.clear();
       _libraryService.invalidateCache();
       LibraryPdfThumbnailService.clearCache();
-      _categoriesFuture = _loadCategories();
+      _categoriesFuture =
+          widget.hasPremiumAccess ? _loadCategories() : Future.value(const []);
     });
   }
 
@@ -1365,27 +1380,52 @@ class _CoursesPanelState extends State<_CoursesPanel> {
 
   @override
   Widget build(BuildContext context) {
+    final visibleCourses = widget.hasPremiumAccess
+        ? _coursesSnapshot
+        : _coursesSnapshot
+            .where((course) => !course.premium)
+            .toList(growable: false);
+    final lockedPremiumCourseCount =
+        _coursesSnapshot.where((course) => course.premium).length;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _DriveLibrarySection(
-          categoriesFuture: _categoriesFuture,
-          documentsFuture: _documentsFuture,
-          selectedCategory: _selectedCategory,
-          searchController: _librarySearchController,
-          searchQuery: _librarySearchQuery,
-          onSelectCategory: _selectCategory,
-          onSearchChanged: (value) {
-            setState(() {
-              _librarySearchQuery = value;
-            });
-          },
-          thumbnailService: _thumbnailService,
-          onOpenDocument: (document) => _openDocument(context, document),
-        ),
-        if (_coursesSnapshot.isNotEmpty) ...[
+        if (widget.hasPremiumAccess)
+          _DriveLibrarySection(
+            categoriesFuture: _categoriesFuture,
+            documentsFuture: _documentsFuture,
+            selectedCategory: _selectedCategory,
+            searchController: _librarySearchController,
+            searchQuery: _librarySearchQuery,
+            onSelectCategory: _selectCategory,
+            onSearchChanged: (value) {
+              setState(() {
+                _librarySearchQuery = value;
+              });
+            },
+            thumbnailService: _thumbnailService,
+            onOpenDocument: (document) => _openDocument(context, document),
+          )
+        else
+          PremiumLockedCard(
+            title: context.l10n.ts('Biblioteca Premium'),
+            message: context.l10n.ts(
+              'La biblioteca completa pertenece al Plan Premium. Los cursos gratuitos siguen disponibles abajo.',
+            ),
+          ),
+        if (visibleCourses.isNotEmpty) ...[
           const SizedBox(height: 18),
-          _CourseShelfSection(courses: _coursesSnapshot),
+          _CourseShelfSection(courses: visibleCourses),
+        ],
+        if (!widget.hasPremiumAccess && lockedPremiumCourseCount > 0) ...[
+          const SizedBox(height: 18),
+          PremiumLockedCard(
+            title: context.l10n.ts('Cursos Premium'),
+            message: context.l10n.ts(
+              'Hay cursos adicionales bloqueados para Plan Premium. Habilita el acceso mensual desde administración para abrirlos.',
+            ),
+          ),
         ],
       ],
     );
@@ -1459,6 +1499,9 @@ class _DriveLibrarySection extends StatelessWidget {
             TextField(
               controller: searchController,
               onChanged: onSearchChanged,
+              autocorrect: false,
+              enableSuggestions: false,
+              spellCheckConfiguration: const SpellCheckConfiguration.disabled(),
               decoration: InputDecoration(
                 labelText: l10n.ts('Buscar en la biblioteca'),
                 hintText: l10n.ts('Título, concepto o palabra clave'),

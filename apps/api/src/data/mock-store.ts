@@ -94,12 +94,16 @@ export interface AdminManagedUserRecord {
   fullName: string;
   email: string;
   phoneNumber: string;
+  avatarUrl: string;
   planId: string;
   profileCompleted: boolean;
   createdAt: string;
   roles: Array<"admin" | "specialist">;
   accountType: AccountType;
   access: string[];
+  premiumStatus: string;
+  premiumStartedAt: string | null;
+  premiumRenewsAt: string | null;
 }
 
 export interface AdminManagedUserInput {
@@ -560,10 +564,14 @@ const plans: Plan[] = [
     currency: "USD",
     isPopular: false,
     features: [
-      "Carta del día",
-      "Energía astrológica básica",
-      "Agenda limitada",
-      "Chat con límite mensual",
+      "Energía de hoy (Numerología)",
+      "Carta Natal: Rueda Natal",
+      "Tarot: Tirada diaria 3 cartas",
+      "Shop",
+      "Curso gratuito",
+      "Agenda descuento",
+      "Numerología",
+      "Carta Natal: Esencia",
     ],
     sessionMessageLimit: 20,
     consultationAccess: ["tarot", "astrología"],
@@ -576,11 +584,12 @@ const plans: Plan[] = [
     currency: "USD",
     isPopular: true,
     features: [
-      "Lectura diaria ampliada",
-      "Astrología personalizada",
-      "Cursos premium",
-      "Chat ilimitado",
-      "Acceso a especialistas avanzados",
+      "Carta Natal: Tránsitos",
+      "Carta Natal: Técnica",
+      "Carta Natal: Tiempo",
+      "Biblioteca",
+      "Cursos",
+      "Lecturas de Tarot 20% descuento",
     ],
     sessionMessageLimit: null,
     consultationAccess: [
@@ -2071,12 +2080,14 @@ function toAdminUserRecord(user: UserProfile): AdminManagedUserRecord {
   const roles = normalizeAdminRoles(user.roles as Array<"admin" | "specialist"> | undefined);
   const accountType = user.accountType;
   const fullName = `${user.firstName} ${user.lastName}`.trim() || user.nickname || user.email || user.id;
+  const subscription = getCurrentSubscription(user.id);
 
   return {
     id: user.id,
     fullName,
     email: user.email,
     phoneNumber: getUserPhoneNumber(user.id),
+    avatarUrl: user.avatarUrl,
     planId: user.planId,
     profileCompleted: Boolean(
       user.firstName.trim() &&
@@ -2087,6 +2098,9 @@ function toAdminUserRecord(user: UserProfile): AdminManagedUserRecord {
     roles,
     accountType,
     access: buildAdminAccess(accountType, roles),
+    premiumStatus: subscription.planId === "premium" ? subscription.status : "",
+    premiumStartedAt: subscription.planId === "premium" ? userCreatedAtById.get(user.id) ?? null : null,
+    premiumRenewsAt: subscription.planId === "premium" ? subscription.renewsAt : null,
   };
 }
 
@@ -3336,12 +3350,16 @@ export function setBookingStatus(
 
 export function getCurrentSubscription(userId?: string): Subscription {
   const plan = getCurrentPlan(userId);
+  const renewsAt =
+    plan.id === "premium"
+      ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+      : null;
 
   return {
     planId: plan.id,
     planName: plan.name,
     status: plan.id === "premium" ? "active" : "inactive",
-    renewsAt: plan.id === "premium" ? "2026-04-20T00:00:00-03:00" : null,
+    renewsAt,
     platform: "ios",
     billingProvider: plan.id === "premium" ? "app_store" : "mercado_pago",
     entitlements: plan.features,

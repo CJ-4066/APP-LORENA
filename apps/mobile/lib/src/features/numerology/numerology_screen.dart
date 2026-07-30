@@ -626,6 +626,7 @@ class _NumerologyIntakeCard extends StatelessWidget {
             textCapitalization: TextCapitalization.words,
             autocorrect: false,
             enableSuggestions: false,
+            spellCheckConfiguration: const SpellCheckConfiguration.disabled(),
             decoration: InputDecoration(
               labelText: l10n.ts('Nombre completo al nacer'),
               hintText: l10n.ts('Ejemplo: Maria Fernanda Quispe'),
@@ -637,6 +638,7 @@ class _NumerologyIntakeCard extends StatelessWidget {
             textCapitalization: TextCapitalization.words,
             autocorrect: false,
             enableSuggestions: false,
+            spellCheckConfiguration: const SpellCheckConfiguration.disabled(),
             decoration: InputDecoration(
               labelText: l10n.ts('Nombre actual o social'),
               hintText: l10n.ts('Opcional, para matiz actual'),

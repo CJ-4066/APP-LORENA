@@ -8,8 +8,10 @@ import '../../core/theme/app_palette.dart';
 import '../../core/utils/formatters.dart';
 import '../../core/widgets/energy_profile_card.dart';
 import '../../core/widgets/mystic_ui.dart';
+import '../../core/widgets/premium_access.dart';
 import '../../models/app_models.dart';
 import '../../models/astro_models.dart';
+import '../../models/push_models.dart';
 import '../profile/account_center_screens.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -19,15 +21,20 @@ class HomeScreen extends StatefulWidget {
     required this.onRefresh,
     required this.onOpenAstralChart,
     required this.onOpenNumerology,
+    required this.onOpenCommunityChat,
     required this.onLoadAstroOverview,
+    required this.onLoadNotificationTemplates,
   });
 
   final AppBootstrap data;
   final Future<void> Function() onRefresh;
   final Future<void> Function() onOpenAstralChart;
   final Future<void> Function() onOpenNumerology;
+  final Future<void> Function() onOpenCommunityChat;
   final Future<AstroOverviewData> Function(AstroRequestInput input)
       onLoadAstroOverview;
+  final Future<List<PushEngagementTemplate>> Function()
+      onLoadNotificationTemplates;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -35,8 +42,11 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   AstroOverviewData? _astroOverview;
+  List<PushEngagementTemplate>? _notificationTemplates;
   String? _astroError;
+  String? _notificationError;
   bool _isAstroLoading = false;
+  bool _isNotificationLoading = false;
   String _loadedSignature = '';
   final PageController _discoverModulesController = PageController(
     viewportFraction: 0.84,
@@ -70,6 +80,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final data = widget.data;
     final l10n = context.l10n;
     final hasSubscriptionCenter = _hasSubscriptionCenter(data);
+    final premiumActive = hasPremiumAccess(data);
 
     return Container(
       decoration: const BoxDecoration(
@@ -105,6 +116,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     : null,
                 onOpenAstralChart: widget.onOpenAstralChart,
               ),
+              const SizedBox(height: 16),
+              _HomeShortcutRow(
+                onOpenCommunityChat: widget.onOpenCommunityChat,
+                onOpenNotifications: _openNotificationProgram,
+              ),
               const SizedBox(height: 24),
               _DiscoverDaySection(
                 title: l10n.tr('homeDiscoverTitle'),
@@ -125,6 +141,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   isLoading: _isAstroLoading,
                   errorMessage: _astroError,
                 ),
+                hasPremiumAccess: premiumActive,
                 onOpenAstralChart: widget.onOpenAstralChart,
                 onOpenNumerology: widget.onOpenNumerology,
                 onOpenTodayTransitHub: _openTodayTransitHub,
@@ -250,6 +267,17 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _openTodayTransitHub() async {
+    if (!hasPremiumAccess(widget.data)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.l10n.ts('Tránsitos pertenece al Plan Premium.'),
+          ),
+        ),
+      );
+      return;
+    }
+
     final items = _buildTodayTransitItems(_astroOverview, context.l10n);
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -262,6 +290,104 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _openNotificationProgram() async {
+    await _loadNotificationTemplates();
+    if (!mounted) {
+      return;
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheetContext) {
+        final templates = _notificationTemplates ?? const [];
+        final eligible = templates.where((template) => template.eligible);
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Recordatorios amigables',
+                  style: Theme.of(sheetContext).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'El sistema ya tiene ${templates.length} tipos. Para tu plan aplican ${eligible.length}.',
+                  style: Theme.of(sheetContext).textTheme.bodyMedium?.copyWith(
+                        color: AppPalette.mutedLavender,
+                      ),
+                ),
+                if (_notificationError != null) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    _notificationError!,
+                    style:
+                        Theme.of(sheetContext).textTheme.bodyMedium?.copyWith(
+                              color: AppPalette.berry,
+                              fontWeight: FontWeight.w700,
+                            ),
+                  ),
+                ],
+                const SizedBox(height: 14),
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(sheetContext).size.height * 0.58,
+                  ),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: templates.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (context, index) {
+                      final template = templates[index];
+                      return _NotificationTemplateTile(template: template);
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _loadNotificationTemplates() async {
+    if (_notificationTemplates != null || _isNotificationLoading) {
+      return;
+    }
+
+    setState(() {
+      _isNotificationLoading = true;
+      _notificationError = null;
+    });
+
+    try {
+      final templates = await widget.onLoadNotificationTemplates();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _notificationTemplates = templates;
+        _isNotificationLoading = false;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _notificationTemplates = const [];
+        _notificationError = error.toString().replaceFirst('Exception: ', '');
+        _isNotificationLoading = false;
+      });
+    }
   }
 
   Future<void> _openSubscription(BuildContext context) async {
@@ -487,6 +613,182 @@ class _AstroSideDeckTab extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _HomeShortcutRow extends StatelessWidget {
+  const _HomeShortcutRow({
+    required this.onOpenCommunityChat,
+    required this.onOpenNotifications,
+  });
+
+  final Future<void> Function() onOpenCommunityChat;
+  final Future<void> Function() onOpenNotifications;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _HomeShortcutButton(
+            icon: Icons.forum_rounded,
+            label: 'Chat general',
+            caption: 'Acceso rápido',
+            onTap: onOpenCommunityChat,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: _HomeShortcutButton(
+            icon: Icons.notifications_active_outlined,
+            label: 'Recordatorios',
+            caption: '10 tipos',
+            onTap: onOpenNotifications,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _HomeShortcutButton extends StatelessWidget {
+  const _HomeShortcutButton({
+    required this.icon,
+    required this.label,
+    required this.caption,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final String caption;
+  final Future<void> Function() onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(22),
+        onTap: () => onTap(),
+        child: Ink(
+          height: 76,
+          padding: const EdgeInsets.symmetric(horizontal: 14),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.82),
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: AppPalette.border),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: AppPalette.mistLilac,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(icon, color: AppPalette.royalViolet, size: 21),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                            color: AppPalette.butterflyInk,
+                            fontWeight: FontWeight.w900,
+                          ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      caption,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                            color: AppPalette.mutedLavender,
+                          ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NotificationTemplateTile extends StatelessWidget {
+  const _NotificationTemplateTile({
+    required this.template,
+  });
+
+  final PushEngagementTemplate template;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground =
+        template.eligible ? AppPalette.butterflyInk : AppPalette.mutedLavender;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: template.eligible ? Colors.white : AppPalette.softLilac,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: template.eligible ? AppPalette.border : AppPalette.mistLilac,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            template.eligible
+                ? Icons.notifications_active_rounded
+                : Icons.lock_clock_rounded,
+            color: template.eligible
+                ? AppPalette.royalViolet
+                : AppPalette.mutedLavender,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  template.title,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: foreground,
+                        fontWeight: FontWeight.w900,
+                      ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  template.body,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: foreground,
+                        height: 1.35,
+                      ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  '${template.audience} · ${template.trigger} · cada ${template.minHoursBetweenSends}h',
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: AppPalette.mutedLavender,
+                      ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1784,6 +2086,7 @@ class _DiscoverDaySection extends StatelessWidget {
     required this.numerologyTitle,
     required this.numerologyCaption,
     required this.transitCaption,
+    required this.hasPremiumAccess,
     required this.onOpenAstralChart,
     required this.onOpenNumerology,
     required this.onOpenTodayTransitHub,
@@ -1799,6 +2102,7 @@ class _DiscoverDaySection extends StatelessWidget {
   final String numerologyTitle;
   final String numerologyCaption;
   final String transitCaption;
+  final bool hasPremiumAccess;
   final Future<void> Function() onOpenAstralChart;
   final Future<void> Function() onOpenNumerology;
   final Future<void> Function() onOpenTodayTransitHub;
@@ -1962,7 +2266,9 @@ class _DiscoverDaySection extends StatelessWidget {
                       ),
                     ),
                     _ModulePanel(
-                      eyebrow: l10n.ts('Cielo activo'),
+                      eyebrow: hasPremiumAccess
+                          ? l10n.ts('Cielo activo')
+                          : l10n.ts('Plan Premium'),
                       title: l10n.ts('Tránsitos de hoy'),
                       caption: transitCaption,
                       glyphKind: MysticGlyphKind.astral,

@@ -156,6 +156,9 @@ class _BirthDatePartField extends StatelessWidget {
       enabled: enabled,
       keyboardType: TextInputType.number,
       maxLength: maxLength,
+      autocorrect: false,
+      enableSuggestions: false,
+      spellCheckConfiguration: const SpellCheckConfiguration.disabled(),
       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
       decoration: InputDecoration(
         labelText: label,

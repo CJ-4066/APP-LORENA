@@ -105,10 +105,14 @@
       "currency": "USD",
       "isPopular": false,
       "features": [
-        "Carta del día",
-        "Energía astrológica básica",
-        "Agenda limitada",
-        "Chat con límite mensual"
+        "Energía de hoy (Numerología)",
+        "Carta Natal: Rueda Natal",
+        "Tarot: Tirada diaria 3 cartas",
+        "Shop",
+        "Curso gratuito",
+        "Agenda descuento",
+        "Numerología",
+        "Carta Natal: Esencia"
       ],
       "sessionMessageLimit": 20,
       "consultationAccess": ["tarot", "astrología"]
@@ -121,11 +125,12 @@
       "currency": "USD",
       "isPopular": true,
       "features": [
-        "Lectura diaria ampliada",
-        "Astrología personalizada",
-        "Cursos premium",
-        "Chat ilimitado",
-        "Acceso a especialistas avanzados"
+        "Carta Natal: Tránsitos",
+        "Carta Natal: Técnica",
+        "Carta Natal: Tiempo",
+        "Biblioteca",
+        "Cursos",
+        "Lecturas de Tarot 20% descuento"
       ],
       "sessionMessageLimit": null,
       "consultationAccess": [

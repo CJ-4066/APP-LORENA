@@ -4,6 +4,10 @@ import type { QueryResultRow } from "pg";
 import { isDatabaseConfigured, query } from "../infrastructure/database.js";
 import { type UserRole } from "./authz-store.js";
 import {
+  grantPremiumSubscription,
+  type GrantPremiumSubscriptionInput,
+} from "./billing-store.js";
+import {
   getAdminSummary as getAdminSummaryMock,
   getBookings as getBookingsMock,
   getProfile as getProfileMock,
@@ -14,6 +18,7 @@ import {
   type BookingStatus,
   type SessionMode,
 } from "./mock-store.js";
+import { countOpenSupportTickets } from "./support-store.js";
 
 export interface AdminDashboardSummary {
   activeUsers: number;
@@ -43,12 +48,16 @@ export interface AdminRecentUser {
   fullName: string;
   email: string;
   phoneNumber: string;
+  avatarUrl: string;
   planId: string;
   profileCompleted: boolean;
   createdAt: string;
   roles: UserRole[];
   accountType: "client" | "specialist";
   access: string[];
+  premiumStatus: string;
+  premiumStartedAt: string | null;
+  premiumRenewsAt: string | null;
 }
 
 export interface AdminUserDraftInput {
@@ -62,6 +71,8 @@ export interface AdminUserDraftInput {
   roles?: UserRole[];
   profileCompleted?: boolean;
 }
+
+export type AdminGrantPremiumInput = GrantPremiumSubscriptionInput;
 
 export interface AdminChatOverview {
   totalThreads: number;
@@ -105,11 +116,15 @@ interface AdminUserRow extends QueryResultRow {
   full_name: string;
   email: string;
   phone_number: string | null;
+  avatar_url: string | null;
   plan_id: string;
   profile_completed: boolean | null;
   created_at: Date | string;
   roles: string[];
   account_type: string;
+  premium_status: string | null;
+  premium_started_at: Date | string | null;
+  premium_renews_at: Date | string | null;
 }
 
 interface ChatCountsRow extends QueryResultRow {
@@ -156,7 +171,7 @@ export async function getAdminDashboardSummary(): Promise<AdminDashboardSummary>
       premiumSubscribers: summary.premiumSubscribers,
       monthlyBookings: summary.monthlyBookings,
       activeSpecialists: summary.activeSpecialists,
-      openIncidents: summary.openIncidents,
+      openIncidents: await countOpenSupportTickets(),
       openChatThreads: 1,
       registeredPushDevices: 0,
       pendingPaymentBookings: getBookingsMock().filter(
@@ -174,6 +189,7 @@ export async function getAdminDashboardSummary(): Promise<AdminDashboardSummary>
           from user_subscriptions
           where plan_id = 'premium'
             and status = 'active'
+            and (renews_at is null or renews_at >= now())
         ) as premium_subscribers,
         (
           select count(*)::text
@@ -190,13 +206,14 @@ export async function getAdminDashboardSummary(): Promise<AdminDashboardSummary>
     `,
   );
   const row = result.rows[0];
+  const openSupportTickets = await countOpenSupportTickets();
 
   return {
     activeUsers: Number(row.active_users),
     premiumSubscribers: Number(row.premium_subscribers),
     monthlyBookings: Number(row.monthly_bookings),
     activeSpecialists: getSpecialists().length,
-    openIncidents: 0,
+    openIncidents: openSupportTickets,
     openChatThreads: Number(row.open_chat_threads),
     registeredPushDevices: Number(row.registered_push_devices),
     pendingPaymentBookings: Number(row.pending_payment_bookings),
@@ -298,11 +315,15 @@ export async function getAdminRecentUsers(
         u.id,
         coalesce(nullif(trim(concat_ws(' ', u.first_name, u.last_name)), ''), u.nickname, u.email, u.id) as full_name,
         u.email,
+        u.avatar_url,
         i.phone_number,
         u.plan_id,
         i.profile_completed,
         u.created_at,
         u.account_type,
+        s.status as premium_status,
+        s.started_at as premium_started_at,
+        s.renews_at as premium_renews_at,
         coalesce(
           array_agg(distinct r.role) filter (where r.role is not null),
           '{}'::text[]
@@ -310,6 +331,14 @@ export async function getAdminRecentUsers(
       from users u
       left join phone_auth_identities i on i.user_id = u.id
       left join user_roles r on r.user_id = u.id
+      left join lateral (
+        select status, started_at, renews_at
+        from user_subscriptions
+        where user_id = u.id
+          and plan_id = 'premium'
+        order by created_at desc
+        limit 1
+      ) s on true
       where (
         $2 = '' or
         coalesce(nullif(trim(concat_ws(' ', u.first_name, u.last_name)), ''), u.nickname, u.email, u.id) ilike $2 or
@@ -330,7 +359,7 @@ export async function getAdminRecentUsers(
           )
         )
       )
-      group by u.id, i.phone_number, i.profile_completed
+      group by u.id, i.phone_number, i.profile_completed, s.status, s.started_at, s.renews_at
       order by u.created_at desc
       limit $1
     `,
@@ -342,6 +371,7 @@ export async function getAdminRecentUsers(
     fullName: row.full_name,
     email: row.email,
     phoneNumber: row.phone_number ?? "",
+    avatarUrl: row.avatar_url ?? "",
     planId: row.plan_id,
     profileCompleted: row.profile_completed ?? false,
     createdAt: toIsoString(row.created_at) ?? "",
@@ -349,6 +379,9 @@ export async function getAdminRecentUsers(
       (role): role is UserRole => role === "admin" || role === "specialist",
     ),
     accountType: row.account_type === "specialist" ? "specialist" : "client",
+    premiumStatus: row.premium_status ?? "",
+    premiumStartedAt: toIsoString(row.premium_started_at),
+    premiumRenewsAt: toIsoString(row.premium_renews_at),
     access: buildAdminUserAccess(
       row.account_type === "specialist" ? "specialist" : "client",
       (row.roles ?? []).filter(
@@ -464,11 +497,15 @@ export async function createAdminUser(
     fullName: `${firstName} ${lastName}`.trim() || nickname || email,
     email,
     phoneNumber,
+    avatarUrl: "",
     planId,
     profileCompleted: Boolean(input.profileCompleted),
     createdAt: new Date().toISOString(),
     roles,
     accountType,
+    premiumStatus: "",
+    premiumStartedAt: null,
+    premiumRenewsAt: null,
     access: buildAdminUserAccess(accountType, roles),
   };
 }
@@ -543,6 +580,21 @@ export async function updateAdminUser(
   const current = updated.find((item) => item.id === userId);
   if (!current) {
     throw new Error("No se pudo actualizar el usuario.");
+  }
+
+  return current;
+}
+
+export async function grantAdminUserPremium(
+  userId: string,
+  input: AdminGrantPremiumInput,
+): Promise<AdminRecentUser> {
+  await grantPremiumSubscription(userId, input);
+
+  const updated = await getAdminRecentUsers(1, { search: userId });
+  const current = updated.find((item) => item.id === userId);
+  if (!current) {
+    throw new Error("No se pudo actualizar el usuario Premium.");
   }
 
   return current;

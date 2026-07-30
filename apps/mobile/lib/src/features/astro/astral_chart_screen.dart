@@ -11,6 +11,7 @@ import '../../core/utils/natal_chart_profile.dart';
 import '../../core/widgets/birth_date_fields.dart';
 import '../../core/widgets/birth_time_wheel_field.dart';
 import '../../core/widgets/mystic_ui.dart';
+import '../../core/widgets/premium_access.dart';
 import '../../models/app_models.dart';
 import '../../models/astro_models.dart';
 import '../../models/profile_models.dart';
@@ -34,6 +35,7 @@ class AstralChartScreen extends StatefulWidget {
   const AstralChartScreen({
     super.key,
     required this.user,
+    required this.hasPremiumAccess,
     required this.onSaveProfile,
     required this.onGenerate,
     required this.onResolveUtcOffset,
@@ -41,6 +43,7 @@ class AstralChartScreen extends StatefulWidget {
   });
 
   final UserProfile user;
+  final bool hasPremiumAccess;
   final Future<String?> Function(UpdateProfileInput input) onSaveProfile;
   final Future<AstroOverviewData> Function(AstroRequestInput input) onGenerate;
   final Future<AstroUtcOffsetResult> Function({
@@ -1082,6 +1085,9 @@ class _AstralChartScreenState extends State<AstralChartScreen> {
         children: [
           TextField(
             controller: _subjectNameController,
+            autocorrect: false,
+            enableSuggestions: false,
+            spellCheckConfiguration: const SpellCheckConfiguration.disabled(),
             decoration: InputDecoration(
               labelText: l10n.ts('Nombre (opcional)'),
               hintText: l10n.ts('Nombre de la carta'),
@@ -1343,6 +1349,9 @@ class _AstralChartScreenState extends State<AstralChartScreen> {
       children: [
         TextField(
           controller: _countryController,
+          autocorrect: false,
+          enableSuggestions: false,
+          spellCheckConfiguration: const SpellCheckConfiguration.disabled(),
           decoration: InputDecoration(
             labelText: l10n.ts('País'),
             hintText: 'Perú',
@@ -1351,6 +1360,9 @@ class _AstralChartScreenState extends State<AstralChartScreen> {
         const SizedBox(height: 12),
         TextField(
           controller: _stateController,
+          autocorrect: false,
+          enableSuggestions: false,
+          spellCheckConfiguration: const SpellCheckConfiguration.disabled(),
           decoration: InputDecoration(
             labelText: l10n.ts('Provincia o estado'),
             hintText: l10n.ts('Opcional o para carga manual'),
@@ -1359,6 +1371,9 @@ class _AstralChartScreenState extends State<AstralChartScreen> {
         const SizedBox(height: 12),
         TextField(
           controller: _cityController,
+          autocorrect: false,
+          enableSuggestions: false,
+          spellCheckConfiguration: const SpellCheckConfiguration.disabled(),
           decoration: InputDecoration(
             labelText: l10n.ts('Ciudad'),
             hintText: l10n.ts('Selecciona o escribe manualmente'),
@@ -1367,6 +1382,9 @@ class _AstralChartScreenState extends State<AstralChartScreen> {
         const SizedBox(height: 12),
         TextField(
           controller: _utcOffsetController,
+          autocorrect: false,
+          enableSuggestions: false,
+          spellCheckConfiguration: const SpellCheckConfiguration.disabled(),
           decoration: const InputDecoration(
             labelText: 'UTC offset',
             hintText: '-05:00',
@@ -1382,6 +1400,10 @@ class _AstralChartScreenState extends State<AstralChartScreen> {
                   decimal: true,
                   signed: true,
                 ),
+                autocorrect: false,
+                enableSuggestions: false,
+                spellCheckConfiguration:
+                    const SpellCheckConfiguration.disabled(),
                 decoration: InputDecoration(
                   labelText: l10n.ts('Latitud'),
                   hintText: '-12.0464',
@@ -1396,6 +1418,10 @@ class _AstralChartScreenState extends State<AstralChartScreen> {
                   decimal: true,
                   signed: true,
                 ),
+                autocorrect: false,
+                enableSuggestions: false,
+                spellCheckConfiguration:
+                    const SpellCheckConfiguration.disabled(),
                 decoration: InputDecoration(
                   labelText: l10n.ts('Longitud'),
                   hintText: '-77.0428',
@@ -1494,6 +1520,9 @@ class _AstralChartScreenState extends State<AstralChartScreen> {
           ],
         );
       case _AstroFlowSection.technical:
+        if (!widget.hasPremiumAccess) {
+          return _buildPremiumLockedSection(_AstroFlowSection.technical);
+        }
         if (_result == null) {
           return _buildFlowEmptyState(
             key: const ValueKey('astro-technical-empty'),
@@ -1514,6 +1543,9 @@ class _AstralChartScreenState extends State<AstralChartScreen> {
           ],
         );
       case _AstroFlowSection.timing:
+        if (!widget.hasPremiumAccess) {
+          return _buildPremiumLockedSection(_AstroFlowSection.timing);
+        }
         if (_result == null) {
           return _buildFlowEmptyState(
             key: const ValueKey('astro-timing-empty'),
@@ -1545,6 +1577,25 @@ class _AstralChartScreenState extends State<AstralChartScreen> {
       key: key,
       title: title,
       child: Text(subtitle),
+    );
+  }
+
+  bool _sectionRequiresPremium(_AstroFlowSection section) {
+    return section == _AstroFlowSection.technical ||
+        section == _AstroFlowSection.timing;
+  }
+
+  Widget _buildPremiumLockedSection(_AstroFlowSection section) {
+    final title = section == _AstroFlowSection.technical
+        ? context.l10n.ts('Carta Natal: Técnica')
+        : context.l10n.ts('Carta Natal: Tiempo');
+
+    return PremiumLockedCard(
+      key: ValueKey('astro-premium-${section.name}'),
+      title: title,
+      message: context.l10n.ts(
+        'Esta opción pertenece al Plan Premium. Habilita Premium desde administración para ver este análisis durante un mes.',
+      ),
     );
   }
 
@@ -1863,12 +1914,16 @@ class _AstralChartScreenState extends State<AstralChartScreen> {
       ),
       MysticFlowOption(
         label: l10n.ts('Técnica'),
-        caption: l10n.ts('Puntos, casas y aspectos'),
+        caption: widget.hasPremiumAccess
+            ? l10n.ts('Puntos, casas y aspectos')
+            : l10n.ts('Plan Premium'),
         glyphKind: MysticGlyphKind.generic,
       ),
       MysticFlowOption(
         label: l10n.ts('Tiempo'),
-        caption: l10n.ts('Tránsitos y eventos'),
+        caption: widget.hasPremiumAccess
+            ? l10n.ts('Tránsitos y eventos')
+            : l10n.ts('Plan Premium'),
         glyphKind: MysticGlyphKind.ritual,
       ),
     ];
@@ -1886,8 +1941,24 @@ class _AstralChartScreenState extends State<AstralChartScreen> {
             items: sections,
             selectedIndex: _AstroFlowSection.values.indexOf(_selectedSection),
             onSelect: (index) {
+              final nextSection = _AstroFlowSection.values[index];
+              if (_sectionRequiresPremium(nextSection) &&
+                  !widget.hasPremiumAccess) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      l10n.ts('Esta opción está bloqueada para usuarios Free.'),
+                    ),
+                  ),
+                );
+                setState(() {
+                  _selectedSection = nextSection;
+                });
+                return;
+              }
+
               setState(() {
-                _selectedSection = _AstroFlowSection.values[index];
+                _selectedSection = nextSection;
               });
             },
             accent: AppPalette.royalViolet,

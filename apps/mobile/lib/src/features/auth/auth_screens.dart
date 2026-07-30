@@ -79,6 +79,9 @@ class _PhoneLoginScreenState extends State<PhoneLoginScreen> {
           TextField(
             controller: _phoneController,
             keyboardType: TextInputType.phone,
+            autocorrect: false,
+            enableSuggestions: false,
+            spellCheckConfiguration: const SpellCheckConfiguration.disabled(),
             decoration: InputDecoration(
               labelText: l10n.tr('phoneNumber'),
               prefixText: '${widget.selectedCountry.dialCode} ',
@@ -190,6 +193,9 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
             controller: _codeController,
             keyboardType: TextInputType.number,
             maxLength: 6,
+            autocorrect: false,
+            enableSuggestions: false,
+            spellCheckConfiguration: const SpellCheckConfiguration.disabled(),
             decoration: InputDecoration(
               labelText: l10n.tr('securityCode'),
               hintText: '123456',
@@ -320,17 +326,26 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
           const SizedBox(height: 16),
           TextField(
             controller: _firstNameController,
+            autocorrect: false,
+            enableSuggestions: false,
+            spellCheckConfiguration: const SpellCheckConfiguration.disabled(),
             decoration: InputDecoration(labelText: l10n.ts('Nombre')),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _lastNameController,
+            autocorrect: false,
+            enableSuggestions: false,
+            spellCheckConfiguration: const SpellCheckConfiguration.disabled(),
             decoration: InputDecoration(labelText: l10n.ts('Apellido')),
           ),
           const SizedBox(height: 12),
           TextField(
             controller: _emailController,
             keyboardType: TextInputType.emailAddress,
+            autocorrect: false,
+            enableSuggestions: false,
+            spellCheckConfiguration: const SpellCheckConfiguration.disabled(),
             decoration: InputDecoration(
               labelText: l10n.ts('Correo'),
               hintText: 'opcional@correo.com',

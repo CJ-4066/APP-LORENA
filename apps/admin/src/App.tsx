@@ -52,12 +52,16 @@ type AdminUser = {
   fullName: string;
   email: string;
   phoneNumber: string;
+  avatarUrl?: string;
   planId: string;
   profileCompleted: boolean;
   createdAt: string;
   roles: Array<"admin" | "specialist">;
   accountType: "client" | "specialist";
   access: string[];
+  premiumStatus: string;
+  premiumStartedAt: string | null;
+  premiumRenewsAt: string | null;
 };
 
 type AdminChat = {
@@ -232,6 +236,70 @@ type AdminCommunityMessage = {
   createdAt: string;
 };
 
+type AdminCommunityModeration = {
+  userId: string;
+  userName: string;
+  userAvatarUrl?: string | null;
+  mutedUntil: string | null;
+  bannedUntil: string | null;
+  reason: string;
+  updatedBy: string;
+  updatedAt: string;
+  isMuted: boolean;
+  isBanned: boolean;
+};
+
+type AdminSupportTicketStatus =
+  | "open"
+  | "in_review"
+  | "responded"
+  | "closed";
+
+type AdminSupportTicketPriority = "low" | "normal" | "high";
+
+type AdminSupportTicket = {
+  id: string;
+  ticketNumber: string;
+  userId: string;
+  userName: string;
+  userAvatarUrl?: string | null;
+  subject: string;
+  category: string;
+  status: AdminSupportTicketStatus;
+  priority: AdminSupportTicketPriority;
+  lastMessagePreview: string;
+  lastMessageAt: string | null;
+  messageCount: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type AdminSupportMessage = {
+  id: string;
+  ticketId: string;
+  authorType: "user" | "admin" | "system";
+  authorId: string;
+  authorName: string;
+  body: string;
+  createdAt: string;
+};
+
+type AdminSupportDetail = {
+  ticket: AdminSupportTicket;
+  messages: AdminSupportMessage[];
+};
+
+type AdminSupportOverview = {
+  summary: {
+    total: number;
+    open: number;
+    inReview: number;
+    responded: number;
+    closed: number;
+  };
+  items: AdminSupportTicket[];
+};
+
 type AdminCourse = {
   id: string;
   title: string;
@@ -344,6 +412,7 @@ type AdminSection =
   | "library"
   | "users"
   | "community"
+  | "support"
   | "developer";
 
 type DeveloperSection =
@@ -360,6 +429,7 @@ type ProtectedResourceKey =
   | "users"
   | "chat"
   | "community"
+  | "support"
   | "incidents"
   | "diagnostics"
   | "audit";
@@ -410,6 +480,7 @@ const protectedResourceKeys: ProtectedResourceKey[] = [
   "users",
   "chat",
   "community",
+  "support",
   "incidents",
   "diagnostics",
   "audit",
@@ -1202,6 +1273,7 @@ const adminSectionLabels: Record<AdminSection, string> = {
   library: "Biblioteca",
   users: "Usuarios",
   community: "Chat",
+  support: "Soporte",
   developer: "Admin desarrollador",
 };
 
@@ -1255,6 +1327,7 @@ const userAccessByPreset: Record<UserAccessPreset, string[]> = {
     "Tienda",
     "Cursos",
     "Biblioteca",
+    "Soporte",
     "Auditoría",
   ],
 };
@@ -1271,6 +1344,7 @@ function isAdminSection(value: string | null): value is AdminSection {
     value === "library" ||
     value === "users" ||
     value === "community" ||
+    value === "support" ||
     value === "developer"
   );
 }
@@ -1382,6 +1456,15 @@ function SidebarIcon({ name }: { name: SidebarIconName }) {
           <path d="M19 18v-2a3 3 0 0 0-3-3h-3" />
           <circle cx="9" cy="9" r="2.5" />
           <circle cx="15" cy="9" r="2.5" />
+        </svg>
+      );
+    case "support":
+      return (
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M5 11a7 7 0 0 1 14 0v4a3 3 0 0 1-3 3h-2" />
+          <path d="M7 13v-2a5 5 0 0 1 10 0v2" />
+          <path d="M9 13h2v5H9zM13 13h2v5h-2z" />
+          <path d="M14 18h-2" />
         </svg>
       );
     case "developer":
@@ -1610,6 +1693,47 @@ function getCommunityRoleLabel(
   }
 }
 
+function getSupportStatusLabel(status: AdminSupportTicketStatus): string {
+  switch (status) {
+    case "in_review":
+      return "En revisión";
+    case "responded":
+      return "Respondido";
+    case "closed":
+      return "Cerrado";
+    default:
+      return "Abierto";
+  }
+}
+
+function getSupportPriorityLabel(priority: AdminSupportTicketPriority): string {
+  switch (priority) {
+    case "high":
+      return "Alta";
+    case "low":
+      return "Baja";
+    default:
+      return "Normal";
+  }
+}
+
+function getModerationLabel(moderation?: AdminCommunityModeration): string {
+  if (!moderation) {
+    return "Sin restricción";
+  }
+  if (moderation.isBanned) {
+    return moderation.bannedUntil
+      ? `Baneado hasta ${formatDate(moderation.bannedUntil)}`
+      : "Baneado";
+  }
+  if (moderation.isMuted) {
+    return moderation.mutedUntil
+      ? `Silenciado hasta ${formatDate(moderation.mutedUntil)}`
+      : "Silenciado";
+  }
+  return "Sin restricción";
+}
+
 function formatOptionalDate(value?: string): string {
   return value ? formatDate(value) : "Semilla";
 }
@@ -1787,6 +1911,29 @@ function formatMoney(amount: number, currency: string): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(amount);
+}
+
+function isPremiumActiveUser(user: AdminUser): boolean {
+  if (user.planId !== "premium" || user.premiumStatus !== "active") {
+    return false;
+  }
+
+  if (!user.premiumRenewsAt) {
+    return true;
+  }
+
+  const renewsAt = new Date(user.premiumRenewsAt);
+  return Number.isNaN(renewsAt.getTime()) || renewsAt.getTime() >= Date.now();
+}
+
+function formatPremiumAccessLabel(user: AdminUser): string {
+  if (!isPremiumActiveUser(user)) {
+    return "Free";
+  }
+
+  return user.premiumRenewsAt
+    ? `Premium hasta ${formatDate(user.premiumRenewsAt)}`
+    : "Premium activo";
 }
 
 function parseCommaList(value: string): string[] {
@@ -2570,6 +2717,15 @@ function App() {
   const [userMessage, setUserMessage] = useState<string | null>(null);
   const [userError, setUserError] = useState<string | null>(null);
   const [savingUserId, setSavingUserId] = useState<string | "new" | null>(null);
+  const [grantingPremiumUserId, setGrantingPremiumUserId] = useState<
+    string | null
+  >(null);
+  const [premiumPaymentDate, setPremiumPaymentDate] = useState(() =>
+    toDateInputValue(new Date()),
+  );
+  const [premiumGrantNotes, setPremiumGrantNotes] = useState(
+    "Pago validado manualmente.",
+  );
   const [userFilters, setUserFilters] = useState({
     search: "",
     role: "",
@@ -2610,6 +2766,9 @@ function App() {
   const [communityMessages, setCommunityMessages] = useState<
     AdminCommunityMessage[]
   >([]);
+  const [communityModerations, setCommunityModerations] = useState<
+    AdminCommunityModeration[]
+  >([]);
   const [communityReply, setCommunityReply] = useState("");
   const [communityReplyImageUrl, setCommunityReplyImageUrl] = useState("");
   const [communityReplyImageName, setCommunityReplyImageName] = useState("");
@@ -2626,6 +2785,23 @@ function App() {
   const [sendingCommunityReply, setSendingCommunityReply] = useState(false);
   const [moderatingCommunityMessageId, setModeratingCommunityMessageId] =
     useState<string | null>(null);
+  const [moderatingCommunityUserId, setModeratingCommunityUserId] = useState<
+    string | null
+  >(null);
+  const [supportOverview, setSupportOverview] =
+    useState<AdminSupportOverview | null>(null);
+  const [selectedSupportTicketId, setSelectedSupportTicketId] = useState<
+    string | null
+  >(null);
+  const [supportDetail, setSupportDetail] =
+    useState<AdminSupportDetail | null>(null);
+  const [supportReply, setSupportReply] = useState("");
+  const [supportError, setSupportError] = useState<string | null>(null);
+  const [supportLoadingTicketId, setSupportLoadingTicketId] = useState<
+    string | null
+  >(null);
+  const [sendingSupportReply, setSendingSupportReply] = useState(false);
+  const [updatingSupportTicket, setUpdatingSupportTicket] = useState(false);
   const orderChatReplyImageInputRef = useRef<HTMLInputElement | null>(null);
   const communityReplyImageInputRef = useRef<HTMLInputElement | null>(null);
   const [incidents, setIncidents] = useState<AdminIncident[]>([]);
@@ -3018,6 +3194,7 @@ function App() {
     setUsers([]);
     setChat(null);
     setCommunityMessages([]);
+    setCommunityModerations([]);
     setCommunityReply("");
     setCommunityReplyImageUrl("");
     setCommunityReplyImageName("");
@@ -3026,6 +3203,15 @@ function App() {
     setCommunityReplyImageError(null);
     setCommunityReplyError(null);
     setSendingCommunityReply(false);
+    setModeratingCommunityUserId(null);
+    setSupportOverview(null);
+    setSelectedSupportTicketId(null);
+    setSupportDetail(null);
+    setSupportReply("");
+    setSupportError(null);
+    setSupportLoadingTicketId(null);
+    setSendingSupportReply(false);
+    setUpdatingSupportTicket(false);
     setIncidents([]);
     setDiagnostics(null);
     setAuditEntries([]);
@@ -3121,11 +3307,34 @@ function App() {
 
     const [chatJson, communityJson] = await Promise.all([
       chatResponse.json() as Promise<{ item: AdminChat }>,
-      communityResponse.json() as Promise<{ items: AdminCommunityMessage[] }>,
+      communityResponse.json() as Promise<{
+        items: AdminCommunityMessage[];
+        moderations?: AdminCommunityModeration[];
+      }>,
     ]);
 
     setChat(chatJson.item);
     setCommunityMessages(communityJson.items ?? []);
+    setCommunityModerations(communityJson.moderations ?? []);
+  }, [apiBaseUrl, handleSessionInvalid]);
+
+  const refreshSupportOverview = useCallback(async () => {
+    const response = await fetch(`${apiBaseUrl}/api/admin/support?limit=50`, {
+      credentials: "include",
+      cache: "no-store",
+    });
+
+    if (response.status === 401 || response.status === 403) {
+      handleSessionInvalid("Tu sesión de admin expiró.");
+      return;
+    }
+
+    if (!response.ok) {
+      throw new Error("No se pudo recargar soporte.");
+    }
+
+    const json = (await response.json()) as { item?: AdminSupportOverview };
+    setSupportOverview(json.item ?? null);
   }, [apiBaseUrl, handleSessionInvalid]);
 
   const fetchProtectedResource = useCallback(
@@ -3155,6 +3364,8 @@ function App() {
             `${apiBaseUrl}/api/admin/chat/community?limit=40`,
             options,
           );
+        case "support":
+          return fetch(`${apiBaseUrl}/api/admin/support?limit=50`, options);
         case "incidents":
           return fetch(`${apiBaseUrl}/api/admin/incidents`, options);
         case "diagnostics":
@@ -3241,8 +3452,17 @@ function App() {
         case "community": {
           const json = (await response.json()) as {
             items?: AdminCommunityMessage[];
+            moderations?: AdminCommunityModeration[];
           };
           setCommunityMessages(json.items ?? []);
+          setCommunityModerations(json.moderations ?? []);
+          break;
+        }
+        case "support": {
+          const json = (await response.json()) as {
+            item?: AdminSupportOverview;
+          };
+          setSupportOverview(json.item ?? null);
           break;
         }
         case "incidents": {
@@ -3405,6 +3625,8 @@ function App() {
             return ["users"] as ProtectedResourceKey[];
           case "community":
             return ["chat", "community"] as ProtectedResourceKey[];
+          case "support":
+            return ["support"] as ProtectedResourceKey[];
           case "developer":
             switch (developerSection) {
               case "incidents":
@@ -3519,6 +3741,13 @@ function App() {
         ) {
           void refreshCommunityChatSnapshot();
         }
+
+        if (
+          activeSection === "support" &&
+          (payload.entity === "support" || payload.entity === "all")
+        ) {
+          void refreshSupportOverview();
+        }
       } catch {
         // Ignore malformed events and keep listening.
       }
@@ -3542,6 +3771,7 @@ function App() {
     authStatus,
     refreshCommunityChatSnapshot,
     refreshLibraryPdfs,
+    refreshSupportOverview,
   ]);
 
   useEffect(() => {
@@ -3795,6 +4025,7 @@ function App() {
 
       const json = (await response.json()) as {
         items?: AdminCommunityMessage[];
+        moderations?: AdminCommunityModeration[];
         error?: string;
       };
 
@@ -3808,6 +4039,7 @@ function App() {
       }
 
       setCommunityMessages(json.items ?? []);
+      setCommunityModerations(json.moderations ?? communityModerations);
       setCommunityReply("");
       setCommunityReplyImageUrl("");
       setCommunityReplyImageName("");
@@ -3936,6 +4168,7 @@ function App() {
 
       const json = (await response.json()) as {
         items?: AdminCommunityMessage[];
+        moderations?: AdminCommunityModeration[];
         error?: string;
       };
 
@@ -3949,6 +4182,7 @@ function App() {
       }
 
       setCommunityMessages(json.items ?? []);
+      setCommunityModerations(json.moderations ?? communityModerations);
     } catch (moderationError) {
       setCommunityReplyError(
         moderationError instanceof Error
@@ -3957,6 +4191,211 @@ function App() {
       );
     } finally {
       setModeratingCommunityMessageId(null);
+    }
+  }
+
+  async function handleModerateCommunityUser(
+    userId: string,
+    action: "mute" | "ban" | "clear",
+  ) {
+    const reason =
+      action === "clear"
+        ? ""
+        : (window.prompt(
+            action === "mute"
+              ? "Motivo del silencio temporal:"
+              : "Motivo del baneo temporal:",
+            "",
+          ) ?? "");
+
+    setModeratingCommunityUserId(userId);
+    setCommunityReplyError(null);
+
+    try {
+      const response = await fetch(
+        `${apiBaseUrl}/api/admin/chat/community/moderation`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            userId,
+            action,
+            durationHours: action === "mute" ? 24 : action === "ban" ? 168 : 0,
+            reason,
+          }),
+        },
+      );
+
+      const json = (await response.json()) as {
+        moderations?: AdminCommunityModeration[];
+        error?: string;
+      };
+
+      if (response.status === 401 || response.status === 403) {
+        handleSessionInvalid("Tu sesión de admin expiró.");
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          json.error ?? "No se pudo actualizar la moderación del chat.",
+        );
+      }
+
+      setCommunityModerations(json.moderations ?? []);
+    } catch (moderationError) {
+      setCommunityReplyError(
+        moderationError instanceof Error
+          ? moderationError.message
+          : "No se pudo actualizar la moderación del chat.",
+      );
+    } finally {
+      setModeratingCommunityUserId(null);
+    }
+  }
+
+  async function handleOpenSupportTicket(ticketId: string) {
+    setSelectedSupportTicketId(ticketId);
+    setSupportLoadingTicketId(ticketId);
+    setSupportError(null);
+    setSupportReply("");
+
+    try {
+      const response = await fetch(
+        `${apiBaseUrl}/api/admin/support/${encodeURIComponent(ticketId)}`,
+        {
+          credentials: "include",
+          cache: "no-store",
+        },
+      );
+      const json = (await response.json()) as {
+        item?: AdminSupportDetail;
+        error?: string;
+      };
+
+      if (response.status === 401 || response.status === 403) {
+        handleSessionInvalid("Tu sesión de admin expiró.");
+        return;
+      }
+      if (!response.ok || !json.item) {
+        throw new Error(json.error ?? "No se pudo cargar el ticket.");
+      }
+
+      setSupportDetail(json.item);
+    } catch (loadError) {
+      setSupportError(
+        loadError instanceof Error
+          ? loadError.message
+          : "No se pudo cargar el ticket.",
+      );
+    } finally {
+      setSupportLoadingTicketId(null);
+    }
+  }
+
+  async function handleUpdateSupportTicket(
+    ticketId: string,
+    payload: {
+      status?: AdminSupportTicketStatus;
+      priority?: AdminSupportTicketPriority;
+    },
+  ) {
+    setUpdatingSupportTicket(true);
+    setSupportError(null);
+
+    try {
+      const response = await fetch(
+        `${apiBaseUrl}/api/admin/support/${encodeURIComponent(ticketId)}`,
+        {
+          method: "PATCH",
+          credentials: "include",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        },
+      );
+      const json = (await response.json()) as {
+        item?: AdminSupportDetail;
+        error?: string;
+      };
+
+      if (response.status === 401 || response.status === 403) {
+        handleSessionInvalid("Tu sesión de admin expiró.");
+        return;
+      }
+      if (!response.ok || !json.item) {
+        throw new Error(json.error ?? "No se pudo actualizar el ticket.");
+      }
+
+      setSupportDetail(json.item);
+      await refreshSupportOverview();
+    } catch (updateError) {
+      setSupportError(
+        updateError instanceof Error
+          ? updateError.message
+          : "No se pudo actualizar el ticket.",
+      );
+    } finally {
+      setUpdatingSupportTicket(false);
+    }
+  }
+
+  async function handleSendSupportReply(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const body = supportReply.trim();
+    const ticketId = supportDetail?.ticket.id ?? selectedSupportTicketId ?? "";
+    if (!ticketId) {
+      setSupportError("Selecciona un ticket para responder.");
+      return;
+    }
+    if (!body) {
+      setSupportError("Escribe una respuesta para soporte.");
+      return;
+    }
+
+    setSendingSupportReply(true);
+    setSupportError(null);
+
+    try {
+      const response = await fetch(
+        `${apiBaseUrl}/api/admin/support/${encodeURIComponent(ticketId)}/messages`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({ body }),
+        },
+      );
+      const json = (await response.json()) as {
+        item?: AdminSupportDetail;
+        error?: string;
+      };
+
+      if (response.status === 401 || response.status === 403) {
+        handleSessionInvalid("Tu sesión de admin expiró.");
+        return;
+      }
+      if (!response.ok || !json.item) {
+        throw new Error(json.error ?? "No se pudo responder soporte.");
+      }
+
+      setSupportDetail(json.item);
+      setSupportReply("");
+      await refreshSupportOverview();
+    } catch (sendError) {
+      setSupportError(
+        sendError instanceof Error
+          ? sendError.message
+          : "No se pudo responder soporte.",
+      );
+    } finally {
+      setSendingSupportReply(false);
     }
   }
 
@@ -4840,6 +5279,58 @@ function App() {
       );
     } finally {
       setSavingUserId(null);
+    }
+  }
+
+  async function handleGrantPremium(user: AdminUser) {
+    const paymentDate = parseDateInputValue(premiumPaymentDate);
+    if (!paymentDate) {
+      setUserError("Selecciona una fecha de pago válida.");
+      return;
+    }
+
+    setUserError(null);
+    setUserMessage(null);
+    setGrantingPremiumUserId(user.id);
+
+    try {
+      const response = await fetch(
+        `${apiBaseUrl}/api/admin/users/${encodeURIComponent(user.id)}/premium`,
+        {
+          method: "POST",
+          credentials: "include",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            paymentDate: paymentDate.toISOString(),
+            notes: premiumGrantNotes.trim(),
+          }),
+        },
+      );
+      const json = (await response.json()) as {
+        item?: AdminUser;
+        error?: string;
+      };
+      if (!response.ok || !json.item) {
+        setUserError(json.error ?? "No se pudo habilitar Premium.");
+        return;
+      }
+
+      const savedUser = json.item;
+      setUsers((current) =>
+        current.map((item) => (item.id === savedUser.id ? savedUser : item)),
+      );
+      setUserMessage(`Premium habilitado para ${savedUser.fullName}.`);
+      setOperatingPanelMessage(
+        `Premium activo por un mes para ${savedUser.fullName}.`,
+      );
+    } catch (error) {
+      setUserError(
+        error instanceof Error
+          ? error.message
+          : "No se pudo habilitar Premium.",
+      );
+    } finally {
+      setGrantingPremiumUserId(null);
     }
   }
 
@@ -6526,7 +7017,18 @@ function App() {
     specialists: users.filter((user) => user.roles.includes("specialist"))
       .length,
     admins: users.filter((user) => user.roles.includes("admin")).length,
+    premium: users.filter(isPremiumActiveUser).length,
   };
+  const communityModerationByUserId = new Map(
+    communityModerations.map((moderation) => [moderation.userId, moderation]),
+  );
+  const activeCommunityModerations = communityModerations.filter(
+    (moderation) => moderation.isMuted || moderation.isBanned,
+  );
+  const selectedSupportTicket =
+    supportDetail?.ticket ??
+    supportOverview?.items.find((item) => item.id === selectedSupportTicketId) ??
+    null;
   const courseStats = {
     total: courses.length,
     published: courses.filter((course) => course.status === "published").length,
@@ -8753,6 +9255,41 @@ function App() {
                   <span>Admins</span>
                   <strong>{userTotals.admins}</strong>
                 </div>
+                <div className="status-card">
+                  <span>Premium</span>
+                  <strong>{userTotals.premium}</strong>
+                </div>
+              </div>
+
+              <div className="premium-grant-panel">
+                <div>
+                  <p className="eyebrow">Premium mensual</p>
+                  <h3>Habilitación por pago validado</h3>
+                  <p>
+                    Selecciona la fecha de pago y activa Premium por un mes al
+                    usuario correspondiente.
+                  </p>
+                </div>
+                <label>
+                  <span>Fecha de pago</span>
+                  <input
+                    type="date"
+                    value={premiumPaymentDate}
+                    onChange={(event) =>
+                      setPremiumPaymentDate(event.target.value)
+                    }
+                  />
+                </label>
+                <label>
+                  <span>Nota interna</span>
+                  <input
+                    value={premiumGrantNotes}
+                    onChange={(event) =>
+                      setPremiumGrantNotes(event.target.value)
+                    }
+                    placeholder="Pago validado manualmente."
+                  />
+                </label>
               </div>
 
               {filteredUsers.length > 0 ? (
@@ -8764,12 +9301,26 @@ function App() {
                     return (
                       <article key={user.id} className="user-card">
                         <div className="user-card-head">
-                          <div>
-                            <p className="product-card-meta">{user.planId}</p>
-                            <h3>{user.fullName || user.id}</h3>
-                            <p className="muted-copy">
-                              {user.email || "sin email"}
-                            </p>
+                          <div className="user-card-identity">
+                            <div className="user-card-avatar" aria-hidden="true">
+                              {user.avatarUrl ? (
+                                <img
+                                  src={resolveMediaUrl(user.avatarUrl)}
+                                  alt=""
+                                />
+                              ) : (
+                                <span>{getNameInitials(user.fullName)}</span>
+                              )}
+                            </div>
+                            <div>
+                              <p className="product-card-meta">
+                                {formatPremiumAccessLabel(user)}
+                              </p>
+                              <h3>{user.fullName || user.id}</h3>
+                              <p className="muted-copy">
+                                {user.email || "sin email"}
+                              </p>
+                            </div>
                           </div>
                           <span className="topbar-pill">
                             {user.profileCompleted
@@ -8805,6 +9356,17 @@ function App() {
                           <p>{accessSummary.join(" · ")}</p>
                         </div>
 
+                        <div className="user-access">
+                          <span>Premium</span>
+                          <p>
+                            {isPremiumActiveUser(user)
+                              ? user.premiumRenewsAt
+                                ? `Habilitado hasta ${formatDate(user.premiumRenewsAt)}`
+                                : "Habilitado sin vencimiento"
+                              : "Bloqueado para funciones Premium"}
+                          </p>
+                        </div>
+
                         <div className="product-card-actions">
                           <button
                             type="button"
@@ -8812,6 +9374,16 @@ function App() {
                             onClick={() => handleOpenUserDrawer(user)}
                           >
                             Editar
+                          </button>
+                          <button
+                            type="button"
+                            className="primary-button"
+                            onClick={() => void handleGrantPremium(user)}
+                            disabled={grantingPremiumUserId === user.id}
+                          >
+                            {grantingPremiumUserId === user.id
+                              ? "Habilitando..."
+                              : "Habilitar Premium 30 días"}
                           </button>
                         </div>
                       </article>
@@ -8844,6 +9416,7 @@ function App() {
                 <span>Abiertos: {chat?.openThreads ?? 0}</span>
                 <span>Mensajes: {chat?.totalMessages ?? 0}</span>
                 <span>Mensajes visibles: {communityMessages.length}</span>
+                <span>Restricciones: {activeCommunityModerations.length}</span>
               </div>
               <div className="admin-chat-layout">
                 <section className="admin-chat-panel">
@@ -8959,63 +9532,149 @@ function App() {
                       ? communityMessages
                           .slice()
                           .reverse()
-                          .map((message) => (
-                            <article
-                              key={message.id}
-                              className={`chat-message-card${message.authorRole === "guide" ? " chat-message-card-guide" : " chat-message-card-member"}`}
-                            >
-                              <div className="chat-message-head">
-                                <div className="chat-message-author">
-                                  <div
-                                    className="chat-message-avatar"
-                                    aria-hidden="true"
-                                  >
-                                    {message.authorAvatarUrl ? (
-                                      <img
-                                        src={resolveMediaUrl(
-                                          message.authorAvatarUrl,
-                                        )}
-                                        alt=""
-                                      />
-                                    ) : (
-                                      <span>
-                                        {getNameInitials(message.authorName)}
-                                      </span>
-                                    )}
-                                  </div>
-                                  <div className="chat-message-author-meta">
-                                    <div className="chat-message-author-line">
-                                      <strong>{message.authorName}</strong>
-                                      {message.authorBadgeName ? (
-                                        <span className="chat-message-badge">
-                                          {message.authorBadgeIconUrl ? (
-                                            <img
-                                              src={resolveMediaUrl(
-                                                message.authorBadgeIconUrl,
-                                              )}
-                                              alt=""
-                                            />
-                                          ) : null}
-                                          <span>{message.authorBadgeName}</span>
+                          .map((message) => {
+                            const moderation = message.authorUserId
+                              ? communityModerationByUserId.get(
+                                  message.authorUserId,
+                                )
+                              : undefined;
+                            const canModerateUser =
+                              message.authorRole === "member" &&
+                              Boolean(message.authorUserId);
+                            const moderationBusy =
+                              moderatingCommunityUserId ===
+                              message.authorUserId;
+
+                            return (
+                              <article
+                                key={message.id}
+                                className={`chat-message-card${message.authorRole === "guide" ? " chat-message-card-guide" : " chat-message-card-member"}`}
+                              >
+                                <div className="chat-message-head">
+                                  <div className="chat-message-author">
+                                    <div
+                                      className="chat-message-avatar"
+                                      aria-hidden="true"
+                                    >
+                                      {message.authorAvatarUrl ? (
+                                        <img
+                                          src={resolveMediaUrl(
+                                            message.authorAvatarUrl,
+                                          )}
+                                          alt=""
+                                        />
+                                      ) : (
+                                        <span>
+                                          {getNameInitials(message.authorName)}
                                         </span>
-                                      ) : null}
-                                    </div>
-                                    <span>
-                                      {getCommunityRoleLabel(
-                                        message.authorRole,
                                       )}
-                                    </span>
+                                    </div>
+                                    <div className="chat-message-author-meta">
+                                      <div className="chat-message-author-line">
+                                        <strong>{message.authorName}</strong>
+                                        {message.authorBadgeName ? (
+                                          <span className="chat-message-badge">
+                                            {message.authorBadgeIconUrl ? (
+                                              <img
+                                                src={resolveMediaUrl(
+                                                  message.authorBadgeIconUrl,
+                                                )}
+                                                alt=""
+                                              />
+                                            ) : null}
+                                            <span>
+                                              {message.authorBadgeName}
+                                            </span>
+                                          </span>
+                                        ) : null}
+                                      </div>
+                                      <span>
+                                        {getCommunityRoleLabel(
+                                          message.authorRole,
+                                        )}
+                                        {canModerateUser
+                                          ? ` · ${getModerationLabel(moderation)}`
+                                          : ""}
+                                      </span>
+                                    </div>
                                   </div>
-                                </div>
-                                <div className="chat-message-tools">
-                                  {message.imageUrl ? (
+                                  <div className="chat-message-tools">
+                                    {canModerateUser ? (
+                                      <>
+                                        <button
+                                          type="button"
+                                          className="secondary-button chat-message-tool-button"
+                                          onClick={() =>
+                                            void handleModerateCommunityUser(
+                                              message.authorUserId ?? "",
+                                              "mute",
+                                            )
+                                          }
+                                          disabled={moderationBusy}
+                                        >
+                                          {moderationBusy
+                                            ? "Procesando..."
+                                            : "Silenciar 24h"}
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className="danger-button chat-message-tool-button"
+                                          onClick={() =>
+                                            void handleModerateCommunityUser(
+                                              message.authorUserId ?? "",
+                                              "ban",
+                                            )
+                                          }
+                                          disabled={moderationBusy}
+                                        >
+                                          Banear 7d
+                                        </button>
+                                        {moderation?.isMuted ||
+                                        moderation?.isBanned ? (
+                                          <button
+                                            type="button"
+                                            className="secondary-button chat-message-tool-button"
+                                            onClick={() =>
+                                              void handleModerateCommunityUser(
+                                                message.authorUserId ?? "",
+                                                "clear",
+                                              )
+                                            }
+                                            disabled={moderationBusy}
+                                          >
+                                            Limpiar
+                                          </button>
+                                        ) : null}
+                                      </>
+                                    ) : null}
+                                    {message.imageUrl ? (
+                                      <button
+                                        type="button"
+                                        className="secondary-button chat-message-tool-button"
+                                        onClick={() =>
+                                          void handleModerateCommunityMessage(
+                                            message.id,
+                                            "delete-image",
+                                          )
+                                        }
+                                        disabled={
+                                          moderatingCommunityMessageId ===
+                                          message.id
+                                        }
+                                      >
+                                        {moderatingCommunityMessageId ===
+                                        message.id
+                                          ? "Procesando..."
+                                          : "Quitar imagen"}
+                                      </button>
+                                    ) : null}
                                     <button
                                       type="button"
-                                      className="secondary-button chat-message-tool-button"
+                                      className="danger-button chat-message-tool-button"
                                       onClick={() =>
                                         void handleModerateCommunityMessage(
                                           message.id,
-                                          "delete-image",
+                                          "delete-message",
                                         )
                                       }
                                       disabled={
@@ -9026,50 +9685,83 @@ function App() {
                                       {moderatingCommunityMessageId ===
                                       message.id
                                         ? "Procesando..."
-                                        : "Quitar imagen"}
+                                        : "Eliminar"}
                                     </button>
-                                  ) : null}
-                                  <button
-                                    type="button"
-                                    className="danger-button chat-message-tool-button"
-                                    onClick={() =>
-                                      void handleModerateCommunityMessage(
-                                        message.id,
-                                        "delete-message",
-                                      )
-                                    }
-                                    disabled={
-                                      moderatingCommunityMessageId ===
-                                      message.id
-                                    }
-                                  >
-                                    {moderatingCommunityMessageId === message.id
-                                      ? "Procesando..."
-                                      : "Eliminar"}
-                                  </button>
+                                  </div>
                                 </div>
-                              </div>
-                              {message.imageUrl ? (
-                                <a
-                                  href={resolveMediaUrl(message.imageUrl)}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="chat-message-image-link"
-                                >
-                                  <img
-                                    src={resolveMediaUrl(message.imageUrl)}
-                                    alt={message.body || "Adjunto del mensaje"}
-                                  />
-                                </a>
-                              ) : null}
-                              {message.body ? <p>{message.body}</p> : null}
-                              <small>{formatDate(message.createdAt)}</small>
-                            </article>
-                          ))
+                                {message.imageUrl ? (
+                                  <a
+                                    href={resolveMediaUrl(message.imageUrl)}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="chat-message-image-link"
+                                  >
+                                    <img
+                                      src={resolveMediaUrl(message.imageUrl)}
+                                      alt={
+                                        message.body || "Adjunto del mensaje"
+                                      }
+                                    />
+                                  </a>
+                                ) : null}
+                                {message.body ? <p>{message.body}</p> : null}
+                                <small>{formatDate(message.createdAt)}</small>
+                              </article>
+                            );
+                          })
                       : null}
                   </div>
                 </section>
                 <section className="admin-chat-panel">
+                  <div className="panel-head chat-side-head">
+                    <div>
+                      <p className="eyebrow">Moderación</p>
+                      <h3>Usuarios restringidos</h3>
+                    </div>
+                  </div>
+                  <div className="chat-thread-list moderation-list">
+                    {activeCommunityModerations.length > 0 ? (
+                      activeCommunityModerations.map((moderation) => (
+                        <article
+                          key={moderation.userId}
+                          className="chat-thread-card moderation-card"
+                        >
+                          <div>
+                            <strong>{moderation.userName}</strong>
+                            <p>{getModerationLabel(moderation)}</p>
+                          </div>
+                          <div className="align-right">
+                            <p>{moderation.reason || "Sin motivo"}</p>
+                            <button
+                              type="button"
+                              className="secondary-button chat-message-tool-button"
+                              onClick={() =>
+                                void handleModerateCommunityUser(
+                                  moderation.userId,
+                                  "clear",
+                                )
+                              }
+                              disabled={
+                                moderatingCommunityUserId === moderation.userId
+                              }
+                            >
+                              Quitar
+                            </button>
+                          </div>
+                        </article>
+                      ))
+                    ) : (
+                      <div className="order-chat-empty">
+                        No hay usuarios silenciados ni baneados.
+                      </div>
+                    )}
+                  </div>
+                  <div className="panel-head chat-side-head">
+                    <div>
+                      <p className="eyebrow">Privados</p>
+                      <h3>Hilos recientes</h3>
+                    </div>
+                  </div>
                   <div className="chat-thread-list">
                     {chat?.recentThreads.slice(0, 5).map((thread) => (
                       <article key={thread.id} className="chat-thread-card">
@@ -9091,6 +9783,220 @@ function App() {
                       </article>
                     )) ?? null}
                   </div>
+                </section>
+              </div>
+            </section>
+          ) : null}
+
+          {activeSection === "support" ? (
+            <section className="admin-panel admin-panel-wide support-panel">
+              <div className="panel-head badge-panel-head">
+                <div>
+                  <p className="eyebrow">Soporte</p>
+                  <h2>Tickets y chat con administración</h2>
+                  <p className="hero-copy">
+                    Responde solicitudes, cambia estados y mantén el conteo de
+                    tickets abierto al día.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => void refreshSupportOverview()}
+                >
+                  Actualizar
+                </button>
+              </div>
+
+              <div className="hero-status support-stats-grid">
+                <div className="status-card">
+                  <span>Total</span>
+                  <strong>{supportOverview?.summary.total ?? 0}</strong>
+                </div>
+                <div className="status-card">
+                  <span>Abiertos</span>
+                  <strong>{supportOverview?.summary.open ?? 0}</strong>
+                </div>
+                <div className="status-card">
+                  <span>En revisión</span>
+                  <strong>{supportOverview?.summary.inReview ?? 0}</strong>
+                </div>
+                <div className="status-card">
+                  <span>Respondidos</span>
+                  <strong>{supportOverview?.summary.responded ?? 0}</strong>
+                </div>
+                <div className="status-card">
+                  <span>Cerrados</span>
+                  <strong>{supportOverview?.summary.closed ?? 0}</strong>
+                </div>
+              </div>
+
+              {supportError ? (
+                <p className="form-error form-wide">{supportError}</p>
+              ) : null}
+
+              <div className="support-layout">
+                <section className="support-ticket-list">
+                  {(supportOverview?.items ?? []).length > 0 ? (
+                    supportOverview?.items.map((ticket) => (
+                      <button
+                        key={ticket.id}
+                        type="button"
+                        className={
+                          selectedSupportTicketId === ticket.id
+                            ? "support-ticket-card support-ticket-card-active"
+                            : "support-ticket-card"
+                        }
+                        onClick={() => void handleOpenSupportTicket(ticket.id)}
+                      >
+                        <span className="support-ticket-avatar">
+                          {ticket.userAvatarUrl ? (
+                            <img
+                              src={resolveMediaUrl(ticket.userAvatarUrl)}
+                              alt=""
+                            />
+                          ) : (
+                            <span>{getNameInitials(ticket.userName)}</span>
+                          )}
+                        </span>
+                        <span className="support-ticket-copy">
+                          <strong>{ticket.subject}</strong>
+                          <span>{ticket.userName}</span>
+                          <small>
+                            {ticket.ticketNumber} ·{" "}
+                            {getSupportStatusLabel(ticket.status)} ·{" "}
+                            {ticket.messageCount} mensajes
+                          </small>
+                          <span className="support-ticket-preview">
+                            {ticket.lastMessagePreview || "Sin mensajes"}
+                          </span>
+                        </span>
+                      </button>
+                    ))
+                  ) : (
+                    <div className="empty-state">
+                      <h3>No hay tickets todavía.</h3>
+                      <p>Cuando un usuario abra soporte aparecerá aquí.</p>
+                    </div>
+                  )}
+                </section>
+
+                <section className="support-detail">
+                  {supportLoadingTicketId ? (
+                    <div className="order-chat-empty">Cargando ticket...</div>
+                  ) : selectedSupportTicket ? (
+                    <>
+                      <div className="support-detail-head">
+                        <div>
+                          <p className="eyebrow">
+                            {selectedSupportTicket.ticketNumber}
+                          </p>
+                          <h3>{selectedSupportTicket.subject}</h3>
+                          <p>
+                            {selectedSupportTicket.userName} ·{" "}
+                            {selectedSupportTicket.category}
+                          </p>
+                        </div>
+                        <div className="support-detail-controls">
+                          <label>
+                            <span>Estado</span>
+                            <select
+                              value={selectedSupportTicket.status}
+                              onChange={(event) =>
+                                void handleUpdateSupportTicket(
+                                  selectedSupportTicket.id,
+                                  {
+                                    status: event.target
+                                      .value as AdminSupportTicketStatus,
+                                  },
+                                )
+                              }
+                              disabled={updatingSupportTicket}
+                            >
+                              <option value="open">Abierto</option>
+                              <option value="in_review">En revisión</option>
+                              <option value="responded">Respondido</option>
+                              <option value="closed">Cerrado</option>
+                            </select>
+                          </label>
+                          <label>
+                            <span>Prioridad</span>
+                            <select
+                              value={selectedSupportTicket.priority}
+                              onChange={(event) =>
+                                void handleUpdateSupportTicket(
+                                  selectedSupportTicket.id,
+                                  {
+                                    priority: event.target
+                                      .value as AdminSupportTicketPriority,
+                                  },
+                                )
+                              }
+                              disabled={updatingSupportTicket}
+                            >
+                              <option value="low">Baja</option>
+                              <option value="normal">Normal</option>
+                              <option value="high">Alta</option>
+                            </select>
+                          </label>
+                        </div>
+                      </div>
+
+                      <div className="support-message-feed">
+                        {(supportDetail?.messages ?? []).map((message) => (
+                          <article
+                            key={message.id}
+                            className={`support-message support-message-${message.authorType}`}
+                          >
+                            <div>
+                              <strong>{message.authorName}</strong>
+                              <span>{formatDate(message.createdAt)}</span>
+                            </div>
+                            <p>{message.body}</p>
+                          </article>
+                        ))}
+                      </div>
+
+                      <form
+                        className="chat-compose support-compose"
+                        onSubmit={handleSendSupportReply}
+                      >
+                        <textarea
+                          className="chat-compose-textarea"
+                          value={supportReply}
+                          onChange={(event) =>
+                            setSupportReply(event.target.value)
+                          }
+                          rows={4}
+                          placeholder="Responder al usuario"
+                        />
+                        <div className="chat-compose-actions">
+                          <span className="muted-copy">
+                            Prioridad{" "}
+                            {getSupportPriorityLabel(
+                              selectedSupportTicket.priority,
+                            )}
+                          </span>
+                          <button
+                            type="submit"
+                            className="primary-button"
+                            disabled={sendingSupportReply}
+                          >
+                            {sendingSupportReply
+                              ? "Enviando..."
+                              : "Enviar respuesta"}
+                          </button>
+                        </div>
+                      </form>
+                    </>
+                  ) : (
+                    <div className="empty-state">
+                      <h3>Selecciona un ticket.</h3>
+                      <p>
+                        El chat directo con el usuario aparecerá en este panel.
+                      </p>
+                    </div>
+                  )}
                 </section>
               </div>
             </section>
@@ -11290,7 +12196,7 @@ function App() {
                   />
                 </label>
                 <label>
-                  <span>Plan</span>
+                  <span>Plan base</span>
                   <select
                     value={userForm.planId}
                     onChange={(event) =>
@@ -11302,7 +12208,6 @@ function App() {
                   >
                     <option value="free">free</option>
                     <option value="premium">premium</option>
-                    <option value="pro">pro</option>
                   </select>
                 </label>
                 <label>
@@ -11401,6 +12306,9 @@ function App() {
                       ],
                       accountType: userForm.accountType,
                       access: [],
+                      premiumStatus: "",
+                      premiumStartedAt: null,
+                      premiumRenewsAt: null,
                     }).join(" · ") || "Sin accesos"}
                   </strong>
                 </div>

@@ -22,7 +22,9 @@ import '../models/booking_models.dart';
 import '../models/chat_models.dart';
 import '../models/numerology_models.dart';
 import '../models/profile_models.dart';
+import '../models/push_models.dart';
 import '../models/shop_models.dart';
+import '../models/support_models.dart';
 
 enum AppStage {
   restoring,
@@ -883,6 +885,104 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  Future<List<SupportTicketSummary>> loadSupportTickets() async {
+    final currentSession = _session;
+    if (currentSession == null) {
+      throw Exception(
+        'Tu sesión ya no está activa. Vuelve a ingresar con tu teléfono.',
+      );
+    }
+
+    try {
+      return await _apiClient.fetchSupportTickets(
+        accessToken: currentSession.accessToken,
+      );
+    } catch (error) {
+      throw Exception(_readErrorMessage(error));
+    }
+  }
+
+  Future<SupportTicketDetail> createSupportTicket({
+    required String subject,
+    required String category,
+    required String body,
+  }) async {
+    final currentSession = _session;
+    if (currentSession == null) {
+      throw Exception(
+        'Tu sesión ya no está activa. Vuelve a ingresar con tu teléfono.',
+      );
+    }
+
+    try {
+      return await _apiClient.createSupportTicket(
+        accessToken: currentSession.accessToken,
+        subject: subject,
+        category: category,
+        body: body,
+      );
+    } catch (error) {
+      throw Exception(_readErrorMessage(error));
+    }
+  }
+
+  Future<SupportTicketDetail> loadSupportTicket(String ticketId) async {
+    final currentSession = _session;
+    if (currentSession == null) {
+      throw Exception(
+        'Tu sesión ya no está activa. Vuelve a ingresar con tu teléfono.',
+      );
+    }
+
+    try {
+      return await _apiClient.fetchSupportTicket(
+        accessToken: currentSession.accessToken,
+        ticketId: ticketId,
+      );
+    } catch (error) {
+      throw Exception(_readErrorMessage(error));
+    }
+  }
+
+  Future<SupportTicketDetail> sendSupportTicketMessage(
+    String ticketId,
+    String body,
+  ) async {
+    final currentSession = _session;
+    if (currentSession == null) {
+      throw Exception(
+        'Tu sesión ya no está activa. Vuelve a ingresar con tu teléfono.',
+      );
+    }
+
+    try {
+      return await _apiClient.sendSupportTicketMessage(
+        accessToken: currentSession.accessToken,
+        ticketId: ticketId,
+        body: body,
+      );
+    } catch (error) {
+      throw Exception(_readErrorMessage(error));
+    }
+  }
+
+  Future<List<PushEngagementTemplate>> loadPushEngagementTemplates() async {
+    final currentSession = _session;
+    if (currentSession == null) {
+      throw Exception(
+        'Tu sesión ya no está activa. Vuelve a ingresar con tu teléfono.',
+      );
+    }
+
+    try {
+      return await _apiClient.fetchPushEngagementTemplates(
+        accessToken: currentSession.accessToken,
+      );
+    } catch (error) {
+      throw Exception(_readErrorMessage(error));
+    }
+  }
+
   Future<void> trackBadgeAction(
     String actionKey, {
     int value = 1,
@@ -1440,8 +1540,14 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
           currency: 'USD',
           isPopular: false,
           features: const [
-            'Carta del día',
-            'Agenda limitada',
+            'Energía de hoy (Numerología)',
+            'Carta Natal: Rueda Natal',
+            'Tarot: Tirada diaria 3 cartas',
+            'Shop',
+            'Curso gratuito',
+            'Agenda descuento',
+            'Numerología',
+            'Carta Natal: Esencia',
           ],
           sessionMessageLimit: 20,
           consultationAccess: const ['tarot', 'astrología'],
@@ -1454,9 +1560,12 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
           currency: 'USD',
           isPopular: true,
           features: const [
-            'Lectura diaria ampliada',
-            'Astrología personalizada',
-            'Chat ilimitado',
+            'Carta Natal: Tránsitos',
+            'Carta Natal: Técnica',
+            'Carta Natal: Tiempo',
+            'Biblioteca',
+            'Cursos',
+            'Lecturas de Tarot 20% descuento',
           ],
           sessionMessageLimit: null,
           consultationAccess: const [
@@ -1475,13 +1584,22 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
         billingProvider: 'Apple In-App Purchase',
         entitlements: planId == 'premium'
             ? const [
-                'Lectura diaria ampliada',
-                'Astrología personalizada',
-                'Chat ilimitado',
+                'Carta Natal: Tránsitos',
+                'Carta Natal: Técnica',
+                'Carta Natal: Tiempo',
+                'Biblioteca',
+                'Cursos',
+                'Lecturas de Tarot 20% descuento',
               ]
             : const [
-                'Carta del día',
-                'Agenda limitada',
+                'Energía de hoy (Numerología)',
+                'Carta Natal: Rueda Natal',
+                'Tarot: Tirada diaria 3 cartas',
+                'Shop',
+                'Curso gratuito',
+                'Agenda descuento',
+                'Numerología',
+                'Carta Natal: Esencia',
               ],
       ),
       payments: PaymentsConfig(

@@ -1,15 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../core/branding/renaciente_logo.dart';
 import '../core/i18n/app_i18n.dart';
 import '../core/theme/app_palette.dart';
 import '../core/theme/app_theme.dart';
+import '../core/widgets/premium_access.dart';
 import '../features/admin/admin_workspace_screen.dart';
 import '../features/astro/astral_chart_screen.dart';
 import '../features/auth/auth_screens.dart';
 import '../features/bookings/bookings_screen.dart';
 import '../features/bookings/schedule_booking_screen.dart';
+import '../features/chat/community_chat_screen.dart';
 import '../features/courses/courses_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/numerology/numerology_screen.dart';
@@ -162,7 +165,7 @@ class _LoRenacienteAppState extends State<LoRenacienteApp>
   }
 }
 
-class _AuthenticatedShell extends StatelessWidget {
+class _AuthenticatedShell extends StatefulWidget {
   const _AuthenticatedShell({
     required this.controller,
     required this.data,
@@ -172,15 +175,91 @@ class _AuthenticatedShell extends StatelessWidget {
   final AppBootstrap data;
 
   @override
+  State<_AuthenticatedShell> createState() => _AuthenticatedShellState();
+}
+
+class _AuthenticatedShellState extends State<_AuthenticatedShell> {
+  String? _lastPremiumIntroKey;
+
+  void _schedulePremiumIntroIfNeeded(AppBootstrap data) {
+    if (!hasPremiumAccess(data)) {
+      return;
+    }
+
+    final introKey =
+        'premium_intro_${data.user.id}_${data.subscription.renewsAt ?? 'open'}';
+    if (_lastPremiumIntroKey == introKey) {
+      return;
+    }
+    _lastPremiumIntroKey = introKey;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final preferences = await SharedPreferences.getInstance();
+      if (!mounted || preferences.getBool(introKey) == true) {
+        return;
+      }
+
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) {
+          return AlertDialog(
+            icon: const Icon(Icons.workspace_premium_outlined),
+            title: const Text('Premium habilitado'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Tu cuenta ya tiene acceso mensual a estas funciones:',
+                ),
+                const SizedBox(height: 12),
+                ...premiumFeatureSummaries.map(
+                  (feature) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(
+                          Icons.check_circle_outline_rounded,
+                          size: 18,
+                          color: AppPalette.royalViolet,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(child: Text(feature)),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              FilledButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Entendido'),
+              ),
+            ],
+          );
+        },
+      );
+
+      await preferences.setBool(introKey, true);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final controller = widget.controller;
+    final data = widget.data;
     final l10n = context.l10n;
     final shellRouteIsCurrent = ModalRoute.of(context)?.isCurrent ?? true;
+    _schedulePremiumIntroIfNeeded(data);
 
     Future<void> openAstralChart() async {
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) => AstralChartScreen(
             user: data.user,
+            hasPremiumAccess: hasPremiumAccess(data),
             onSaveProfile: controller.updateProfile,
             onGenerate: controller.generateAstroOverview,
             onResolveUtcOffset: controller.resolveAstroUtcOffset,
@@ -213,6 +292,17 @@ class _AuthenticatedShell extends StatelessWidget {
             onLoadGuide: controller.loadNumerologyGuide,
             onGenerate: controller.generateNumerologyProfile,
             onTrackCourseStarted: controller.trackCourseStartedBadge,
+          ),
+        ),
+      );
+    }
+
+    Future<void> openCommunityChat() async {
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => CommunityChatScreen(
+            onLoadMessages: controller.loadCommunityChat,
+            onSendMessage: controller.sendCommunityChatMessage,
           ),
         ),
       );
@@ -268,6 +358,10 @@ class _AuthenticatedShell extends StatelessWidget {
               onOpenAstralChart: openAstralChart,
               currentLocale: controller.locale,
               onChangeLocale: controller.setLocale,
+              onLoadSupportTickets: controller.loadSupportTickets,
+              onCreateSupportTicket: controller.createSupportTicket,
+              onLoadSupportTicket: controller.loadSupportTicket,
+              onSendSupportTicketMessage: controller.sendSupportTicketMessage,
               onStartPhoneLogin: controller.goBackToPhoneEntry,
               onLogout: controller.signOut,
               onEditProfile: () async {
@@ -290,7 +384,10 @@ class _AuthenticatedShell extends StatelessWidget {
               onRefresh: controller.refreshHome,
               onOpenAstralChart: openAstralChart,
               onOpenNumerology: openNumerology,
+              onOpenCommunityChat: openCommunityChat,
               onLoadAstroOverview: controller.generateAstroOverview,
+              onLoadNotificationTemplates:
+                  controller.loadPushEngagementTemplates,
             ),
             TarotScreen(
               data: data,
@@ -331,6 +428,10 @@ class _AuthenticatedShell extends StatelessWidget {
               onOpenAstralChart: openAstralChart,
               currentLocale: controller.locale,
               onChangeLocale: controller.setLocale,
+              onLoadSupportTickets: controller.loadSupportTickets,
+              onCreateSupportTicket: controller.createSupportTicket,
+              onLoadSupportTicket: controller.loadSupportTicket,
+              onSendSupportTicketMessage: controller.sendSupportTicketMessage,
               onStartPhoneLogin: controller.goBackToPhoneEntry,
               onLogout: controller.signOut,
               onEditProfile: () async {

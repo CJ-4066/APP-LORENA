@@ -2425,7 +2425,46 @@
 }
 
 .user-stats-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.premium-grant-panel {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(160px, 220px) minmax(220px, 320px);
+  gap: 14px;
+  align-items: end;
+  padding: 14px;
+  border: 1px solid var(--panel-border);
+  border-radius: 20px;
+  background: linear-gradient(135deg, var(--surface-strong), var(--surface-soft));
+  box-shadow: var(--card-shadow);
+}
+
+.premium-grant-panel h3,
+.premium-grant-panel p {
+  margin: 0;
+}
+
+.premium-grant-panel h3 {
+  font-family: var(--heading-font);
+  color: var(--text-strong);
+}
+
+.premium-grant-panel p:not(.eyebrow) {
+  margin-top: 4px;
+  color: var(--muted);
+}
+
+.premium-grant-panel label {
+  display: grid;
+  gap: 6px;
+}
+
+.premium-grant-panel label span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .user-grid {
@@ -2450,11 +2489,45 @@
   box-shadow: var(--card-shadow);
 }
 
+.user-card .product-card-actions {
+  align-items: stretch;
+}
+
 .user-card-head {
   display: flex;
   justify-content: space-between;
   gap: 10px;
   align-items: flex-start;
+}
+
+.user-card-identity {
+  display: flex;
+  gap: 12px;
+  min-width: 0;
+}
+
+.user-card-avatar,
+.support-ticket-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  flex: 0 0 48px;
+  overflow: hidden;
+  border-radius: 16px;
+  border: 1px solid rgba(121, 92, 255, 0.18);
+  background: linear-gradient(180deg, rgba(121, 92, 255, 0.16), rgba(255, 255, 255, 0.72));
+  color: var(--text-strong);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.user-card-avatar img,
+.support-ticket-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .user-card h3 {
@@ -2531,6 +2604,19 @@
   border-radius: 22px;
   border: 1px solid var(--border);
   background: var(--surface-strong);
+}
+
+.chat-side-head {
+  padding: 0;
+}
+
+.moderation-list {
+  max-height: 260px;
+  overflow: auto;
+}
+
+.moderation-card {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
 
 .order-chat-drawer {
@@ -2816,6 +2902,143 @@
   border-radius: 18px;
   border: 1px solid var(--border-soft);
   background: var(--surface-soft);
+}
+
+.support-stats-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.support-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.9fr) minmax(0, 1.25fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.support-ticket-list,
+.support-detail {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 22px;
+  border: 1px solid var(--border);
+  background: var(--surface-strong);
+}
+
+.support-ticket-list {
+  max-height: 680px;
+  overflow: auto;
+}
+
+.support-ticket-card {
+  width: 100%;
+  display: flex;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--border-soft);
+  border-radius: 18px;
+  background: var(--surface-soft);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.support-ticket-card-active {
+  border-color: rgba(103, 89, 170, 0.45);
+  box-shadow: 0 0 0 4px rgba(103, 89, 170, 0.08);
+}
+
+.support-ticket-copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.support-ticket-copy strong {
+  color: var(--text-strong);
+}
+
+.support-ticket-copy span,
+.support-ticket-copy small,
+.support-detail-head p,
+.support-message span {
+  color: var(--muted);
+}
+
+.support-ticket-preview {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.support-detail-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.support-detail-head h3 {
+  margin: 0;
+  font-family: var(--heading-font);
+  color: var(--text-strong);
+}
+
+.support-detail-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.support-detail-controls label {
+  display: grid;
+  gap: 6px;
+  min-width: 140px;
+}
+
+.support-message-feed {
+  display: grid;
+  gap: 10px;
+  max-height: 420px;
+  overflow: auto;
+}
+
+.support-message {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid var(--border-soft);
+  background: var(--surface-soft);
+}
+
+.support-message-admin {
+  margin-left: 36px;
+  background: rgba(238, 232, 255, 0.82);
+}
+
+.support-message-user {
+  margin-right: 36px;
+}
+
+.support-message div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.support-message strong {
+  color: var(--text-strong);
+}
+
+.support-message p {
+  margin: 0;
+  color: var(--text-strong);
+  line-height: 1.5;
+}
+
+.support-compose {
+  margin-top: 4px;
 }
 
 .admin-error {
@@ -3938,6 +4161,7 @@
   .audit-filters,
   .summary-status-grid,
   .admin-chat-layout,
+  .support-layout,
   .library-metrics,
   .library-workspace-grid,
   .course-stat-grid,
@@ -3950,13 +4174,15 @@
   .product-grid,
   .product-stats-grid,
   .user-stats-grid,
+  .support-stats-grid,
   .user-grid,
   .course-grid,
   .course-inline-fields,
   .course-editor-switches,
   .developer-panel .developer-tabs,
   .specialist-grid,
-  .specialist-detail-grid {
+  .specialist-detail-grid,
+  .premium-grant-panel {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -4032,6 +4258,18 @@
   .audit-table-head,
   .audit-row {
     grid-template-columns: 1fr;
+  }
+
+  .support-detail-head,
+  .support-message div {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .support-message-admin,
+  .support-message-user {
+    margin-left: 0;
+    margin-right: 0;
   }
 
   .library-inline-grid {
@@ -4169,7 +4407,8 @@
   .specialist-toolbar,
   .specialist-detail-grid,
   .service-editor-card,
-  .availability-create-card {
+  .availability-create-card,
+  .premium-grant-panel {
     grid-template-columns: 1fr;
   }
 

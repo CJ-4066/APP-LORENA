@@ -60,6 +60,7 @@ void main() {
         ],
         home: AstralChartScreen(
           user: user,
+          hasPremiumAccess: true,
           onSaveProfile: (_) async => null,
           onGenerate: (input) async {
             generatedInput = input;
@@ -81,7 +82,7 @@ void main() {
     await tester.pump();
 
     expect(generatedInput, isNotNull);
-    expect(generatedInput!.birthDate, '15-01-1990');
+    expect(generatedInput!.birthDate, '1990-01-15');
     expect(generatedInput!.utcOffset, '-05:00');
     expect(generatedInput!.latitude, -12.0464);
     expect(generatedInput!.longitude, -77.0428);

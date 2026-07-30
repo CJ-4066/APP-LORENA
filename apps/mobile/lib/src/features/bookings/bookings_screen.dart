@@ -44,8 +44,7 @@ class BookingsScreen extends StatefulWidget {
   final Future<List<CommunityChatMessage>> Function(
     String body, {
     XFile? imageFile,
-  })
-      onSendCommunityChatMessage;
+  }) onSendCommunityChatMessage;
   final bool canManageBookings;
   final bool isAdminView;
 
@@ -309,7 +308,10 @@ class _BookingsScreenState extends State<BookingsScreen> {
                           child: Text(
                             specialist.name.trim().isEmpty
                                 ? 'S'
-                                : specialist.name.trim().substring(0, 1).toUpperCase(),
+                                : specialist.name
+                                    .trim()
+                                    .substring(0, 1)
+                                    .toUpperCase(),
                             style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.w900,
@@ -356,11 +358,13 @@ class _BookingsScreenState extends State<BookingsScreen> {
                     children: [
                       _ProfileChip(
                         icon: Icons.star_rounded,
-                        label: '${specialist.rating.toStringAsFixed(1)} · ${specialist.reviewCount} reseñas',
+                        label:
+                            '${specialist.rating.toStringAsFixed(1)} · ${specialist.reviewCount} reseñas',
                       ),
                       _ProfileChip(
                         icon: Icons.work_outline_rounded,
-                        label: '${specialist.yearsExperience} años de experiencia',
+                        label:
+                            '${specialist.yearsExperience} años de experiencia',
                       ),
                       _ProfileChip(
                         icon: Icons.schedule_rounded,
@@ -897,10 +901,10 @@ class _BookingsScreenState extends State<BookingsScreen> {
                           caption: l10n.ts(
                             'Espacio abierto para que toda la gente comente.',
                           ),
-                        accent: const Color(0xFF9A5A33),
-                        onTap: _openCommunityChat,
+                          accent: const Color(0xFF9A5A33),
+                          onTap: _openCommunityChat,
+                        ),
                       ),
-                    ),
                       const SizedBox(width: 12),
                       SizedBox(
                         width: 172,
@@ -1547,9 +1551,7 @@ class _RescheduleBookingSheetState extends State<_RescheduleBookingSheet> {
         return;
       }
 
-      final availableSlots = slots
-          .where((slot) => slot.isAvailable)
-          .toList()
+      final availableSlots = slots.where((slot) => slot.isAvailable).toList()
         ..sort((left, right) => left.startsAt.compareTo(right.startsAt));
 
       setState(() {
@@ -1583,10 +1585,9 @@ class _RescheduleBookingSheetState extends State<_RescheduleBookingSheet> {
         scheduledAt == null ||
         scheduledAt.isBefore(DateTime.now())) {
       setState(() {
-        _errorMessage =
-            context.l10n.ts(
-              'Elige un horario disponible y futuro para reprogramar la cita.',
-            );
+        _errorMessage = context.l10n.ts(
+          'Elige un horario disponible y futuro para reprogramar la cita.',
+        );
       });
       return;
     }
@@ -1739,6 +1740,9 @@ class _RescheduleBookingSheetState extends State<_RescheduleBookingSheet> {
             controller: _notesController,
             minLines: 3,
             maxLines: 5,
+            autocorrect: false,
+            enableSuggestions: false,
+            spellCheckConfiguration: const SpellCheckConfiguration.disabled(),
             decoration: InputDecoration(
               labelText: l10n.ts('Notas actualizadas'),
               hintText: l10n.ts(

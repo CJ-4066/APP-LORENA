@@ -55,6 +55,21 @@ export interface CommunityChatMessage {
   createdAt: string;
 }
 
+export type CommunityChatModerationAction = "mute" | "ban" | "clear";
+
+export interface CommunityChatModeration {
+  userId: string;
+  userName: string;
+  userAvatarUrl: string | null;
+  mutedUntil: string | null;
+  bannedUntil: string | null;
+  reason: string;
+  updatedBy: string;
+  updatedAt: string;
+  isMuted: boolean;
+  isBanned: boolean;
+}
+
 export type ChatAuthorRole = "member" | "guide" | "system";
 
 export interface ChatThreadDetail {
@@ -83,6 +98,13 @@ export interface CreateCommunityChatReplyInput extends CreateCommunityChatMessag
   authorName?: string;
   authorRole?: ChatAuthorRole;
   authorUserId?: string;
+}
+
+export interface SetCommunityChatModerationInput {
+  userId?: string;
+  action?: CommunityChatModerationAction;
+  durationHours?: number;
+  reason?: string;
 }
 
 interface ThreadRow extends QueryResultRow {
@@ -117,6 +139,17 @@ interface CommunityMessageRow extends QueryResultRow {
   body: string;
   image_url: string | null;
   created_at: Date | string;
+}
+
+interface CommunityModerationRow extends QueryResultRow {
+  user_id: string;
+  user_name: string;
+  user_avatar_url: string | null;
+  muted_until: Date | string | null;
+  banned_until: Date | string | null;
+  reason: string;
+  updated_by: string;
+  updated_at: Date | string;
 }
 
 interface ThreadRecord {
@@ -205,6 +238,18 @@ const mockCommunityMessages: CommunityChatMessage[] = [
     createdAt: "2026-04-06T13:11:00.000Z",
   },
 ];
+
+const mockCommunityModerations = new Map<
+  string,
+  {
+    userId: string;
+    mutedUntil: string | null;
+    bannedUntil: string | null;
+    reason: string;
+    updatedBy: string;
+    updatedAt: string;
+  }
+>();
 
 function toIsoString(value: Date | string | null | undefined): string | null {
   if (value == null) {
@@ -456,6 +501,161 @@ function resolveThreadImageUrl(value?: string): string | null {
 
 function resolveCommunityAvatarUrl(value?: string): string | null {
   return resolveCommunityImageUrl(value);
+}
+
+function isFutureIso(value: string | null): boolean {
+  if (!value) {
+    return false;
+  }
+  const time = new Date(value).getTime();
+  return Number.isFinite(time) && time > Date.now();
+}
+
+function buildModerationUntil(
+  action: CommunityChatModerationAction,
+  durationHours?: number,
+): string | null {
+  if (action === "clear") {
+    return null;
+  }
+
+  const fallbackHours = action === "mute" ? 24 : 24 * 7;
+  const hours =
+    typeof durationHours === "number" && Number.isFinite(durationHours)
+      ? Math.max(1, Math.min(durationHours, 24 * 365))
+      : fallbackHours;
+  return new Date(Date.now() + hours * 60 * 60 * 1000).toISOString();
+}
+
+function normalizeModerationInput(input: SetCommunityChatModerationInput): {
+  userId: string;
+  action: CommunityChatModerationAction;
+  mutedUntil: string | null;
+  bannedUntil: string | null;
+  reason: string;
+} {
+  const userId = input.userId?.trim() ?? "";
+  if (!userId) {
+    throw new Error("Selecciona la persona a moderar.");
+  }
+
+  const action = input.action;
+  if (action !== "mute" && action !== "ban" && action !== "clear") {
+    throw new Error("Selecciona una acción de moderación válida.");
+  }
+
+  const reason = input.reason?.trim() ?? "";
+  if (reason.length > 240) {
+    throw new Error("El motivo de moderación es demasiado largo.");
+  }
+
+  return {
+    userId,
+    action,
+    mutedUntil: action === "mute" ? buildModerationUntil(action, input.durationHours) : null,
+    bannedUntil: action === "ban" ? buildModerationUntil(action, input.durationHours) : null,
+    reason,
+  };
+}
+
+function mapModerationRow(row: CommunityModerationRow): CommunityChatModeration {
+  const mutedUntil = toIsoString(row.muted_until);
+  const bannedUntil = toIsoString(row.banned_until);
+  return {
+    userId: row.user_id,
+    userName: row.user_name,
+    userAvatarUrl: resolveCommunityAvatarUrl(row.user_avatar_url ?? undefined),
+    mutedUntil,
+    bannedUntil,
+    reason: row.reason,
+    updatedBy: row.updated_by,
+    updatedAt: toIsoString(row.updated_at) ?? new Date().toISOString(),
+    isMuted: isFutureIso(mutedUntil),
+    isBanned: isFutureIso(bannedUntil),
+  };
+}
+
+async function buildMockModeration(
+  record: {
+    userId: string;
+    mutedUntil: string | null;
+    bannedUntil: string | null;
+    reason: string;
+    updatedBy: string;
+    updatedAt: string;
+  },
+): Promise<CommunityChatModeration> {
+  let userName = record.userId;
+  let userAvatarUrl: string | null = null;
+  try {
+    const profile = await getProfile(record.userId);
+    userName = resolveCommunityAuthorName(profile);
+    userAvatarUrl = resolveCommunityAvatarUrl(profile.avatarUrl);
+  } catch {
+    userName = record.userId;
+  }
+
+  return {
+    userId: record.userId,
+    userName,
+    userAvatarUrl,
+    mutedUntil: record.mutedUntil,
+    bannedUntil: record.bannedUntil,
+    reason: record.reason,
+    updatedBy: record.updatedBy,
+    updatedAt: record.updatedAt,
+    isMuted: isFutureIso(record.mutedUntil),
+    isBanned: isFutureIso(record.bannedUntil),
+  };
+}
+
+async function getCommunityChatModeration(
+  userId: string,
+): Promise<CommunityChatModeration | null> {
+  const normalizedUserId = userId.trim();
+  if (!normalizedUserId) {
+    return null;
+  }
+
+  if (!isDatabaseConfigured()) {
+    const record = mockCommunityModerations.get(normalizedUserId);
+    return record ? buildMockModeration(record) : null;
+  }
+
+  const result = await query<CommunityModerationRow>(
+    `
+      select
+        m.user_id,
+        coalesce(nullif(trim(concat_ws(' ', u.first_name, u.last_name)), ''), u.nickname, u.email, m.user_id) as user_name,
+        nullif(u.avatar_url, '') as user_avatar_url,
+        m.muted_until,
+        m.banned_until,
+        m.reason,
+        m.updated_by,
+        m.updated_at
+      from community_chat_moderations m
+      left join users u on u.id = m.user_id
+      where m.user_id = $1
+      limit 1
+    `,
+    [normalizedUserId],
+  );
+
+  return result.rows[0] ? mapModerationRow(result.rows[0]) : null;
+}
+
+async function ensureCommunityChatAccess(userId: string): Promise<void> {
+  const moderation = await getCommunityChatModeration(userId);
+  if (!moderation) {
+    return;
+  }
+
+  if (moderation.isBanned) {
+    throw new Error("Tu acceso al chat está suspendido temporalmente.");
+  }
+  if (moderation.isMuted) {
+    throw new Error("Tu cuenta está silenciada temporalmente en el chat.");
+  }
 }
 
 function mapCommunityMessageRow(
@@ -1085,6 +1285,102 @@ export async function getCommunityChatMessages(): Promise<
   return enrichCommunityMessages(result.rows.map(mapCommunityMessageRow));
 }
 
+export async function getCommunityChatModerations(): Promise<
+  CommunityChatModeration[]
+> {
+  if (!isDatabaseConfigured()) {
+    const items = await Promise.all(
+      [...mockCommunityModerations.values()].map(buildMockModeration),
+    );
+    return items.sort((left, right) =>
+      right.updatedAt.localeCompare(left.updatedAt),
+    );
+  }
+
+  const result = await query<CommunityModerationRow>(
+    `
+      select
+        m.user_id,
+        coalesce(nullif(trim(concat_ws(' ', u.first_name, u.last_name)), ''), u.nickname, u.email, m.user_id) as user_name,
+        nullif(u.avatar_url, '') as user_avatar_url,
+        m.muted_until,
+        m.banned_until,
+        m.reason,
+        m.updated_by,
+        m.updated_at
+      from community_chat_moderations m
+      left join users u on u.id = m.user_id
+      order by m.updated_at desc
+    `,
+  );
+
+  return result.rows.map(mapModerationRow);
+}
+
+export async function setCommunityChatModeration(
+  input: SetCommunityChatModerationInput,
+  updatedBy: string,
+): Promise<CommunityChatModeration[]> {
+  const moderation = normalizeModerationInput(input);
+  const updatedByLabel = updatedBy.trim() || "admin";
+
+  if (!isDatabaseConfigured()) {
+    if (moderation.action === "clear") {
+      mockCommunityModerations.delete(moderation.userId);
+      return getCommunityChatModerations();
+    }
+
+    mockCommunityModerations.set(moderation.userId, {
+      userId: moderation.userId,
+      mutedUntil: moderation.mutedUntil,
+      bannedUntil: moderation.bannedUntil,
+      reason: moderation.reason,
+      updatedBy: updatedByLabel,
+      updatedAt: new Date().toISOString(),
+    });
+    return getCommunityChatModerations();
+  }
+
+  if (moderation.action === "clear") {
+    await query(
+      `
+        delete from community_chat_moderations
+        where user_id = $1
+      `,
+      [moderation.userId],
+    );
+    return getCommunityChatModerations();
+  }
+
+  await query(
+    `
+      insert into community_chat_moderations (
+        user_id,
+        muted_until,
+        banned_until,
+        reason,
+        updated_by,
+        updated_at
+      ) values ($1, $2, $3, $4, $5, now())
+      on conflict (user_id) do update set
+        muted_until = excluded.muted_until,
+        banned_until = excluded.banned_until,
+        reason = excluded.reason,
+        updated_by = excluded.updated_by,
+        updated_at = now()
+    `,
+    [
+      moderation.userId,
+      moderation.mutedUntil,
+      moderation.bannedUntil,
+      moderation.reason,
+      updatedByLabel,
+    ],
+  );
+
+  return getCommunityChatModerations();
+}
+
 export async function createCommunityChatMessage(
   input: CreateCommunityChatMessageInput,
   userId?: string,
@@ -1097,8 +1393,11 @@ export async function createCommunityChatMessage(
   const resolvedUserId = userId ?? demoUserId;
   const body = ensureCommunityMessage(input);
   const imageUrl = resolveCommunityImageUrl(input.imageUrl);
-  const profile = await getProfile(resolvedUserId);
   const authorRole = options?.authorRole ?? "member";
+  if (authorRole === "member") {
+    await ensureCommunityChatAccess(resolvedUserId);
+  }
+  const profile = await getProfile(resolvedUserId);
   const authorUserId =
     authorRole === "member"
       ? resolvedUserId

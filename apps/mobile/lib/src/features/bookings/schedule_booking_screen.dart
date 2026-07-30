@@ -660,6 +660,10 @@ class _ScheduleBookingScreenState extends State<ScheduleBookingScreen> {
                     controller: _notesController,
                     minLines: 3,
                     maxLines: 5,
+                    autocorrect: false,
+                    enableSuggestions: false,
+                    spellCheckConfiguration:
+                        const SpellCheckConfiguration.disabled(),
                     decoration: InputDecoration(
                       labelText: l10n.ts('Notas para la consulta'),
                       hintText: l10n.ts(

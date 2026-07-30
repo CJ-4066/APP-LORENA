@@ -41,6 +41,14 @@ export interface CancelSubscriptionInput {
   reason?: string;
 }
 
+export interface GrantPremiumSubscriptionInput {
+  paymentDate?: string;
+  amount?: number;
+  currency?: string;
+  method?: string;
+  notes?: string;
+}
+
 export interface PaymentTransaction {
   id: string;
   userId: string;
@@ -122,6 +130,31 @@ function toIsoString(value: Date | string | null): string | null {
 function buildReferenceCode(kind: PaymentKind): string {
   const prefix = kind === "subscription" ? "SUB" : "BKG";
   return `${prefix}-${Math.floor(100000 + Math.random() * 900000)}`;
+}
+
+function parsePaymentDate(value?: string): Date {
+  const rawValue = value?.trim();
+  const date = rawValue ? new Date(rawValue) : new Date();
+  if (Number.isNaN(date.getTime())) {
+    throw new Error("Ingresa una fecha de pago válida.");
+  }
+
+  return date;
+}
+
+function addOneMonth(date: Date): Date {
+  const next = new Date(date);
+  next.setMonth(next.getMonth() + 1);
+  return next;
+}
+
+function isPastDate(value: Date | string | null): boolean {
+  if (value == null) {
+    return false;
+  }
+
+  const date = value instanceof Date ? value : new Date(value);
+  return !Number.isNaN(date.getTime()) && date.getTime() < Date.now();
 }
 
 function resolvePlan(planId?: string) {
@@ -322,6 +355,25 @@ export async function getCurrentSubscription(userId?: string): Promise<Subscript
   const row = result.rows[0];
 
   if (row) {
+    if (row.status === "active" && isPastDate(row.renews_at)) {
+      await query(
+        `
+          update user_subscriptions
+          set status = 'inactive',
+              cancelled_at = coalesce(cancelled_at, renews_at, now()),
+              cancel_reason = case
+                when cancel_reason = '' then 'expired'
+                else cancel_reason
+              end,
+              updated_at = now()
+          where id = $1
+        `,
+        [row.id],
+      );
+      await upsertUserPlan(resolvedUserId, "free");
+      return buildSubscriptionFromPlan("free", "inactive", "web", "mercado_pago", null);
+    }
+
     return mapSubscriptionRow(row);
   }
 
@@ -336,6 +388,161 @@ export async function getCurrentSubscription(userId?: string): Promise<Subscript
   );
   const userPlanId = userResult.rows[0]?.plan_id ?? "free";
   return buildSubscriptionFromPlan(userPlanId, userPlanId === "premium" ? "active" : "inactive", "web", userPlanId === "premium" ? "mercado_pago" : "mercado_pago", userPlanId === "premium" ? new Date(Date.now() + subscriptionRenewalDays * 24 * 60 * 60 * 1000).toISOString() : null);
+}
+
+export async function grantPremiumSubscription(
+  userId: string,
+  input: GrantPremiumSubscriptionInput,
+): Promise<Subscription> {
+  const resolvedUserId = userId.trim();
+  if (resolvedUserId.length === 0) {
+    throw new Error("El usuario no es válido.");
+  }
+
+  const paymentDate = parsePaymentDate(input.paymentDate);
+  const renewsAt = addOneMonth(paymentDate);
+  const amount = Number.isFinite(input.amount) ? Number(input.amount) : 0;
+  const currency = input.currency?.trim() || "USD";
+  const method = input.method?.trim() || "manual_admin";
+  const notes = input.notes?.trim() || "Premium habilitado manualmente desde admin.";
+
+  if (!isDatabaseConfigured()) {
+    const subscription = buildSubscriptionFromPlan(
+      "premium",
+      "active",
+      "web",
+      "mercado_pago",
+      renewsAt.toISOString(),
+    );
+    setUserPlan("premium", resolvedUserId);
+    mockSubscriptions.set(resolvedUserId, subscription);
+    mockPayments.unshift({
+      id: randomUUID(),
+      userId: resolvedUserId,
+      kind: "subscription",
+      planId: "premium",
+      bookingId: null,
+      amount,
+      currency,
+      provider: "mercado_pago",
+      platform: "web",
+      method,
+      status: "confirmed",
+      referenceCode: buildReferenceCode("subscription"),
+      approvalCode: "ADMIN",
+      notes,
+      createdAt: paymentDate.toISOString(),
+      confirmedAt: paymentDate.toISOString(),
+    });
+
+    return subscription;
+  }
+
+  return withTransaction(async (client) => {
+    const userResult = await client.query<{ id: string }>(
+      `select id from users where id = $1 for update`,
+      [resolvedUserId],
+    );
+    if (!userResult.rows[0]) {
+      throw new Error("El usuario no existe.");
+    }
+
+    await client.query(
+      `
+        update user_subscriptions
+        set status = 'inactive',
+            cancelled_at = now(),
+            cancel_reason = case
+              when cancel_reason = '' then 'replaced_by_admin_grant'
+              else cancel_reason
+            end,
+            updated_at = now()
+        where user_id = $1
+          and status = 'active'
+      `,
+      [resolvedUserId],
+    );
+
+    await client.query(
+      `
+        insert into payment_transactions (
+          id,
+          user_id,
+          kind,
+          plan_id,
+          booking_id,
+          amount,
+          currency,
+          provider,
+          platform,
+          method,
+          status,
+          reference_code,
+          approval_code,
+          notes,
+          created_at,
+          confirmed_at,
+          updated_at
+        ) values (
+          $1, $2, 'subscription', 'premium', null, $3, $4, 'mercado_pago',
+          'web', $5, 'confirmed', $6, 'ADMIN', $7, $8, $8, now()
+        )
+      `,
+      [
+        randomUUID(),
+        resolvedUserId,
+        amount,
+        currency,
+        method,
+        buildReferenceCode("subscription"),
+        notes,
+        paymentDate.toISOString(),
+      ],
+    );
+
+    await client.query(
+      `
+        insert into user_subscriptions (
+          id,
+          user_id,
+          plan_id,
+          status,
+          platform,
+          billing_provider,
+          started_at,
+          renews_at,
+          created_at,
+          updated_at
+        ) values (
+          $1, $2, 'premium', 'active', 'web', 'mercado_pago', $3, $4, now(), now()
+        )
+      `,
+      [
+        randomUUID(),
+        resolvedUserId,
+        paymentDate.toISOString(),
+        renewsAt.toISOString(),
+      ],
+    );
+
+    await client.query(
+      `
+        update users
+        set plan_id = 'premium',
+            updated_at = now()
+        where id = $1
+      `,
+      [resolvedUserId],
+    );
+
+    return buildSubscriptionFromPlan(
+      "premium",
+      "active",
+      "web",
+      "mercado_pago",
+      renewsAt.toISOString(),
+    );
+  });
 }
 
 export async function getPaymentHistory(userId?: string): Promise<PaymentTransaction[]> {

@@ -28,7 +28,8 @@ class LibraryPdfImageViewerScreen extends StatefulWidget {
 class _LibraryPdfImageViewerScreenState
     extends State<LibraryPdfImageViewerScreen> {
   final http.Client _client = http.Client();
-  final TextEditingController _pageController = TextEditingController(text: '1');
+  final TextEditingController _pageController =
+      TextEditingController(text: '1');
   final Map<int, Future<Uint8List?>> _pageImageCache = {};
 
   _LibraryPdfMetadata? _metadata;
@@ -240,6 +241,9 @@ class _LibraryPdfImageViewerScreenState
               controller: _pageController,
               keyboardType: TextInputType.number,
               textAlign: TextAlign.center,
+              autocorrect: false,
+              enableSuggestions: false,
+              spellCheckConfiguration: const SpellCheckConfiguration.disabled(),
               decoration: InputDecoration(
                 hintText: context.l10n.ts('Página'),
               ),
@@ -390,7 +394,7 @@ class _LibraryPdfImageViewerScreenState
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-              : meta == null
+          : meta == null
               ? _buildErrorPanel(context)
               : Column(
                   children: [
@@ -405,7 +409,10 @@ class _LibraryPdfImageViewerScreenState
                               context.l10n.ts(
                                 'Si no ves bien el contenido, usa ampliar con dos dedos o cambia de página.',
                               ),
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
                                     color: AppPalette.mutedLavender,
                                   ),
                             ),

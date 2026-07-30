@@ -2684,6 +2684,9 @@ class _ProductEditorSheetState extends State<_ProductEditorSheet> {
           TextField(
             controller: _nameController,
             textCapitalization: TextCapitalization.words,
+            autocorrect: false,
+            enableSuggestions: false,
+            spellCheckConfiguration: const SpellCheckConfiguration.disabled(),
             decoration: InputDecoration(
               labelText: l10n.ts('Nombre'),
               hintText: 'Ej. Tarot Lunar Vision',
@@ -2693,6 +2696,9 @@ class _ProductEditorSheetState extends State<_ProductEditorSheet> {
           TextField(
             controller: _categoryController,
             textCapitalization: TextCapitalization.words,
+            autocorrect: false,
+            enableSuggestions: false,
+            spellCheckConfiguration: const SpellCheckConfiguration.disabled(),
             decoration: InputDecoration(
               labelText: l10n.ts('Categoría'),
               hintText: 'Tarot, Velas, Cuadros',
@@ -2702,6 +2708,9 @@ class _ProductEditorSheetState extends State<_ProductEditorSheet> {
           TextField(
             controller: _priceController,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            autocorrect: false,
+            enableSuggestions: false,
+            spellCheckConfiguration: const SpellCheckConfiguration.disabled(),
             decoration: InputDecoration(
               labelText: l10n.ts('Precio USD'),
               hintText: '39.00',
@@ -2711,6 +2720,9 @@ class _ProductEditorSheetState extends State<_ProductEditorSheet> {
           TextField(
             controller: _skuController,
             textCapitalization: TextCapitalization.characters,
+            autocorrect: false,
+            enableSuggestions: false,
+            spellCheckConfiguration: const SpellCheckConfiguration.disabled(),
             decoration: InputDecoration(
               labelText: l10n.ts('SKU'),
               hintText: 'TAROT-LUNAR-VISION',
@@ -2743,6 +2755,9 @@ class _ProductEditorSheetState extends State<_ProductEditorSheet> {
           TextField(
             controller: _shortDescriptionController,
             textCapitalization: TextCapitalization.sentences,
+            autocorrect: false,
+            enableSuggestions: false,
+            spellCheckConfiguration: const SpellCheckConfiguration.disabled(),
             decoration: InputDecoration(
               labelText: l10n.ts('Descripción corta'),
               hintText: l10n.ts('Una línea para la tarjeta del catálogo'),
@@ -2753,6 +2768,9 @@ class _ProductEditorSheetState extends State<_ProductEditorSheet> {
             controller: _descriptionController,
             maxLines: 3,
             textCapitalization: TextCapitalization.sentences,
+            autocorrect: false,
+            enableSuggestions: false,
+            spellCheckConfiguration: const SpellCheckConfiguration.disabled(),
             decoration: InputDecoration(
               labelText: l10n.ts('Descripción completa'),
               hintText: l10n.ts('Detalles del producto, intención o uso'),
@@ -2762,6 +2780,9 @@ class _ProductEditorSheetState extends State<_ProductEditorSheet> {
           TextField(
             controller: _imageUrlController,
             keyboardType: TextInputType.url,
+            autocorrect: false,
+            enableSuggestions: false,
+            spellCheckConfiguration: const SpellCheckConfiguration.disabled(),
             decoration: InputDecoration(
               labelText: l10n.ts('Foto del producto'),
               hintText: 'https://.../producto.jpg',
@@ -2774,6 +2795,10 @@ class _ProductEditorSheetState extends State<_ProductEditorSheet> {
                 child: TextField(
                   controller: _badgeController,
                   textCapitalization: TextCapitalization.sentences,
+                  autocorrect: false,
+                  enableSuggestions: false,
+                  spellCheckConfiguration:
+                      const SpellCheckConfiguration.disabled(),
                   decoration: InputDecoration(
                     labelText: l10n.ts('Badge'),
                     hintText: l10n.ts('Nuevo'),
@@ -2785,6 +2810,10 @@ class _ProductEditorSheetState extends State<_ProductEditorSheet> {
                 child: TextField(
                   controller: _stockQuantityController,
                   keyboardType: TextInputType.number,
+                  autocorrect: false,
+                  enableSuggestions: false,
+                  spellCheckConfiguration:
+                      const SpellCheckConfiguration.disabled(),
                   decoration: InputDecoration(
                     labelText: l10n.ts('Unidades'),
                     hintText: '9',
@@ -2808,6 +2837,9 @@ class _ProductEditorSheetState extends State<_ProductEditorSheet> {
           TextField(
             controller: _tagsController,
             textCapitalization: TextCapitalization.sentences,
+            autocorrect: false,
+            enableSuggestions: false,
+            spellCheckConfiguration: const SpellCheckConfiguration.disabled(),
             decoration: InputDecoration(
               labelText: l10n.ts('Tags'),
               hintText: l10n.ts('Separados por coma'),
@@ -5507,6 +5539,10 @@ class _CheckoutSheetState extends State<_CheckoutSheet> {
                   child: TextField(
                     controller: _addressController,
                     textCapitalization: TextCapitalization.sentences,
+                    autocorrect: false,
+                    enableSuggestions: false,
+                    spellCheckConfiguration:
+                        const SpellCheckConfiguration.disabled(),
                     decoration: InputDecoration(
                       labelText: l10n.ts('Dirección de entrega'),
                       hintText: l10n.ts('Distrito, ciudad, referencia'),
@@ -5522,6 +5558,10 @@ class _CheckoutSheetState extends State<_CheckoutSheet> {
                     controller: _notesController,
                     maxLines: 3,
                     textCapitalization: TextCapitalization.sentences,
+                    autocorrect: false,
+                    enableSuggestions: false,
+                    spellCheckConfiguration:
+                        const SpellCheckConfiguration.disabled(),
                     decoration: InputDecoration(
                       labelText: l10n.ts('Notas para la orden'),
                       hintText: l10n.ts(

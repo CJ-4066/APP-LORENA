@@ -136,9 +136,12 @@ class _CommunityChatScreenState extends State<CommunityChatScreen>
                   decoration: BoxDecoration(
                     color: AppPalette.mistLilac,
                     borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: AppPalette.mutedLavender.withValues(alpha: 0.16)),
+                    border: Border.all(
+                        color:
+                            AppPalette.mutedLavender.withValues(alpha: 0.16)),
                   ),
-                  child: const Icon(Icons.forum_rounded, color: AppPalette.royalViolet),
+                  child: const Icon(Icons.forum_rounded,
+                      color: AppPalette.royalViolet),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -176,7 +179,8 @@ class _CommunityChatScreenState extends State<CommunityChatScreen>
         child: AnimatedPadding(
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOut,
-          padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+          padding:
+              EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
           child: Container(
             decoration: const BoxDecoration(
               color: Colors.white,
@@ -211,8 +215,13 @@ class _CommunityChatScreenState extends State<CommunityChatScreen>
                         keyboardType: TextInputType.multiline,
                         textInputAction: TextInputAction.newline,
                         textCapitalization: TextCapitalization.sentences,
+                        autocorrect: false,
+                        enableSuggestions: false,
+                        spellCheckConfiguration:
+                            const SpellCheckConfiguration.disabled(),
                         decoration: InputDecoration(
-                          hintText: l10n.ts('Escribe un mensaje o añade una imagen'),
+                          hintText:
+                              l10n.ts('Escribe un mensaje o añade una imagen'),
                         ),
                       ),
                     ),
@@ -292,7 +301,8 @@ class _CommunityChatScreenState extends State<CommunityChatScreen>
       decoration: BoxDecoration(
         color: AppPalette.softLilac,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppPalette.royalViolet.withValues(alpha: 0.12)),
+        border:
+            Border.all(color: AppPalette.royalViolet.withValues(alpha: 0.12)),
       ),
       child: Row(
         children: [
@@ -321,7 +331,8 @@ class _CommunityChatScreenState extends State<CommunityChatScreen>
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  context.l10n.ts('Puedes enviarla sola o acompañarla con un mensaje.'),
+                  context.l10n
+                      .ts('Puedes enviarla sola o acompañarla con un mensaje.'),
                   style: Theme.of(context).textTheme.labelMedium?.copyWith(
                         color: AppPalette.mutedLavender,
                       ),

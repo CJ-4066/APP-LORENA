@@ -194,8 +194,7 @@ class _SpecialistWorkspaceScreenState extends State<SpecialistWorkspaceScreen> {
     }
 
     _showSnackBar(
-      error ??
-          context.l10n.ts('{name} actualizado.', {'name': service.name}),
+      error ?? context.l10n.ts('{name} actualizado.', {'name': service.name}),
     );
   }
 
@@ -1030,6 +1029,9 @@ class _ServicePriceSheetState extends State<_ServicePriceSheet> {
           TextField(
             controller: _priceController,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            autocorrect: false,
+            enableSuggestions: false,
+            spellCheckConfiguration: const SpellCheckConfiguration.disabled(),
             decoration: InputDecoration(
               labelText: l10n.ts('Precio USD'),
               hintText: '32.00',
@@ -1039,6 +1041,9 @@ class _ServicePriceSheetState extends State<_ServicePriceSheet> {
           TextField(
             controller: _durationController,
             keyboardType: TextInputType.number,
+            autocorrect: false,
+            enableSuggestions: false,
+            spellCheckConfiguration: const SpellCheckConfiguration.disabled(),
             decoration: InputDecoration(
               labelText: l10n.ts('Duración en minutos'),
               hintText: '45',

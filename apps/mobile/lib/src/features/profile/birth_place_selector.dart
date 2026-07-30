@@ -243,6 +243,9 @@ class _BirthPlaceSearchSheetState extends State<_BirthPlaceSearchSheet> {
             TextField(
               controller: _queryController,
               autofocus: true,
+              autocorrect: false,
+              enableSuggestions: false,
+              spellCheckConfiguration: const SpellCheckConfiguration.disabled(),
               decoration: InputDecoration(
                 labelText: l10n.ts('Buscar ciudad'),
                 hintText: widget.hintText,

@@ -29,6 +29,7 @@ import { registerShopRoutes } from "./modules/shop/routes.js";
 import { registerSpecialistRoutes } from "./modules/specialists/routes.js";
 import { registerPublicUploadRoutes } from "./modules/uploads/routes.js";
 import { registerStorageRoutes } from "./modules/storage/routes.js";
+import { registerSupportRoutes } from "./modules/support/routes.js";
 import { registerSubscriptionRoutes } from "./modules/subscriptions/routes.js";
 import { registerTarotRoutes } from "./modules/tarot/routes.js";
 import { registerAdminUploadRoutes } from "./modules/admin/uploads/routes.js";
@@ -139,6 +140,7 @@ export async function buildServer() {
   });
   await app.register(registerPushRoutes, { prefix: "/api/push" });
   await app.register(registerStorageRoutes, { prefix: "/api/storage" });
+  await app.register(registerSupportRoutes, { prefix: "/api/support" });
   await app.register(registerPaymentRoutes, { prefix: "/api/payments" });
   await app.register(registerAdminRoutes, { prefix: "/api/admin" });
   await app.register(registerAdminOperationsRoutes, { prefix: "/api/admin" });

@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import '../../core/i18n/app_i18n.dart';
 import '../../core/theme/app_palette.dart';
 import '../../core/utils/formatters.dart';
-import '../../core/widgets/energy_profile_card.dart';
 import '../../models/app_models.dart';
+import '../../models/support_models.dart';
 import 'account_center_screens.dart';
 import 'profile_badges_screen.dart';
 import 'profile_avatar.dart';
@@ -20,6 +20,10 @@ class ProfileScreen extends StatelessWidget {
     required this.onOpenAstralChart,
     required this.currentLocale,
     required this.onChangeLocale,
+    required this.onLoadSupportTickets,
+    required this.onCreateSupportTicket,
+    required this.onLoadSupportTicket,
+    required this.onSendSupportTicketMessage,
   });
 
   final AppBootstrap data;
@@ -30,6 +34,16 @@ class ProfileScreen extends StatelessWidget {
   final Future<void> Function() onOpenAstralChart;
   final Locale currentLocale;
   final Future<void> Function(Locale locale) onChangeLocale;
+  final Future<List<SupportTicketSummary>> Function() onLoadSupportTickets;
+  final Future<SupportTicketDetail> Function({
+    required String subject,
+    required String category,
+    required String body,
+  }) onCreateSupportTicket;
+  final Future<SupportTicketDetail> Function(String ticketId)
+      onLoadSupportTicket;
+  final Future<SupportTicketDetail> Function(String ticketId, String body)
+      onSendSupportTicketMessage;
 
   @override
   Widget build(BuildContext context) {
@@ -204,15 +218,6 @@ class ProfileScreen extends StatelessWidget {
                             'lng': '${data.user.natalChart.longitude}',
                           },
                         ),
-                      ),
-                    ],
-                    if (data.user.energyProfile.isAvailable) ...[
-                      const SizedBox(height: 20),
-                      EnergyProfileCardView(
-                        profile: data.user.energyProfile,
-                        title: 'Perfil energético',
-                        showFocusArea: true,
-                        showModality: true,
                       ),
                     ],
                     const SizedBox(height: 20),
@@ -600,7 +605,13 @@ class ProfileScreen extends StatelessWidget {
                       onTap: () async {
                         await Navigator.of(context).push(
                           MaterialPageRoute<void>(
-                            builder: (_) => SupportScreen(data: data),
+                            builder: (_) => SupportScreen(
+                              data: data,
+                              onLoadTickets: onLoadSupportTickets,
+                              onCreateTicket: onCreateSupportTicket,
+                              onLoadTicket: onLoadSupportTicket,
+                              onSendMessage: onSendSupportTicketMessage,
+                            ),
                           ),
                         );
                       },

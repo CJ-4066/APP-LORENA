@@ -342,6 +342,10 @@ class _OrderChatScreenState extends State<OrderChatScreen>
                         keyboardType: TextInputType.multiline,
                         textInputAction: TextInputAction.newline,
                         textCapitalization: TextCapitalization.sentences,
+                        autocorrect: false,
+                        enableSuggestions: false,
+                        spellCheckConfiguration:
+                            const SpellCheckConfiguration.disabled(),
                         decoration: InputDecoration(
                           hintText: l10n.ts(
                             'Escribe sobre pago o entrega',

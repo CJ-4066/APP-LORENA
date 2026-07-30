@@ -12,7 +12,9 @@ import '../../models/booking_models.dart';
 import '../../models/chat_models.dart';
 import '../../models/numerology_models.dart';
 import '../../models/profile_models.dart';
+import '../../models/push_models.dart';
 import '../../models/shop_models.dart';
+import '../../models/support_models.dart';
 import '../data/birth_place_catalog.dart';
 
 class BootstrapResponse {
@@ -465,6 +467,94 @@ class ApiClient {
       }
       return CommunityChatMessage.fromJson(item);
     }).toList();
+  }
+
+  Future<List<SupportTicketSummary>> fetchSupportTickets({
+    required String accessToken,
+  }) async {
+    final response = await _send(
+      method: 'GET',
+      path: '/api/support/tickets',
+      accessToken: accessToken,
+    );
+
+    final items = response['items'] as List<dynamic>? ?? const <dynamic>[];
+    return items
+        .whereType<Map<String, dynamic>>()
+        .map(SupportTicketSummary.fromJson)
+        .toList();
+  }
+
+  Future<SupportTicketDetail> createSupportTicket({
+    required String accessToken,
+    required String subject,
+    required String category,
+    required String body,
+  }) async {
+    final response = await _send(
+      method: 'POST',
+      path: '/api/support/tickets',
+      accessToken: accessToken,
+      body: {
+        'subject': subject,
+        'category': category,
+        'body': body,
+      },
+    );
+
+    return SupportTicketDetail.fromJson(
+      response['item'] as Map<String, dynamic>,
+    );
+  }
+
+  Future<SupportTicketDetail> fetchSupportTicket({
+    required String accessToken,
+    required String ticketId,
+  }) async {
+    final response = await _send(
+      method: 'GET',
+      path: '/api/support/tickets/$ticketId',
+      accessToken: accessToken,
+    );
+
+    return SupportTicketDetail.fromJson(
+      response['item'] as Map<String, dynamic>,
+    );
+  }
+
+  Future<SupportTicketDetail> sendSupportTicketMessage({
+    required String accessToken,
+    required String ticketId,
+    required String body,
+  }) async {
+    final response = await _send(
+      method: 'POST',
+      path: '/api/support/tickets/$ticketId/messages',
+      accessToken: accessToken,
+      body: {
+        'body': body,
+      },
+    );
+
+    return SupportTicketDetail.fromJson(
+      response['item'] as Map<String, dynamic>,
+    );
+  }
+
+  Future<List<PushEngagementTemplate>> fetchPushEngagementTemplates({
+    required String accessToken,
+  }) async {
+    final response = await _send(
+      method: 'GET',
+      path: '/api/push/engagement/templates',
+      accessToken: accessToken,
+    );
+
+    final items = response['items'] as List<dynamic>? ?? const <dynamic>[];
+    return items
+        .whereType<Map<String, dynamic>>()
+        .map(PushEngagementTemplate.fromJson)
+        .toList();
   }
 
   Future<BadgeProfileSummary> trackBadgeAction({

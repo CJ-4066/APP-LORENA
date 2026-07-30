@@ -762,6 +762,20 @@ class SubscriptionData {
   final String billingProvider;
   final List<String> entitlements;
 
+  bool get isPremiumActive {
+    if (planId != 'premium' || status != 'active') {
+      return false;
+    }
+
+    final rawRenewsAt = renewsAt?.trim() ?? '';
+    if (rawRenewsAt.isEmpty) {
+      return true;
+    }
+
+    final parsed = DateTime.tryParse(rawRenewsAt);
+    return parsed == null || parsed.isAfter(DateTime.now());
+  }
+
   const SubscriptionData.empty()
       : planId = '',
         planName = '',

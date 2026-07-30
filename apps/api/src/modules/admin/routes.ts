@@ -6,6 +6,7 @@ import {
   getAdminDashboardSummary,
   getAdminRecentBookings,
   getAdminRecentUsers,
+  grantAdminUserPremium,
   updateAdminUser,
 } from "../../data/admin-store.js";
 import { requireAdminSession } from "../shared/admin-auth.js";
@@ -112,6 +113,38 @@ export async function registerAdminRoutes(app: FastifyInstance) {
       }
     },
   );
+
+  app.post<{
+    Params: { userId: string };
+    Body: Parameters<typeof grantAdminUserPremium>[1];
+  }>("/users/:userId/premium", async (request, reply) => {
+    const admin = await requireAdminSession(request, reply);
+    if (!admin) {
+      return {
+        error:
+          reply.statusCode === 403
+            ? "No tienes permisos de admin."
+            : "Falta la sesión de admin.",
+      };
+    }
+
+    try {
+      return {
+        item: await grantAdminUserPremium(
+          request.params.userId,
+          request.body ?? {},
+        ),
+      };
+    } catch (error) {
+      reply.code(400);
+      return {
+        error:
+          error instanceof Error
+            ? error.message
+            : "No se pudo habilitar Premium.",
+      };
+    }
+  });
 
   app.get<{ Querystring: { limit?: string } }>("/chat", async (request, reply) => {
     const admin = await requireAdminSession(request, reply);

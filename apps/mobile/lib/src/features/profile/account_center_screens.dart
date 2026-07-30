@@ -6,6 +6,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../core/i18n/app_i18n.dart';
 import '../../core/utils/formatters.dart';
 import '../../models/app_models.dart';
+import '../../models/support_models.dart';
 import 'profile_avatar.dart';
 
 class SubscriptionOverviewScreen extends StatelessWidget {
@@ -27,8 +28,7 @@ class SubscriptionOverviewScreen extends StatelessWidget {
       (plan) => plan.id == 'premium',
       orElse: () => currentPlan,
     );
-    final hasPremiumNow =
-        currentPlan.id == 'premium' && data.subscription.status == 'active';
+    final hasPremiumNow = data.subscription.isPremiumActive;
 
     return Scaffold(
       appBar: AppBar(
@@ -120,7 +120,7 @@ class SubscriptionOverviewScreen extends StatelessWidget {
                       label: Text(
                         hasPremiumNow
                             ? l10n.ts('Gestionar en plataforma')
-                            : l10n.ts('Ir a Premium'),
+                            : l10n.ts('Premium por admin'),
                       ),
                     ),
                     OutlinedButton.icon(
@@ -202,7 +202,7 @@ class SubscriptionOverviewScreen extends StatelessWidget {
                       label: Text(
                         hasPremiumNow
                             ? l10n.ts('Gestionar renovación')
-                            : l10n.ts('Ver upgrade'),
+                            : l10n.ts('Premium por admin'),
                       ),
                     ),
                     OutlinedButton.icon(
@@ -235,7 +235,7 @@ class SubscriptionOverviewScreen extends StatelessWidget {
                         actionLabel: plan.id == currentPlan.id
                             ? l10n.ts('Gestionar')
                             : plan.id == 'premium'
-                                ? l10n.ts('Elegir Premium')
+                                ? l10n.ts('Plan Premium')
                                 : l10n.ts('Ver alternativa'),
                         onAction: () => _handlePlanAction(
                           context,
@@ -514,152 +514,497 @@ class PrivacyDataScreen extends StatelessWidget {
   }
 }
 
-class SupportScreen extends StatelessWidget {
+class SupportScreen extends StatefulWidget {
   const SupportScreen({
     super.key,
     required this.data,
+    required this.onLoadTickets,
+    required this.onCreateTicket,
+    required this.onLoadTicket,
+    required this.onSendMessage,
   });
 
   final AppBootstrap data;
+  final Future<List<SupportTicketSummary>> Function() onLoadTickets;
+  final Future<SupportTicketDetail> Function({
+    required String subject,
+    required String category,
+    required String body,
+  }) onCreateTicket;
+  final Future<SupportTicketDetail> Function(String ticketId) onLoadTicket;
+  final Future<SupportTicketDetail> Function(String ticketId, String body)
+      onSendMessage;
+
+  @override
+  State<SupportScreen> createState() => _SupportScreenState();
+}
+
+class _SupportScreenState extends State<SupportScreen> {
+  final TextEditingController _subjectController = TextEditingController();
+  final TextEditingController _messageController = TextEditingController();
+  final TextEditingController _replyController = TextEditingController();
+  List<SupportTicketSummary> _tickets = const [];
+  SupportTicketDetail? _detail;
+  String _category = 'general';
+  bool _isLoading = true;
+  bool _isCreating = false;
+  bool _isReplying = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTickets();
+  }
+
+  @override
+  void dispose() {
+    _subjectController.dispose();
+    _messageController.dispose();
+    _replyController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final openTickets =
+        _tickets.where((ticket) => ticket.status != 'closed').length;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(l10n.ts('Soporte')),
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
-        children: [
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              FilledButton.icon(
-                onPressed: () => _openSupportEmail(context, data),
-                icon: const Icon(Icons.mail_outline),
-                label: Text(l10n.ts('Escribir a soporte')),
-              ),
-              OutlinedButton.icon(
-                onPressed: () => _shareText(
-                  context,
-                  _supportShareText(data),
-                  successMessage: l10n.ts('Diagnóstico listo para compartir.'),
+      body: RefreshIndicator(
+        onRefresh: _loadTickets,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+          children: [
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                FilledButton.icon(
+                  onPressed: _isCreating ? null : _createTicket,
+                  icon: _isCreating
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.add_comment_outlined),
+                  label: Text(
+                    _isCreating
+                        ? l10n.ts('Creando...')
+                        : l10n.ts('Crear ticket'),
+                  ),
                 ),
-                icon: const Icon(Icons.share_outlined),
-                label: Text(l10n.ts('Compartir diagnóstico')),
-              ),
-              OutlinedButton.icon(
-                onPressed: () => _copyText(
-                  context,
-                  _supportShareText(data),
-                  successMessage:
-                      l10n.ts('Diagnóstico copiado al portapapeles.'),
+                OutlinedButton.icon(
+                  onPressed: () => _shareText(
+                    context,
+                    _supportShareText(widget.data),
+                    successMessage:
+                        l10n.ts('Diagnóstico listo para compartir.'),
+                  ),
+                  icon: const Icon(Icons.share_outlined),
+                  label: Text(l10n.ts('Compartir diagnóstico')),
                 ),
-                icon: const Icon(Icons.copy_outlined),
-                label: Text(l10n.ts('Copiar')),
+                OutlinedButton.icon(
+                  onPressed: () => _copyText(
+                    context,
+                    _supportShareText(widget.data),
+                    successMessage:
+                        l10n.ts('Diagnóstico copiado al portapapeles.'),
+                  ),
+                  icon: const Icon(Icons.copy_outlined),
+                  label: Text(l10n.ts('Copiar')),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _InfoSection(
+              title: l10n.ts('Nuevo ticket'),
+              child: Column(
+                children: [
+                  TextField(
+                    controller: _subjectController,
+                    decoration: InputDecoration(
+                      labelText: l10n.ts('Asunto'),
+                      hintText: l10n.ts('Ej. No puedo acceder a Premium'),
+                    ),
+                    textCapitalization: TextCapitalization.sentences,
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: _category,
+                    decoration: InputDecoration(
+                      labelText: l10n.ts('Categoría'),
+                    ),
+                    items: const [
+                      DropdownMenuItem(
+                        value: 'general',
+                        child: Text('General'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'premium',
+                        child: Text('Premium'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'payments',
+                        child: Text('Pagos'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'bookings',
+                        child: Text('Reservas'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'technical',
+                        child: Text('Técnico'),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      setState(() {
+                        _category = value ?? 'general';
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _messageController,
+                    minLines: 3,
+                    maxLines: 6,
+                    decoration: InputDecoration(
+                      labelText: l10n.ts('Mensaje'),
+                      hintText: l10n.ts(
+                        'Cuéntanos qué ocurrió y qué esperabas ver.',
+                      ),
+                    ),
+                    textCapitalization: TextCapitalization.sentences,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            _InfoSection(
+              title: l10n.ts('Estado de soporte'),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(l10n.ts(
+                      'Tickets abiertos: {count}', {'count': '$openTickets'})),
+                  const SizedBox(height: 4),
+                  Text(l10n.ts('Incidencias abiertas: {count}',
+                      {'count': '${widget.data.admin.openIncidents}'})),
+                  const SizedBox(height: 4),
+                  Text(l10n.ts('Plan actual: {plan}', {
+                    'plan':
+                        '${widget.data.subscription.planName} · ${widget.data.subscription.status}',
+                  })),
+                ],
+              ),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _error!,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.error,
+                      fontWeight: FontWeight.w700,
+                    ),
               ),
             ],
-          ),
-          const SizedBox(height: 16),
-          _InfoSection(
-            title: l10n.ts('Canales disponibles'),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l10n.ts('• Correo directo a soporte desde esta pantalla'),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  l10n.ts(
-                    '• Copia y comparte un diagnóstico resumido de tu cuenta',
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  l10n.ts(
-                    '• Estado operativo: {count} incidencias abiertas en este momento',
-                    {'count': '${data.admin.openIncidents}'},
-                  ),
-                ),
-              ],
+            const SizedBox(height: 16),
+            _InfoSection(
+              title: l10n.ts('Mis tickets'),
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _tickets.isEmpty
+                      ? Text(l10n.ts('Todavía no tienes tickets abiertos.'))
+                      : Column(
+                          children: _tickets
+                              .map(
+                                (ticket) => _SupportTicketTile(
+                                  ticket: ticket,
+                                  selected: _detail?.ticket.id == ticket.id,
+                                  onTap: () => _openTicket(ticket.id),
+                                ),
+                              )
+                              .toList(),
+                        ),
             ),
-          ),
-          const SizedBox(height: 16),
-          _InfoSection(
-            title: l10n.ts('Estado operativo'),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l10n.ts(
-                    'Usuarios activos: {count}',
-                    {'count': '${data.admin.activeUsers}'},
-                  ),
+            if (_detail != null) ...[
+              const SizedBox(height: 16),
+              _InfoSection(
+                title:
+                    '${_detail!.ticket.ticketNumber} · ${_supportStatusLabel(_detail!.ticket.status)}',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _detail!.ticket.subject,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                    ),
+                    const SizedBox(height: 12),
+                    ..._detail!.messages.map(_SupportMessageBubble.new),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _replyController,
+                      minLines: 2,
+                      maxLines: 5,
+                      decoration: InputDecoration(
+                        labelText: l10n.ts('Responder'),
+                      ),
+                      textCapitalization: TextCapitalization.sentences,
+                    ),
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: FilledButton.icon(
+                        onPressed: _isReplying ? null : _sendReply,
+                        icon: _isReplying
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.send_rounded),
+                        label: Text(
+                          _isReplying
+                              ? l10n.ts('Enviando...')
+                              : l10n.ts('Responder'),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  l10n.ts(
-                    'Suscriptores premium: {count}',
-                    {'count': '${data.admin.premiumSubscribers}'},
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  l10n.ts(
-                    'Reservas del mes: {count}',
-                    {'count': '${data.admin.monthlyBookings}'},
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  l10n.ts(
-                    'Especialistas activos: {count}',
-                    {'count': '${data.admin.activeSpecialists}'},
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  l10n.ts(
-                    'Incidencias abiertas: {count}',
-                    {'count': '${data.admin.openIncidents}'},
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          _InfoSection(
-            title: l10n.ts('Qué puedes gestionar desde aquí'),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  l10n.ts(
-                    '• Reportar problemas de navegación, pagos o acceso',
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  l10n.ts(
-                    '• Compartir contexto técnico mínimo para acelerar la respuesta',
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  l10n.ts(
-                    '• Escalar temas de privacidad, suscripción o reservas',
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+              ),
+            ],
+          ],
+        ),
       ),
     );
+  }
+
+  Future<void> _loadTickets() async {
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final tickets = await widget.onLoadTickets();
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _tickets = tickets;
+        _isLoading = false;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _error = error.toString().replaceFirst('Exception: ', '');
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _createTicket() async {
+    final subject = _subjectController.text.trim();
+    final body = _messageController.text.trim();
+    if (subject.isEmpty || body.isEmpty) {
+      setState(() {
+        _error = context.l10n.ts('Completa asunto y mensaje.');
+      });
+      return;
+    }
+
+    setState(() {
+      _isCreating = true;
+      _error = null;
+    });
+
+    try {
+      final detail = await widget.onCreateTicket(
+        subject: subject,
+        category: _category,
+        body: body,
+      );
+      final tickets = await widget.onLoadTickets();
+      if (!mounted) {
+        return;
+      }
+      _subjectController.clear();
+      _messageController.clear();
+      setState(() {
+        _detail = detail;
+        _tickets = tickets;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _error = error.toString().replaceFirst('Exception: ', '');
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isCreating = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _openTicket(String ticketId) async {
+    setState(() {
+      _error = null;
+    });
+
+    try {
+      final detail = await widget.onLoadTicket(ticketId);
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _detail = detail;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _error = error.toString().replaceFirst('Exception: ', '');
+      });
+    }
+  }
+
+  Future<void> _sendReply() async {
+    final detail = _detail;
+    final body = _replyController.text.trim();
+    if (detail == null || body.isEmpty) {
+      return;
+    }
+
+    setState(() {
+      _isReplying = true;
+      _error = null;
+    });
+
+    try {
+      final nextDetail = await widget.onSendMessage(detail.ticket.id, body);
+      final tickets = await widget.onLoadTickets();
+      if (!mounted) {
+        return;
+      }
+      _replyController.clear();
+      setState(() {
+        _detail = nextDetail;
+        _tickets = tickets;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _error = error.toString().replaceFirst('Exception: ', '');
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isReplying = false;
+        });
+      }
+    }
+  }
+}
+
+class _SupportTicketTile extends StatelessWidget {
+  const _SupportTicketTile({
+    required this.ticket,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final SupportTicketSummary ticket;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: selected ? 2 : 0,
+      child: ListTile(
+        leading: const Icon(Icons.confirmation_number_outlined),
+        title: Text(ticket.subject),
+        subtitle: Text(
+          '${ticket.ticketNumber} · ${_supportStatusLabel(ticket.status)} · ${ticket.messageCount} mensajes',
+        ),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: onTap,
+      ),
+    );
+  }
+}
+
+class _SupportMessageBubble extends StatelessWidget {
+  const _SupportMessageBubble(this.message);
+
+  final SupportTicketMessage message;
+
+  @override
+  Widget build(BuildContext context) {
+    final isAdmin = message.authorType == 'admin';
+    return Align(
+      alignment: isAdmin ? Alignment.centerLeft : Alignment.centerRight,
+      child: Container(
+        width: MediaQuery.of(context).size.width * 0.76,
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isAdmin
+              ? Theme.of(context).colorScheme.secondaryContainer
+              : Theme.of(context).colorScheme.primaryContainer,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              message.authorName,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+            const SizedBox(height: 6),
+            Text(message.body),
+            const SizedBox(height: 6),
+            Text(
+              formatSchedule(message.createdAt),
+              style: Theme.of(context).textTheme.labelSmall,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+String _supportStatusLabel(String status) {
+  switch (status) {
+    case 'in_review':
+      return 'En revisión';
+    case 'responded':
+      return 'Respondido';
+    case 'closed':
+      return 'Cerrado';
+    default:
+      return 'Abierto';
   }
 }
 
@@ -813,7 +1158,17 @@ Future<void> _handlePlanAction(
   Plan plan, {
   required bool isCurrent,
 }) async {
-  if (isCurrent || plan.id == 'premium') {
+  if (plan.id == 'premium' && !isCurrent) {
+    _showSnackBar(
+      context,
+      context.l10n.ts(
+        'Premium se habilita desde administración cuando el pago está validado.',
+      ),
+    );
+    return;
+  }
+
+  if (isCurrent) {
     await _openSubscriptionManagement(context, subscription);
     return;
   }
@@ -865,25 +1220,6 @@ Future<void> _openPrivacyEmail(BuildContext context, UserProfile user) async {
     _showSnackBar(
       context,
       context.l10n.ts('No se pudo abrir el correo de privacidad.'),
-    );
-  }
-}
-
-Future<void> _openSupportEmail(BuildContext context, AppBootstrap data) async {
-  final uri = Uri(
-    scheme: 'mailto',
-    path: 'soporte@lorenaciente.app',
-    queryParameters: {
-      'subject': 'Soporte Lo Renaciente',
-      'body': _supportShareText(data),
-    },
-  );
-
-  final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
-  if (!opened && context.mounted) {
-    _showSnackBar(
-      context,
-      context.l10n.ts('No se pudo abrir el correo de soporte.'),
     );
   }
 }

@@ -27,7 +27,8 @@ class LibraryPdfViewerScreen extends StatefulWidget {
 class _LibraryPdfViewerScreenState extends State<LibraryPdfViewerScreen> {
   final http.Client _client = http.Client();
   final PdfViewerController _pdfViewerController = PdfViewerController();
-  final TextEditingController _pageController = TextEditingController(text: '1');
+  final TextEditingController _pageController =
+      TextEditingController(text: '1');
   final TextEditingController _searchController = TextEditingController();
 
   _LibraryPdfMetadata? _metadata;
@@ -118,7 +119,8 @@ class _LibraryPdfViewerScreenState extends State<LibraryPdfViewerScreen> {
     final title = (item['title'] as String?)?.trim();
     return _LibraryPdfMetadata(
       id: widget.document.id,
-      title: (title != null && title.isNotEmpty) ? title : widget.document.title,
+      title:
+          (title != null && title.isNotEmpty) ? title : widget.document.title,
       pageCount: pageCount,
     );
   }
@@ -131,7 +133,8 @@ class _LibraryPdfViewerScreenState extends State<LibraryPdfViewerScreen> {
     }
 
     final contentType = response.headers['content-type'] ?? '';
-    if (!contentType.contains('application/pdf') || response.bodyBytes.isEmpty) {
+    if (!contentType.contains('application/pdf') ||
+        response.bodyBytes.isEmpty) {
       throw Exception('La API no devolvió un PDF válido.');
     }
 
@@ -309,6 +312,9 @@ class _LibraryPdfViewerScreenState extends State<LibraryPdfViewerScreen> {
               controller: _pageController,
               keyboardType: TextInputType.number,
               textAlign: TextAlign.center,
+              autocorrect: false,
+              enableSuggestions: false,
+              spellCheckConfiguration: const SpellCheckConfiguration.disabled(),
               decoration: InputDecoration(
                 hintText: context.l10n.ts('Página'),
               ),
@@ -348,6 +354,9 @@ class _LibraryPdfViewerScreenState extends State<LibraryPdfViewerScreen> {
             child: TextField(
               controller: _searchController,
               textInputAction: TextInputAction.search,
+              autocorrect: false,
+              enableSuggestions: false,
+              spellCheckConfiguration: const SpellCheckConfiguration.disabled(),
               onSubmitted: (_) => _search(),
               decoration: InputDecoration(
                 hintText: context.l10n.ts('Buscar texto'),
@@ -488,7 +497,8 @@ class _LibraryPdfViewerScreenState extends State<LibraryPdfViewerScreen> {
       canShowPaginationDialog: true,
       enableTextSelection: true,
       enableDoubleTapZooming: true,
-      currentSearchTextHighlightColor: AppPalette.flameGold.withValues(alpha: 0.55),
+      currentSearchTextHighlightColor:
+          AppPalette.flameGold.withValues(alpha: 0.55),
       otherSearchTextHighlightColor: AppPalette.indigo.withValues(alpha: 0.18),
       onDocumentLoaded: _onDocumentLoaded,
       onDocumentLoadFailed: _onDocumentLoadFailed,

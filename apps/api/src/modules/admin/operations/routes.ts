@@ -6,8 +6,18 @@ import {
   deleteCommunityChatMessage,
   deleteCommunityChatMessageImage,
   ensureOrderChatThread,
+  getCommunityChatModerations,
   getCommunityChatMessages,
+  setCommunityChatModeration,
 } from "../../../data/chat-store.js";
+import {
+  createSupportTicketMessage,
+  getSupportOverview,
+  getSupportTicket,
+  updateSupportTicket,
+  type CreateSupportMessageInput,
+  type UpdateSupportTicketInput,
+} from "../../../data/support-store.js";
 import { getSpecialists } from "../../../data/mock-store.js";
 import { getAdminDashboardSummary } from "../../../data/admin-store.js";
 import {
@@ -1988,9 +1998,47 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
       const items = await getCommunityChatMessages();
       return {
         items: items.slice(-limit),
+        moderations: await getCommunityChatModerations(),
       };
     },
   );
+
+  app.post<{
+    Body: {
+      userId?: string;
+      action?: "mute" | "ban" | "clear";
+      durationHours?: number;
+      reason?: string;
+    };
+  }>("/chat/community/moderation", async (request, reply) => {
+    const admin = await requireAdminSession(request, reply);
+    if (!admin) {
+      return { error: getAdminError(reply.statusCode, false) };
+    }
+
+    try {
+      const moderations = await setCommunityChatModeration(
+        request.body ?? {},
+        admin.email,
+      );
+      emitContentChanged({
+        entity: "communityChat",
+        action: "updated",
+        actor: admin.email,
+      });
+      return {
+        moderations,
+      };
+    } catch (error) {
+      reply.code(400);
+      return {
+        error:
+          error instanceof Error
+            ? error.message
+            : "No se pudo actualizar la moderación del chat.",
+      };
+    }
+  });
 
   app.post<{ Body: { body?: string; imageUrl?: string } }>(
     "/chat/community/messages",
@@ -2017,6 +2065,7 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
         });
         return {
           items,
+          moderations: await getCommunityChatModerations(),
         };
       } catch (error) {
         reply.code(400);
@@ -2050,6 +2099,7 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
         });
         return {
           items,
+          moderations: await getCommunityChatModerations(),
         };
       } catch (error) {
         reply.code(400);
@@ -2083,6 +2133,7 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
         });
         return {
           items,
+          moderations: await getCommunityChatModerations(),
         };
       } catch (error) {
         reply.code(400);
@@ -2119,6 +2170,114 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
       }
     },
   );
+
+  app.get<{ Querystring: { limit?: string } }>(
+    "/support",
+    async (request, reply) => {
+      const admin = await requireAdminSession(request, reply);
+      if (!admin) {
+        return { error: getAdminError(reply.statusCode, false) };
+      }
+
+      return {
+        item: await getSupportOverview(Number(request.query.limit ?? "50")),
+      };
+    },
+  );
+
+  app.get<{ Params: { ticketId: string } }>(
+    "/support/:ticketId",
+    async (request, reply) => {
+      const admin = await requireAdminSession(request, reply);
+      if (!admin) {
+        return { error: getAdminError(reply.statusCode, false) };
+      }
+
+      try {
+        return {
+          item: await getSupportTicket(request.params.ticketId),
+        };
+      } catch (error) {
+        reply.code(404);
+        return {
+          error:
+            error instanceof Error
+              ? error.message
+              : "No se pudo cargar el ticket de soporte.",
+        };
+      }
+    },
+  );
+
+  app.patch<{
+    Params: { ticketId: string };
+    Body: UpdateSupportTicketInput;
+  }>("/support/:ticketId", async (request, reply) => {
+    const admin = await requireAdminSession(request, reply);
+    if (!admin) {
+      return { error: getAdminError(reply.statusCode, false) };
+    }
+
+    try {
+      const item = await updateSupportTicket(
+        request.params.ticketId,
+        request.body ?? {},
+      );
+      emitContentChanged({
+        entity: "support",
+        action: "updated",
+        entityId: request.params.ticketId,
+        actor: admin.email,
+      });
+      return { item };
+    } catch (error) {
+      reply.code(400);
+      return {
+        error:
+          error instanceof Error
+            ? error.message
+            : "No se pudo actualizar el ticket de soporte.",
+      };
+    }
+  });
+
+  app.post<{
+    Params: { ticketId: string };
+    Body: CreateSupportMessageInput;
+  }>("/support/:ticketId/messages", async (request, reply) => {
+    const admin = await requireAdminSession(request, reply);
+    if (!admin) {
+      return { error: getAdminError(reply.statusCode, false) };
+    }
+
+    try {
+      reply.code(201);
+      const item = await createSupportTicketMessage(
+        request.params.ticketId,
+        request.body ?? {},
+        {
+          type: "admin",
+          id: admin.id,
+          name: admin.name || admin.email,
+        },
+      );
+      emitContentChanged({
+        entity: "support",
+        action: "created",
+        entityId: request.params.ticketId,
+        actor: admin.email,
+      });
+      return { item };
+    } catch (error) {
+      reply.code(400);
+      return {
+        error:
+          error instanceof Error
+            ? error.message
+            : "No se pudo responder el ticket de soporte.",
+      };
+    }
+  });
 
   app.get("/incidents", async (request, reply) => {
     const admin = await requireAdminSession(request, reply);

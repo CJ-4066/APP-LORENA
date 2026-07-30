@@ -6,7 +6,8 @@ export type PublicContentEntity =
   | "specialist"
   | "shopProduct"
   | "booking"
-  | "communityChat";
+  | "communityChat"
+  | "support";
 
 export type PublicContentAction =
   | "created"

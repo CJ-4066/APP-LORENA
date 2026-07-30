@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import type { QueryResultRow } from "pg";
 
 import { isDatabaseConfigured, query } from "../infrastructure/database.js";
+import { getCurrentSubscription } from "./persistent-store.js";
 
 const demoUserId = "user-mark";
 
@@ -22,6 +23,19 @@ export interface RegisterPushDeviceInput {
   pushToken?: string;
 }
 
+export type PushEngagementAudience = "all" | "limited" | "premium";
+
+export interface PushEngagementTemplate {
+  id: string;
+  title: string;
+  body: string;
+  audience: PushEngagementAudience;
+  trigger: string;
+  deepLink: string;
+  minHoursBetweenSends: number;
+  eligible: boolean;
+}
+
 interface PushDeviceRow extends QueryResultRow {
   id: string;
   user_id: string;
@@ -30,6 +44,99 @@ interface PushDeviceRow extends QueryResultRow {
   created_at: Date | string;
   updated_at: Date | string;
 }
+
+const engagementTemplates: Array<Omit<PushEngagementTemplate, "eligible">> = [
+  {
+    id: "daily-card-gentle-return",
+    title: "Tu carta del día ya te espera",
+    body: "Entra un momento y toma una guía breve para empezar con más claridad.",
+    audience: "all",
+    trigger: "daily_morning",
+    deepLink: "lo-renaciente://home/card",
+    minHoursBetweenSends: 20,
+  },
+  {
+    id: "limited-astro-preview",
+    title: "Hay un avance astral disponible",
+    body: "Puedes revisar tu lectura básica de hoy y guardar lo que resuene.",
+    audience: "limited",
+    trigger: "inactive_24h",
+    deepLink: "lo-renaciente://home/astro",
+    minHoursBetweenSends: 24,
+  },
+  {
+    id: "premium-transits-window",
+    title: "Tu radar Premium tiene movimiento",
+    body: "Revisa los tránsitos de hoy y elige el mejor momento para actuar.",
+    audience: "premium",
+    trigger: "daily_midday",
+    deepLink: "lo-renaciente://premium/transits",
+    minHoursBetweenSends: 18,
+  },
+  {
+    id: "community-soft-invite",
+    title: "El chat general está activo",
+    body: "Pasa a leer la conversación o comparte una sensación breve con la comunidad.",
+    audience: "all",
+    trigger: "community_activity",
+    deepLink: "lo-renaciente://chat/community",
+    minHoursBetweenSends: 12,
+  },
+  {
+    id: "limited-course-teaser",
+    title: "Un módulo puede ayudarte hoy",
+    body: "Hay contenido gratuito para retomar tu práctica sin presión.",
+    audience: "limited",
+    trigger: "inactive_48h",
+    deepLink: "lo-renaciente://courses",
+    minHoursBetweenSends: 36,
+  },
+  {
+    id: "premium-library-nudge",
+    title: "Tu biblioteca Premium sigue abierta",
+    body: "Elige una lectura corta y vuelve a tu proceso con foco.",
+    audience: "premium",
+    trigger: "library_recommendation",
+    deepLink: "lo-renaciente://premium/library",
+    minHoursBetweenSends: 24,
+  },
+  {
+    id: "booking-reminder-friendly",
+    title: "Revisa tu próxima sesión",
+    body: "Confirma horario, notas y modo de atención desde tu agenda.",
+    audience: "all",
+    trigger: "booking_upcoming",
+    deepLink: "lo-renaciente://bookings",
+    minHoursBetweenSends: 8,
+  },
+  {
+    id: "profile-completion-care",
+    title: "Tu perfil puede quedar más completo",
+    body: "Añadir tus datos ayuda a personalizar mejor cartas, ciclos y recomendaciones.",
+    audience: "limited",
+    trigger: "profile_incomplete",
+    deepLink: "lo-renaciente://profile/edit",
+    minHoursBetweenSends: 48,
+  },
+  {
+    id: "premium-renewal-soft",
+    title: "Tu acceso Premium está cerca de renovarse",
+    body: "Revisa tu estado y aprovecha tus contenidos antes del cierre del ciclo.",
+    audience: "premium",
+    trigger: "premium_renewal_window",
+    deepLink: "lo-renaciente://profile/subscription",
+    minHoursBetweenSends: 48,
+  },
+  {
+    id: "support-followup",
+    title: "Soporte puede acompañarte",
+    body: "Si algo no fluye en la app, abre un ticket y te responderemos desde administración.",
+    audience: "all",
+    trigger: "support_available",
+    deepLink: "lo-renaciente://support",
+    minHoursBetweenSends: 72,
+  },
+];
 
 const mockDevices = new Map<string, PushDevice>();
 
@@ -55,6 +162,17 @@ function mapPushDeviceRow(row: PushDeviceRow): PushDevice {
     createdAt: toIsoString(row.created_at),
     updatedAt: toIsoString(row.updated_at),
   };
+}
+
+function isTemplateEligible(
+  audience: PushEngagementAudience,
+  isPremium: boolean,
+): boolean {
+  return (
+    audience === "all" ||
+    (audience === "premium" && isPremium) ||
+    (audience === "limited" && !isPremium)
+  );
 }
 
 function validatePushDeviceInput(input: RegisterPushDeviceInput): {
@@ -96,6 +214,69 @@ export async function getPushDevices(userId?: string): Promise<PushDevice[]> {
   );
 
   return result.rows.map(mapPushDeviceRow);
+}
+
+export async function getPushEngagementTemplates(
+  userId?: string,
+): Promise<PushEngagementTemplate[]> {
+  let isPremium = false;
+  if (userId) {
+    try {
+      const subscription = await getCurrentSubscription(userId);
+      isPremium =
+        subscription.planId === "premium" && subscription.status === "active";
+    } catch {
+      isPremium = false;
+    }
+  }
+
+  return engagementTemplates.map((template) => ({
+    ...template,
+    eligible: isTemplateEligible(template.audience, isPremium),
+  }));
+}
+
+export async function recordPushEngagementInvitation(
+  templateId: string,
+  userId?: string,
+): Promise<PushEngagementTemplate> {
+  const resolvedUserId = userId ?? demoUserId;
+  const templates = await getPushEngagementTemplates(resolvedUserId);
+  const template = templates.find((item) => item.id === templateId);
+  if (!template) {
+    throw new Error("La plantilla de notificación no existe.");
+  }
+  if (!template.eligible) {
+    throw new Error("La plantilla no aplica para este usuario.");
+  }
+
+  if (isDatabaseConfigured()) {
+    await query(
+      `
+        insert into push_engagement_logs (
+          id,
+          user_id,
+          template_id,
+          title,
+          body,
+          audience,
+          deep_link,
+          status
+        ) values ($1, $2, $3, $4, $5, $6, $7, 'queued')
+      `,
+      [
+        randomUUID(),
+        resolvedUserId,
+        template.id,
+        template.title,
+        template.body,
+        template.audience,
+        template.deepLink,
+      ],
+    );
+  }
+
+  return template;
 }
 
 export async function registerPushDevice(

@@ -149,7 +149,7 @@ def build_chunks(text: str, max_chars: int = 1400, overlap: int = 220) -> list[s
 
 
 def summarize_text(text: str) -> str:
-    paragraphs = [
+    paragraphs = [  
         part.strip()
         for part in re.split(r"\n{2,}", text)
         if len(part.strip()) >= 120

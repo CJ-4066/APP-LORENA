@@ -359,6 +359,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             const SizedBox(height: 12),
             TextField(
               controller: _nicknameController,
+              autocorrect: false,
+              enableSuggestions: false,
+              spellCheckConfiguration: const SpellCheckConfiguration.disabled(),
               decoration: InputDecoration(
                 labelText: l10n.ts('Apodo'),
                 hintText: l10n.ts(
@@ -369,17 +372,26 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             const SizedBox(height: 12),
             TextField(
               controller: _firstNameController,
+              autocorrect: false,
+              enableSuggestions: false,
+              spellCheckConfiguration: const SpellCheckConfiguration.disabled(),
               decoration: InputDecoration(labelText: l10n.ts('Nombre')),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _lastNameController,
+              autocorrect: false,
+              enableSuggestions: false,
+              spellCheckConfiguration: const SpellCheckConfiguration.disabled(),
               decoration: InputDecoration(labelText: l10n.ts('Apellido')),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: _emailController,
               keyboardType: TextInputType.emailAddress,
+              autocorrect: false,
+              enableSuggestions: false,
+              spellCheckConfiguration: const SpellCheckConfiguration.disabled(),
               decoration: InputDecoration(labelText: l10n.ts('Correo')),
             ),
             const SizedBox(height: 24),
@@ -387,6 +399,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             const SizedBox(height: 12),
             TextField(
               controller: _locationController,
+              autocorrect: false,
+              enableSuggestions: false,
+              spellCheckConfiguration: const SpellCheckConfiguration.disabled(),
               decoration: InputDecoration(
                 labelText: l10n.ts('Ubicación actual'),
                 hintText: 'Lima, Perú',
@@ -395,6 +410,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             const SizedBox(height: 12),
             TextField(
               controller: _zodiacSignController,
+              autocorrect: false,
+              enableSuggestions: false,
+              spellCheckConfiguration: const SpellCheckConfiguration.disabled(),
               decoration: InputDecoration(
                 labelText: l10n.ts('Signo zodiacal'),
                 hintText: l10n.ts(
