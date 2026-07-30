@@ -28,6 +28,7 @@ class LibraryPdfImageViewerScreen extends StatefulWidget {
 class _LibraryPdfImageViewerScreenState
     extends State<LibraryPdfImageViewerScreen> {
   final http.Client _client = http.Client();
+  final PageController _viewerController = PageController();
   final Map<int, Future<Uint8List?>> _pageImageCache = {};
 
   _LibraryPdfMetadata? _metadata;
@@ -90,6 +91,7 @@ class _LibraryPdfImageViewerScreenState
   @override
   void dispose() {
     _client.close();
+    _viewerController.dispose();
     super.dispose();
   }
 
@@ -222,44 +224,46 @@ class _LibraryPdfImageViewerScreenState
   }
 
   Widget _buildPageImage(BuildContext context, int pageNumber) {
-    return FutureBuilder<Uint8List?>(
-      future: _loadPageBytes(pageNumber),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
-          return SizedBox(
-            height: MediaQuery.sizeOf(context).height * 0.72,
-            child: const Center(child: CircularProgressIndicator()),
-          );
-        }
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return FutureBuilder<Uint8List?>(
+          future: _loadPageBytes(pageNumber),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-        final bytes = snapshot.data;
-        if (bytes == null) {
-          return SizedBox(
-            height: 240,
-            child: Center(
-              child: Text(
-                context.l10n.ts('No se pudo cargar esta página.'),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.white70,
-                    ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-          );
-        }
+            final bytes = snapshot.data;
+            if (bytes == null) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(28),
+                  child: Text(
+                    context.l10n.ts('No se pudo cargar esta página.'),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Colors.white70,
+                        ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              );
+            }
 
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            return InteractiveViewer(
-              minScale: 1,
-              maxScale: 6,
-              child: Image.memory(
-                bytes,
-                width: constraints.maxWidth,
-                cacheWidth: _pageRenderWidth,
-                fit: BoxFit.fitWidth,
-                filterQuality: FilterQuality.medium,
-                gaplessPlayback: true,
+            return Center(
+              child: InteractiveViewer(
+                minScale: 1,
+                maxScale: 6,
+                constrained: false,
+                boundaryMargin: const EdgeInsets.all(120),
+                clipBehavior: Clip.none,
+                child: Image.memory(
+                  bytes,
+                  width: constraints.maxWidth,
+                  cacheWidth: _pageRenderWidth,
+                  fit: BoxFit.fitWidth,
+                  filterQuality: FilterQuality.medium,
+                  gaplessPlayback: true,
+                ),
               ),
             );
           },
@@ -295,9 +299,20 @@ class _LibraryPdfImageViewerScreenState
         ? const Center(child: CircularProgressIndicator())
         : meta == null
             ? _buildErrorPanel(context)
-            : ListView.builder(
-                padding: EdgeInsets.zero,
+            : PageView.builder(
+                controller: _viewerController,
+                scrollDirection: Axis.vertical,
                 itemCount: meta.pageCount,
+                onPageChanged: (index) {
+                  final nextPage = index + 1;
+                  _trimPageImageCache(nextPage);
+                  if (nextPage < meta.pageCount) {
+                    _loadPageBytes(nextPage + 1);
+                  }
+                  if (nextPage > 1) {
+                    _loadPageBytes(nextPage - 1);
+                  }
+                },
                 itemBuilder: (context, index) {
                   return _buildPageImage(context, index + 1);
                 },

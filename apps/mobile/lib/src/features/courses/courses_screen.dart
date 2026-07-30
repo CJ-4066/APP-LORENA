@@ -12,7 +12,6 @@ import '../../core/widgets/premium_access.dart';
 import '../../models/app_models.dart';
 import 'course_pdf_viewer_screen.dart';
 import 'library_pdf_image_viewer_screen.dart';
-import 'library_pdf_viewer_screen.dart';
 import 'library_pdf_thumbnail_service.dart';
 import 'shared_drive_library_service.dart';
 
@@ -1372,14 +1371,10 @@ class _CoursesPanelState extends State<_CoursesPanel> {
   void _openDocument(BuildContext context, SharedDriveDocument document) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => Platform.isAndroid
-            ? LibraryPdfImageViewerScreen(
-                title: document.title,
-                document: document,
-              )
-            : LibraryPdfViewerScreen(
-                document: document,
-              ),
+        builder: (_) => LibraryPdfImageViewerScreen(
+          title: document.title,
+          document: document,
+        ),
       ),
     );
   }
