@@ -106,4 +106,37 @@ class LibraryPdfBookmarkService {
       jsonEncode(updated.map((bookmark) => bookmark.toJson()).toList()),
     );
   }
+
+  Future<LibraryPdfBookmark?> loadBookmarkForDocument(String documentId) async {
+    final normalizedId = documentId.trim();
+    if (normalizedId.isEmpty) {
+      return null;
+    }
+
+    final bookmarks = await loadBookmarks();
+    for (final bookmark in bookmarks) {
+      if (bookmark.document.id == normalizedId) {
+        return bookmark;
+      }
+    }
+    return null;
+  }
+
+  Future<void> removeBookmark(String documentId) async {
+    final normalizedId = documentId.trim();
+    if (normalizedId.isEmpty) {
+      return;
+    }
+
+    final bookmarks = await loadBookmarks();
+    final updated = bookmarks
+        .where((bookmark) => bookmark.document.id != normalizedId)
+        .toList(growable: false);
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      _bookmarksKey,
+      jsonEncode(updated.map((bookmark) => bookmark.toJson()).toList()),
+    );
+  }
 }

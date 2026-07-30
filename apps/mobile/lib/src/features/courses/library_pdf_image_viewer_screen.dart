@@ -41,7 +41,10 @@ class _LibraryPdfImageViewerScreenState
   bool _loading = true;
   bool _refreshing = false;
   int _currentPage = 1;
+  int? _savedPage;
   Offset? _swipeStart;
+  Offset? _swipeLatest;
+  bool _swipeHandled = false;
   String? _errorMessage;
 
   int get _pageRenderWidth =>
@@ -95,6 +98,7 @@ class _LibraryPdfImageViewerScreenState
     super.initState();
     _currentPage = widget.initialPage < 1 ? 1 : widget.initialPage;
     _viewerController = PageController(initialPage: _currentPage - 1);
+    _loadSavedBookmark();
     _loadMetadata();
   }
 
@@ -162,6 +166,18 @@ class _LibraryPdfImageViewerScreenState
     }
   }
 
+  Future<void> _loadSavedBookmark() async {
+    final bookmark =
+        await _bookmarkService.loadBookmarkForDocument(widget.document.id);
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _savedPage = bookmark?.page;
+    });
+  }
+
   Widget _buildErrorPanel(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(18),
@@ -209,25 +225,56 @@ class _LibraryPdfImageViewerScreenState
 
   void _handlePointerDown(PointerDownEvent event) {
     _activePointers.add(event.pointer);
-    _swipeStart = _activePointers.length == 1 ? event.position : null;
+    if (_activePointers.length == 1) {
+      _swipeStart = event.position;
+      _swipeLatest = event.position;
+      _swipeHandled = false;
+    } else {
+      _swipeStart = null;
+      _swipeLatest = null;
+      _swipeHandled = true;
+    }
+  }
+
+  void _handlePointerMove(PointerMoveEvent event) {
+    if (_activePointers.length != 1 ||
+        !_activePointers.contains(event.pointer)) {
+      return;
+    }
+
+    _swipeLatest = event.position;
+    _resolveHorizontalSwipe();
   }
 
   void _handlePointerUp(PointerUpEvent event) {
     final shouldReadSwipe =
         _activePointers.length == 1 && _activePointers.contains(event.pointer);
-    final start = _swipeStart;
+    _swipeLatest = event.position;
+    if (shouldReadSwipe) {
+      _resolveHorizontalSwipe();
+    }
     _activePointers.remove(event.pointer);
-    _swipeStart = _activePointers.isEmpty ? null : _swipeStart;
+    if (_activePointers.isEmpty) {
+      _swipeStart = null;
+      _swipeLatest = null;
+      _swipeHandled = false;
+    }
+  }
 
-    if (!shouldReadSwipe || start == null) {
+  void _resolveHorizontalSwipe() {
+    final start = _swipeStart;
+    final latest = _swipeLatest;
+    if (_swipeHandled || start == null || latest == null) {
       return;
     }
 
-    final delta = event.position - start;
+    final delta = latest - start;
+
     if (delta.dx.abs() < 72 || delta.dx.abs() < delta.dy.abs() * 1.2) {
       return;
     }
 
+    _swipeHandled = true;
     if (delta.dx > 0) {
       _goToPage(_currentPage + 1);
     } else {
@@ -239,6 +286,8 @@ class _LibraryPdfImageViewerScreenState
     _activePointers.remove(event.pointer);
     if (_activePointers.isEmpty) {
       _swipeStart = null;
+      _swipeLatest = null;
+      _swipeHandled = false;
     }
   }
 
@@ -265,25 +314,39 @@ class _LibraryPdfImageViewerScreenState
     }
   }
 
-  Future<void> _saveCurrentPage() async {
+  Future<void> _toggleCurrentPageBookmark() async {
     final meta = _metadata;
     if (meta == null) {
       return;
     }
 
     final savedPage = _currentPage.clamp(1, meta.pageCount);
-    await _bookmarkService.saveBookmark(
-      document: widget.document,
-      page: savedPage,
-    );
+    final alreadySaved = _savedPage == savedPage;
+
+    if (alreadySaved) {
+      await _bookmarkService.removeBookmark(widget.document.id);
+    } else {
+      await _bookmarkService.saveBookmark(
+        document: widget.document,
+        page: savedPage,
+      );
+    }
 
     if (!mounted) {
       return;
     }
 
+    setState(() {
+      _savedPage = alreadySaved ? null : savedPage;
+    });
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(context.l10n.ts('Página guardada')),
+        content: Text(
+          context.l10n.ts(
+            alreadySaved ? 'Página quitada' : 'Página guardada',
+          ),
+        ),
         duration: const Duration(milliseconds: 900),
       ),
     );
@@ -380,7 +443,9 @@ class _LibraryPdfImageViewerScreenState
           Positioned.fill(
             child: SafeArea(
               child: Listener(
+                behavior: HitTestBehavior.translucent,
                 onPointerDown: _handlePointerDown,
+                onPointerMove: _handlePointerMove,
                 onPointerUp: _handlePointerUp,
                 onPointerCancel: _handlePointerCancel,
                 child: content,
@@ -394,23 +459,26 @@ class _LibraryPdfImageViewerScreenState
   }
 
   Widget _buildSaveButton(BuildContext context) {
+    final isSaved = _savedPage == _currentPage;
     return SafeArea(
       child: Align(
         alignment: Alignment.topRight,
         child: Padding(
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.all(10),
           child: Material(
-            color: Colors.black.withValues(alpha: 0.42),
+            color: isSaved
+                ? AppPalette.flameGold
+                : Colors.black.withValues(alpha: 0.44),
             shape: const CircleBorder(),
             child: InkWell(
               customBorder: const CircleBorder(),
-              onTap: _saveCurrentPage,
-              child: const SizedBox.square(
-                dimension: 34,
+              onTap: _toggleCurrentPageBookmark,
+              child: SizedBox.square(
+                dimension: 44,
                 child: Icon(
-                  Icons.bookmark_add_rounded,
-                  color: Colors.white,
-                  size: 18,
+                  isSaved ? Icons.bookmark_rounded : Icons.bookmark_add_rounded,
+                  color: isSaved ? AppPalette.midnight : Colors.white,
+                  size: 23,
                 ),
               ),
             ),
