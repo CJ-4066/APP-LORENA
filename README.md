@@ -80,7 +80,7 @@ Notas operativas:
 
 Servicios disponibles por `docker compose`:
 
-- `postgres`: `localhost:5432`
+- `postgres`: `localhost:55432`
 - `redis`: `localhost:6379`
 - `minio`: `http://localhost:9000`
 - consola MinIO: `http://localhost:9001`
