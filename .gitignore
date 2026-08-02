@@ -1,0 +1,22 @@
+.DS_Store
+.run/
+.tailnet-api-url
+.idea/
+.vscode/
+appuruguay/
+node_modules/
+dist/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+coverage/
+*.log
+.env
+.env.*
+!.env.example
+
+# Generated PDF/cache data. These are recreated by the API and ingest scripts.
+apps/api/uploads/library-cache/
+apps/api/data/knowledge/cache/

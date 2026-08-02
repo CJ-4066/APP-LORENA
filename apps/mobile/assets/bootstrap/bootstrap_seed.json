@@ -1,0 +1,877 @@
+{
+  "app": {
+    "name": "Lo Renaciente",
+    "tagline": "Autoconocimiento, guía y consultas en un mismo lugar.",
+    "market": "Perú / Latam",
+    "timezone": "America/Lima"
+  },
+  "user": {
+    "id": "user-mark",
+    "firstName": "Mark",
+    "lastName": "Lore",
+    "nickname": "mark",
+    "email": "mark@example.com",
+    "location": "Lima, Perú",
+    "timezone": "America/Lima",
+    "zodiacSign": "Sagitario",
+    "planId": "free",
+    "natalChart": {
+      "subjectName": "Mark",
+      "birthDate": "2000-11-28",
+      "birthTime": "01:40",
+      "birthTimeUnknown": false,
+      "city": "Lima",
+      "state": "Lima",
+      "country": "Perú",
+      "timeZoneId": "America/Lima",
+      "utcOffset": "-05:00",
+      "latitude": -12.0464,
+      "longitude": -77.0428
+    },
+    "preferences": {
+      "focusAreas": ["claridad", "propósito", "vínculos"],
+      "preferredSessionModes": ["chat", "video"],
+      "receivesPush": true
+    }
+  },
+  "home": {
+    "welcomeTitle": "Hola, Mark",
+    "welcomeSubtitle": "Tu espacio diario para tarot, astrología, consultas y contenido premium.",
+    "cardOfTheDay": {
+      "title": "Carta del día",
+      "cardName": "La Estrella",
+      "message": "Hoy conviene bajar el ruido, recuperar fe en tu proceso y tomar una acción pequeña pero coherente.",
+      "ritual": "1. Escribe una intención breve. 2. Respira 3 veces mirando esa frase. 3. Haz una acción pequeña antes del mediodía."
+    },
+    "astrologicalEnergy": {
+      "title": "Energía astrológica",
+      "summary": "La Luna favorece conversaciones honestas, cierre emocional y orden interno.",
+      "advice": "No fuerces definiciones si todavía necesitas más contexto.",
+      "intensity": "media-alta"
+    },
+    "quickActions": [
+      {
+        "id": "quick-tarot",
+        "label": "Portal Tarot",
+        "description": "Carta del día, lecturas y especialistas",
+        "type": "content"
+      },
+      {
+        "id": "quick-reading",
+        "label": "Lectura diaria",
+        "description": "Carta del día y tirada interactiva",
+        "type": "content"
+      },
+      {
+        "id": "quick-numerology",
+        "label": "Numerología",
+        "description": "Perfil, ciclos y nombre natal",
+        "type": "content"
+      },
+      {
+        "id": "quick-booking",
+        "label": "Agendar consulta",
+        "description": "Reserva con un especialista",
+        "type": "booking"
+      },
+      {
+        "id": "quick-premium",
+        "label": "Ver Premium",
+        "description": "Desbloquea biblioteca y chat",
+        "type": "subscription"
+      },
+      {
+        "id": "quick-profile",
+        "label": "Completar perfil astral",
+        "description": "Fecha, hora y lugar de nacimiento",
+        "type": "profile"
+      }
+    ],
+    "upcomingBooking": {
+      "id": "booking-1",
+      "specialistName": "Amaya Rivas",
+      "serviceName": "Lectura de tarot terapéutico",
+      "scheduledAt": "2026-03-24T19:00:00-05:00",
+      "status": "confirmed"
+    },
+    "featuredMessage": "La mejor primera versión prioriza agenda, contenido diario y monetización clara por plataforma."
+  },
+  "plans": [
+    {
+      "id": "free",
+      "name": "Free",
+      "tier": "free",
+      "priceMonthly": 0,
+      "currency": "USD",
+      "isPopular": false,
+      "features": [
+        "Energía de hoy (Numerología)",
+        "Carta Natal: Rueda Natal",
+        "Tarot: Tirada diaria 3 cartas",
+        "Shop",
+        "Curso gratuito",
+        "Agenda descuento",
+        "Numerología",
+        "Carta Natal: Esencia"
+      ],
+      "sessionMessageLimit": 20,
+      "consultationAccess": ["tarot", "astrología"]
+    },
+    {
+      "id": "premium",
+      "name": "Premium",
+      "tier": "premium",
+      "priceMonthly": 14.99,
+      "currency": "USD",
+      "isPopular": true,
+      "features": [
+        "Carta Natal: Tránsitos",
+        "Carta Natal: Técnica",
+        "Carta Natal: Tiempo",
+        "Biblioteca",
+        "Cursos",
+        "Lecturas de Tarot 20% descuento"
+      ],
+      "sessionMessageLimit": null,
+      "consultationAccess": [
+        "tarot",
+        "astrología",
+        "numerología",
+        "reiki",
+        "diseños humanos",
+        "feng shui"
+      ]
+    }
+  ],
+  "subscription": {
+    "planId": "free",
+    "planName": "Free",
+    "status": "inactive",
+    "renewsAt": null,
+    "platform": "ios",
+    "billingProvider": "mercado_pago",
+    "entitlements": [
+      "Carta del día",
+      "Energía astrológica básica",
+      "Agenda limitada",
+      "Chat con límite mensual"
+    ]
+  },
+  "payments": {
+    "consultationProvider": "Mercado Pago",
+    "premiumProvider": "Apple In-App Purchase / Google Play Billing",
+    "supportedMethods": [
+      "Tarjetas crédito/débito",
+      "Transferencias",
+      "Pago en efectivo habilitado por Mercado Pago",
+      "Suscripcion mensual o anual en stores"
+    ],
+    "notes": [
+      "Premium y contenido digital se gestionan por billing de tienda.",
+      "Consultas 1:1 pueden evaluarse con Mercado Pago segun el flujo final."
+    ]
+  },
+  "services": [
+    {
+      "id": "service-tarot",
+      "name": "Lectura de tarot terapéutico",
+      "category": "Tarot",
+      "description": "Sesión enfocada en claridad emocional, decisiones y cierres de ciclo.",
+      "durationMinutes": 45,
+      "price": {
+        "amount": 32,
+        "currency": "USD"
+      },
+      "deliveryModes": ["chat", "video"],
+      "premiumIncluded": false,
+      "specialistIds": ["spec-amaya"]
+    },
+    {
+      "id": "service-astro",
+      "name": "Astrología natal personalizada",
+      "category": "Astrología",
+      "description": "Lectura de carta natal con foco en identidad, relaciones y timing.",
+      "durationMinutes": 60,
+      "price": {
+        "amount": 48,
+        "currency": "USD"
+      },
+      "deliveryModes": ["audio", "video"],
+      "premiumIncluded": false,
+      "specialistIds": ["spec-elian"]
+    },
+    {
+      "id": "service-numerologia",
+      "name": "Consulta de numerología",
+      "category": "Numerología",
+      "description": "Interpretación de ciclos, talentos y aprendizajes por vibración numérica.",
+      "durationMinutes": 40,
+      "price": {
+        "amount": 29,
+        "currency": "USD"
+      },
+      "deliveryModes": ["chat", "audio"],
+      "premiumIncluded": false,
+      "specialistIds": ["spec-mila"]
+    }
+  ],
+  "specialists": [
+    {
+      "id": "spec-amaya",
+      "name": "Amaya Rivas",
+      "headline": "Tarot terapéutico y lectura intuitiva",
+      "specialties": ["Tarot", "Procesos emocionales", "Rituales de cierre"],
+      "bio": "Acompaña procesos de cambio con tarot, escucha activa y trabajo simbólico.",
+      "yearsExperience": 8,
+      "sessionModes": ["chat", "video"],
+      "languages": ["es", "pt"],
+      "rating": 4.9,
+      "reviewCount": 128,
+      "featured": true,
+      "nextAvailableAt": "2026-03-24T19:00:00-05:00"
+    },
+    {
+      "id": "spec-elian",
+      "name": "Elian Duarte",
+      "headline": "Astrología natal, sinastría y ciclos",
+      "specialties": ["Astrología natal", "Sinastría", "Revolución solar"],
+      "bio": "Trabaja con mapa natal y tránsitos para ordenar decisiones y tiempos.",
+      "yearsExperience": 11,
+      "sessionModes": ["audio", "video"],
+      "languages": ["es", "en"],
+      "rating": 4.8,
+      "reviewCount": 96,
+      "featured": true,
+      "nextAvailableAt": "2026-03-28T18:30:00-05:00"
+    }
+  ],
+  "courses": [
+    {
+      "id": "course-tarot-sin-ruido",
+      "title": "Tarot sin ruido",
+      "subtitle": "Intuición, símbolo y decisiones sin respuestas literales",
+      "category": "Tarot",
+      "level": "Inicial",
+      "premium": false,
+      "featured": true,
+      "removable": true,
+      "estimatedHours": 3.5,
+      "moduleCount": 4,
+      "lessonCount": 12,
+      "progressPercent": 28,
+      "streakDays": 4,
+      "hook": "Una ruta corta y muy práctica para que el tarot deje de sentirse confuso y empiece a darte claridad accionable.",
+      "description": "Este curso cambia la lógica de predecir por lectura simbólica, foco emocional y decisiones concretas después de cada tirada.",
+      "outcomes": [
+        "Aprender a formular preguntas que abren lectura útil.",
+        "Leer arcanos sin depender de palabras clave rígidas.",
+        "Cerrar cada tirada con una acción observable."
+      ],
+      "modules": [
+        {
+          "id": "course-tarot-sin-ruido-m1",
+          "title": "Bajar el ruido mental",
+          "summary": "Cómo entrar al tarot sin ansiedad por acertar y sin buscar respuestas literales.",
+          "durationMinutes": 48,
+          "lessons": [
+            {
+              "id": "course-tarot-sin-ruido-m1-l1",
+              "title": "La pregunta que abre símbolo",
+              "format": "video",
+              "durationMinutes": 11,
+              "prompt": "Reescribe una pregunta cerrada como una pregunta de claridad."
+            }
+          ]
+        },
+        {
+          "id": "course-tarot-sin-ruido-m2",
+          "title": "Arcanos que sí cambian una decisión",
+          "summary": "Aprende a distinguir energía de fondo, advertencia y oportunidad.",
+          "durationMinutes": 56,
+          "lessons": [
+            {
+              "id": "course-tarot-sin-ruido-m2-l1",
+              "title": "Mayores como bisagra",
+              "format": "video",
+              "durationMinutes": 14,
+              "prompt": "Ubica en qué área de tu vida ya se siente un cambio de etapa."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "course-arquitectura-del-destino",
+      "title": "Arquitectura del destino",
+      "subtitle": "Astrología y numerología para leer tu año sin improvisar",
+      "category": "Astro + Numerología",
+      "level": "Intermedio",
+      "premium": true,
+      "featured": false,
+      "removable": true,
+      "estimatedHours": 5.2,
+      "moduleCount": 5,
+      "lessonCount": 15,
+      "progressPercent": 8,
+      "streakDays": 1,
+      "hook": "Una experiencia con ritmo de serie corta para entender tus ciclos y salir con mapa de acción trimestral.",
+      "description": "Cruza sendero de vida, año personal, Sol, Luna y tránsitos clave para pasar de intuición suelta a estrategia personal con timing.",
+      "outcomes": [
+        "Ubicar tu tema rector del año con astrología y numerología.",
+        "Detectar meses de avance, corrección y repliegue.",
+        "Construir un tablero de decisiones por trimestre."
+      ],
+      "modules": [
+        {
+          "id": "course-arquitectura-del-destino-m1",
+          "title": "Tu mapa rector",
+          "summary": "Junta Sol, Luna, Ascendente y sendero de vida para encontrar el patrón de fondo.",
+          "durationMinutes": 58,
+          "lessons": [
+            {
+              "id": "course-arquitectura-del-destino-m1-l1",
+              "title": "Sol, Luna y Ascendente en lenguaje humano",
+              "format": "video",
+              "durationMinutes": 18,
+              "prompt": "Describe tu energía base, necesidad emocional y forma de entrar al mundo."
+            }
+          ]
+        },
+        {
+          "id": "course-arquitectura-del-destino-m2",
+          "title": "Año personal y tránsitos",
+          "summary": "Cruza timing numerológico con el cielo para detectar presión, expansión y limpieza.",
+          "durationMinutes": 64,
+          "lessons": [
+            {
+              "id": "course-arquitectura-del-destino-m2-l1",
+              "title": "Leer el año personal",
+              "format": "video",
+              "durationMinutes": 16,
+              "prompt": "Identifica el verbo central del año: sembrar, ordenar, exponer o cerrar."
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "shop": {
+    "title": "Shop Renaciente",
+    "subtitle": "Una selección cuidada de productos para acompañar tu espacio y tu práctica.",
+    "featuredNote": "Catálogo seed para mantener visible la tienda mientras la API se reconecta.",
+    "supportNote": "Este seed incluye productos y pedidos demo para validar trayecto, filtros y detalle de Shop incluso si la API se cae.",
+    "currency": "USD",
+    "products": [
+      {
+        "id": "shop-vela-luna-nueva",
+        "name": "Vela ritual Luna Nueva",
+        "category": "Velas",
+        "specialistId": "spec-amaya",
+        "specialistName": "Amaya Rivas",
+        "storeId": "store-spec-amaya",
+        "storeName": "Tienda de Amaya Rivas",
+        "shortDescription": "Cera vegetal con notas de mirra y jazmín.",
+        "description": "Vela pensada para aperturas, intenciones y limpiezas suaves del espacio.",
+        "price": {
+          "amount": 18,
+          "currency": "USD"
+        },
+        "sku": "VELA-LUNA-NUEVA-AMAYA",
+        "status": "active",
+        "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/d/db/Ritual-_Candles.jpg",
+        "imageUrls": [
+          "https://upload.wikimedia.org/wikipedia/commons/d/db/Ritual-_Candles.jpg",
+          "https://upload.wikimedia.org/wikipedia/commons/f/f5/Candle_black.jpg",
+          "https://upload.wikimedia.org/wikipedia/commons/8/83/Tarot_cards_-_3_card_spread_with_candles.jpg"
+        ],
+        "artwork": "candle-moon",
+        "badge": "Ritual inicial",
+        "featured": true,
+        "stockLabel": "Disponible",
+        "stockQuantity": 9,
+        "madeToOrder": false,
+        "tags": ["cera vegetal", "intención", "altar"]
+      },
+      {
+        "id": "shop-vela-proteccion",
+        "name": "Vela Protección Obsidiana",
+        "category": "Velas",
+        "specialistId": "spec-amaya",
+        "specialistName": "Amaya Rivas",
+        "storeId": "store-spec-amaya",
+        "storeName": "Tienda de Amaya Rivas",
+        "shortDescription": "Blend oscuro para cierres y contención energética.",
+        "description": "Ideal para rituales de protección, límites y cierres de ciclo con humo suave.",
+        "price": {
+          "amount": 21,
+          "currency": "USD"
+        },
+        "sku": "VELA-OBSIDIANA-AMAYA",
+        "status": "active",
+        "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/f/f5/Candle_black.jpg",
+        "imageUrls": [
+          "https://upload.wikimedia.org/wikipedia/commons/f/f5/Candle_black.jpg",
+          "https://upload.wikimedia.org/wikipedia/commons/d/db/Ritual-_Candles.jpg",
+          "https://upload.wikimedia.org/wikipedia/commons/8/83/Tarot_cards_-_3_card_spread_with_candles.jpg"
+        ],
+        "artwork": "candle-obsidian",
+        "badge": "Protección",
+        "featured": false,
+        "stockLabel": "Pocas unidades",
+        "stockQuantity": 3,
+        "madeToOrder": false,
+        "tags": ["obsidiana", "protección", "limpieza"]
+      },
+      {
+        "id": "shop-cuadro-carta-dorada",
+        "name": "Cuadro carta natal dorada",
+        "category": "Cuadros",
+        "specialistId": "spec-elian",
+        "specialistName": "Elian Duarte",
+        "storeId": "store-spec-elian",
+        "storeName": "Tienda de Elian Duarte",
+        "shortDescription": "Impresión premium con mapa natal en foil.",
+        "description": "Tu carta natal en composición vertical con acentos dorados y datos de nacimiento.",
+        "price": {
+          "amount": 64,
+          "currency": "USD"
+        },
+        "sku": "CUADRO-NATAL-DORADA-ELIAN",
+        "status": "active",
+        "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/0/03/Astrological_birth_chart_for_1st_Duke_of_Albemarle_Wellcome_L0040335.jpg",
+        "imageUrls": [
+          "https://upload.wikimedia.org/wikipedia/commons/0/03/Astrological_birth_chart_for_1st_Duke_of_Albemarle_Wellcome_L0040335.jpg",
+          "https://upload.wikimedia.org/wikipedia/commons/b/b5/12_star_charts_of_the_signs_of_the_Zodiac_by_John_Bevis.jpg"
+        ],
+        "artwork": "natal-gold",
+        "badge": "Personalizable",
+        "featured": true,
+        "stockLabel": "Hecho a pedido",
+        "stockQuantity": 0,
+        "madeToOrder": true,
+        "tags": ["carta natal", "foil", "decoración"]
+      },
+      {
+        "id": "shop-estatua-buda-lunar",
+        "name": "Estatua Buda lunar",
+        "category": "Estatuas",
+        "specialistId": "spec-mila",
+        "specialistName": "Mila Sol",
+        "storeId": "store-spec-mila",
+        "storeName": "Tienda de Mila Sol",
+        "shortDescription": "Figura pequeña para meditación y calma visual.",
+        "description": "Acabado piedra suave para rincones de lectura, meditación y descanso.",
+        "price": {
+          "amount": 39,
+          "currency": "USD"
+        },
+        "sku": "ESTATUA-BUDA-LUNAR-MILA",
+        "status": "active",
+        "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/3/34/Dhyana_buddha_statue_in_Amaravathi.jpg",
+        "imageUrls": [
+          "https://upload.wikimedia.org/wikipedia/commons/3/34/Dhyana_buddha_statue_in_Amaravathi.jpg",
+          "https://upload.wikimedia.org/wikipedia/commons/b/bd/Moon_Statue.jpg"
+        ],
+        "artwork": "statue-buddha",
+        "badge": "Calma",
+        "featured": false,
+        "stockLabel": "Disponible",
+        "stockQuantity": 9,
+        "madeToOrder": false,
+        "tags": ["meditación", "hogar", "serenidad"]
+      },
+      {
+        "id": "shop-simbolo-flor-vida",
+        "name": "Símbolo Flor de la Vida",
+        "category": "Símbolos",
+        "specialistId": "spec-elian",
+        "specialistName": "Elian Duarte",
+        "storeId": "store-spec-elian",
+        "storeName": "Tienda de Elian Duarte",
+        "shortDescription": "Placa metálica para pared o altar.",
+        "description": "Símbolo geométrico en acabado dorado mate para armonizar el espacio.",
+        "price": {
+          "amount": 27,
+          "currency": "USD"
+        },
+        "sku": "SIMBOLO-FLOR-VIDA-ELIAN",
+        "status": "active",
+        "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/f/f4/Flower_of_life_black.png",
+        "imageUrls": [
+          "https://upload.wikimedia.org/wikipedia/commons/f/f4/Flower_of_life_black.png",
+          "https://upload.wikimedia.org/wikipedia/commons/8/87/Steel_pentagram_01.jpg"
+        ],
+        "artwork": "symbol-flower",
+        "badge": "Geometría sagrada",
+        "featured": false,
+        "stockLabel": "Disponible",
+        "stockQuantity": 9,
+        "madeToOrder": false,
+        "tags": ["geometría", "armonía", "pared"]
+      },
+      {
+        "id": "shop-tarot-rider-waite",
+        "name": "Tarot Rider Waite lino",
+        "category": "Tarot",
+        "specialistId": "spec-amaya",
+        "specialistName": "Amaya Rivas",
+        "storeId": "store-spec-amaya",
+        "storeName": "Tienda de Amaya Rivas",
+        "shortDescription": "Mazo clásico con acabado mate texturizado.",
+        "description": "Versión suave al tacto, ideal para práctica diaria y lecturas guiadas.",
+        "price": {
+          "amount": 33,
+          "currency": "USD"
+        },
+        "sku": "TAROT-RIDER-WAITE-AMAYA",
+        "status": "active",
+        "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/3/3e/Rider-Waite_Major_Arcana_full.png",
+        "imageUrls": [
+          "https://upload.wikimedia.org/wikipedia/commons/3/3e/Rider-Waite_Major_Arcana_full.png",
+          "https://upload.wikimedia.org/wikipedia/commons/8/83/Tarot_cards_-_3_card_spread_with_candles.jpg",
+          "https://upload.wikimedia.org/wikipedia/commons/3/3f/Tarot_De_Marseille.jpg"
+        ],
+        "artwork": "tarot-rider",
+        "badge": "Clásico",
+        "featured": true,
+        "stockLabel": "Disponible",
+        "stockQuantity": 9,
+        "madeToOrder": false,
+        "tags": ["78 cartas", "clásico", "aprendizaje"]
+      },
+      {
+        "id": "shop-simbolo-pentagrama",
+        "name": "Pentagrama ceremonial",
+        "category": "Símbolos",
+        "specialistId": "spec-elian",
+        "specialistName": "Elian Duarte",
+        "storeId": "store-spec-elian",
+        "storeName": "Tienda de Elian Duarte",
+        "shortDescription": "Pieza de altar en madera oscura y latón.",
+        "description": "Símbolo para mesa ritual, prácticas de enfoque e intención consciente.",
+        "price": {
+          "amount": 24,
+          "currency": "USD"
+        },
+        "sku": "SIMBOLO-PENTAGRAMA-ELIAN",
+        "status": "active",
+        "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/8/87/Steel_pentagram_01.jpg",
+        "imageUrls": [
+          "https://upload.wikimedia.org/wikipedia/commons/8/87/Steel_pentagram_01.jpg",
+          "https://upload.wikimedia.org/wikipedia/commons/f/f4/Flower_of_life_black.png"
+        ],
+        "artwork": "symbol-pentacle",
+        "badge": "Mesa ritual",
+        "featured": false,
+        "stockLabel": "Disponible",
+        "stockQuantity": 9,
+        "madeToOrder": false,
+        "tags": ["latón", "altar", "foco"]
+      },
+      {
+        "id": "shop-tarot-marsella",
+        "name": "Tarot de Marsella restaurado",
+        "category": "Tarot",
+        "specialistId": "spec-amaya",
+        "specialistName": "Amaya Rivas",
+        "storeId": "store-spec-amaya",
+        "storeName": "Tienda de Amaya Rivas",
+        "shortDescription": "Paleta restaurada con guía breve incluida.",
+        "description": "Mazo enfocado en lectura simbólica tradicional con colores renovados.",
+        "price": {
+          "amount": 37,
+          "currency": "USD"
+        },
+        "sku": "TAROT-MARSELLA-AMAYA",
+        "status": "active",
+        "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/3/3f/Tarot_De_Marseille.jpg",
+        "imageUrls": [
+          "https://upload.wikimedia.org/wikipedia/commons/3/3f/Tarot_De_Marseille.jpg",
+          "https://upload.wikimedia.org/wikipedia/commons/3/3e/Rider-Waite_Major_Arcana_full.png",
+          "https://upload.wikimedia.org/wikipedia/commons/8/83/Tarot_cards_-_3_card_spread_with_candles.jpg"
+        ],
+        "artwork": "tarot-marsella",
+        "badge": "Marsella",
+        "featured": true,
+        "stockLabel": "Disponible",
+        "stockQuantity": 9,
+        "madeToOrder": false,
+        "tags": ["tradicional", "restaurado", "guía"]
+      },
+      {
+        "id": "shop-tarot-lunar-oracle",
+        "name": "Tarot Lunar Vision",
+        "category": "Tarot",
+        "specialistId": "spec-amaya",
+        "specialistName": "Amaya Rivas",
+        "storeId": "store-spec-amaya",
+        "storeName": "Tienda de Amaya Rivas",
+        "shortDescription": "Mazo ilustrado con tono místico contemporáneo.",
+        "description": "Ideal para lecturas intuitivas, journaling y trabajo con fases lunares.",
+        "price": {
+          "amount": 41,
+          "currency": "USD"
+        },
+        "sku": "TAROT-LUNAR-VISION-AMAYA",
+        "status": "active",
+        "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/8/83/Tarot_cards_-_3_card_spread_with_candles.jpg",
+        "imageUrls": [
+          "https://upload.wikimedia.org/wikipedia/commons/8/83/Tarot_cards_-_3_card_spread_with_candles.jpg",
+          "https://upload.wikimedia.org/wikipedia/commons/f/fb/Thoth_Tarot_Cards_in_the_Museum_of_Witchcraft_and_Magic.jpg",
+          "https://upload.wikimedia.org/wikipedia/commons/3/3f/Tarot_De_Marseille.jpg"
+        ],
+        "artwork": "tarot-lunar",
+        "badge": "Edición visual",
+        "featured": false,
+        "stockLabel": "Nueva llegada",
+        "stockQuantity": 7,
+        "madeToOrder": false,
+        "tags": ["luna", "intuición", "journaling"]
+      }
+    ],
+    "orders": [
+      {
+        "id": "order-seed-1",
+        "userId": "user-mark",
+        "orderCode": "LR-2026-041",
+        "status": "shipped",
+        "createdAt": "2026-04-11T16:40:00-05:00",
+        "specialistId": "spec-elian",
+        "specialistName": "Elian Duarte",
+        "storeId": "store-spec-elian",
+        "storeName": "Tienda de Elian Duarte",
+        "deliveryAddress": "Miraflores, Lima, Perú",
+        "notes": "Recibido por portería. Cliente pidió empaque discreto.",
+        "subtotal": {
+          "amount": 51,
+          "currency": "USD"
+        },
+        "shipping": {
+          "amount": 9,
+          "currency": "USD"
+        },
+        "total": {
+          "amount": 60,
+          "currency": "USD"
+        },
+        "itemCount": 2,
+        "items": [
+          {
+            "productId": "shop-simbolo-flor-vida",
+            "productName": "Símbolo Flor de la Vida",
+            "category": "Símbolos",
+            "quantity": 1,
+            "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/f/f4/Flower_of_life_black.png",
+            "unitPrice": {
+              "amount": 27,
+              "currency": "USD"
+            },
+            "lineTotal": {
+              "amount": 27,
+              "currency": "USD"
+            }
+          },
+          {
+            "productId": "shop-simbolo-pentagrama",
+            "productName": "Pentagrama ceremonial",
+            "category": "Símbolos",
+            "quantity": 1,
+            "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/8/87/Steel_pentagram_01.jpg",
+            "unitPrice": {
+              "amount": 24,
+              "currency": "USD"
+            },
+            "lineTotal": {
+              "amount": 24,
+              "currency": "USD"
+            }
+          }
+        ]
+      },
+      {
+        "id": "order-seed-2",
+        "userId": "user-mark",
+        "orderCode": "LR-2026-042",
+        "status": "preparing",
+        "createdAt": "2026-04-15T10:15:00-05:00",
+        "specialistId": "spec-elian",
+        "specialistName": "Elian Duarte",
+        "storeId": "store-spec-elian",
+        "storeName": "Tienda de Elian Duarte",
+        "deliveryAddress": "Barranco, Lima, Perú",
+        "notes": "Validar dedicatoria breve antes de cerrar la impresión.",
+        "subtotal": {
+          "amount": 64,
+          "currency": "USD"
+        },
+        "shipping": {
+          "amount": 9,
+          "currency": "USD"
+        },
+        "total": {
+          "amount": 73,
+          "currency": "USD"
+        },
+        "itemCount": 1,
+        "items": [
+          {
+            "productId": "shop-cuadro-carta-dorada",
+            "productName": "Cuadro carta natal dorada",
+            "category": "Cuadros",
+            "quantity": 1,
+            "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/0/03/Astrological_birth_chart_for_1st_Duke_of_Albemarle_Wellcome_L0040335.jpg",
+            "unitPrice": {
+              "amount": 64,
+              "currency": "USD"
+            },
+            "lineTotal": {
+              "amount": 64,
+              "currency": "USD"
+            }
+          }
+        ]
+      },
+      {
+        "id": "order-seed-3",
+        "userId": "user-mark",
+        "orderCode": "LR-2026-043",
+        "status": "confirmed",
+        "createdAt": "2026-04-18T14:20:00-05:00",
+        "specialistId": "spec-amaya",
+        "specialistName": "Amaya Rivas",
+        "storeId": "store-spec-amaya",
+        "storeName": "Tienda de Amaya Rivas",
+        "deliveryAddress": "Surco, Lima, Perú",
+        "notes": "Coordinar envío luego de las 6 p. m.",
+        "subtotal": {
+          "amount": 51,
+          "currency": "USD"
+        },
+        "shipping": {
+          "amount": 9,
+          "currency": "USD"
+        },
+        "total": {
+          "amount": 60,
+          "currency": "USD"
+        },
+        "itemCount": 2,
+        "items": [
+          {
+            "productId": "shop-vela-luna-nueva",
+            "productName": "Vela ritual Luna Nueva",
+            "category": "Velas",
+            "quantity": 1,
+            "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/d/db/Ritual-_Candles.jpg",
+            "unitPrice": {
+              "amount": 18,
+              "currency": "USD"
+            },
+            "lineTotal": {
+              "amount": 18,
+              "currency": "USD"
+            }
+          },
+          {
+            "productId": "shop-tarot-rider-waite",
+            "productName": "Tarot Rider Waite lino",
+            "category": "Tarot",
+            "quantity": 1,
+            "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/3/3e/Rider-Waite_Major_Arcana_full.png",
+            "unitPrice": {
+              "amount": 33,
+              "currency": "USD"
+            },
+            "lineTotal": {
+              "amount": 33,
+              "currency": "USD"
+            }
+          }
+        ]
+      },
+      {
+        "id": "order-seed-4",
+        "userId": "user-mark",
+        "orderCode": "LR-2026-044",
+        "status": "pending",
+        "createdAt": "2026-04-20T09:05:00-05:00",
+        "specialistId": "spec-amaya",
+        "specialistName": "Amaya Rivas",
+        "storeId": "store-spec-amaya",
+        "storeName": "Tienda de Amaya Rivas",
+        "deliveryAddress": "San Isidro, Lima, Perú",
+        "notes": "Cliente pidió confirmar stock antes de coordinar pago.",
+        "subtotal": {
+          "amount": 62,
+          "currency": "USD"
+        },
+        "shipping": {
+          "amount": 9,
+          "currency": "USD"
+        },
+        "total": {
+          "amount": 71,
+          "currency": "USD"
+        },
+        "itemCount": 2,
+        "items": [
+          {
+            "productId": "shop-vela-proteccion",
+            "productName": "Vela Protección Obsidiana",
+            "category": "Velas",
+            "quantity": 1,
+            "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/f/f5/Candle_black.jpg",
+            "unitPrice": {
+              "amount": 21,
+              "currency": "USD"
+            },
+            "lineTotal": {
+              "amount": 21,
+              "currency": "USD"
+            }
+          },
+          {
+            "productId": "shop-tarot-lunar-oracle",
+            "productName": "Tarot Lunar Vision",
+            "category": "Tarot",
+            "quantity": 1,
+            "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/8/83/Tarot_cards_-_3_card_spread_with_candles.jpg",
+            "unitPrice": {
+              "amount": 41,
+              "currency": "USD"
+            },
+            "lineTotal": {
+              "amount": 41,
+              "currency": "USD"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "bookings": [
+    {
+      "id": "booking-1",
+      "userId": "user-mark",
+      "serviceId": "service-tarot",
+      "serviceName": "Lectura de tarot terapéutico",
+      "specialistId": "spec-amaya",
+      "specialistName": "Amaya Rivas",
+      "scheduledAt": "2026-03-24T19:00:00-03:00",
+      "mode": "video",
+      "status": "confirmed",
+      "price": {
+        "amount": 32,
+        "currency": "USD"
+      },
+      "notes": "Quiero trabajar claridad sobre una decisión profesional."
+    }
+  ],
+  "admin": {
+    "activeUsers": 324,
+    "premiumSubscribers": 81,
+    "monthlyBookings": 146,
+    "activeSpecialists": 7,
+    "openIncidents": 2
+  }
+}

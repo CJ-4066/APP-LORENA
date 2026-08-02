@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title>psychology_path-3</title>
+  <desc>PSYCHOLOGY · STEP 3</desc>
+  <defs>
+    <linearGradient id="psychology_path-3-bg" x1="18" y1="18" x2="238" y2="238" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#C3A5FF"/>
+      <stop offset="100%" stop-color="#4D2F7E"/>
+    </linearGradient>
+    <radialGradient id="psychology_path-3-glow" cx="0.5" cy="0.4" r="0.75">
+      <stop offset="0%" stop-color="#E6D7FF" stop-opacity="0.68"/>
+      <stop offset="100%" stop-color="#E6D7FF" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="psychology_path-3-shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#000000" flood-opacity="0.26"/>
+    </filter>
+  </defs>
+  <rect width="256" height="256" rx="42" fill="url(#psychology_path-3-bg)"/>
+  <circle cx="128" cy="110" r="92" fill="url(#psychology_path-3-glow)" opacity="0.92"/>
+  <circle cx="128" cy="110" r="78" fill="rgba(12,14,18,0.42)" stroke="rgba(255,255,255,0.24)" stroke-width="1.4" filter="url(#psychology_path-3-shadow)"/>
+  <circle cx="128" cy="110" r="54" fill="none" stroke="rgba(255,255,255,0.16)" stroke-width="10"/>
+  <circle cx="128" cy="110" r="30" fill="rgba(255,255,255,0.12)" stroke="rgba(255,255,255,0.22)" stroke-width="1"/>
+  <text x="128" y="101" text-anchor="middle" font-family="Cormorant Garamond, Georgia, serif" font-size="42" font-weight="700" fill="white">P</text>
+  <text x="128" y="141" text-anchor="middle" font-family="Cormorant Garamond, Georgia, serif" font-size="34" font-weight="700" fill="white">03</text>
+  <text x="128" y="190" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="rgba(255,255,255,0.96)">Psychology</text>
+  <text x="128" y="214" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="700" letter-spacing="1.6" fill="rgba(255,255,255,0.76)">PSYCHOLOGY · STEP 3</text>
+</svg>

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title>Llama Dorada</title>
+  <desc>Award step 3 placeholder badge icon.</desc>
+  <defs>
+    <linearGradient id="bg-badge-llama-dorada" x1="20" y1="18" x2="236" y2="238" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#F7D8A0"/>
+      <stop offset="100%" stop-color="#855A1C"/>
+    </linearGradient>
+    <radialGradient id="glow-badge-llama-dorada" cx="0.5" cy="0.38" r="0.72">
+      <stop offset="0%" stop-color="#FFF0CF" stop-opacity="0.65"/>
+      <stop offset="100%" stop-color="#FFF0CF" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="shadow-badge-llama-dorada" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="16" stdDeviation="16" flood-color="#000000" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+  <rect x="0" y="0" width="256" height="256" rx="42" fill="url(#bg-badge-llama-dorada)"/>
+  <circle cx="128" cy="112" r="90" fill="url(#glow-badge-llama-dorada)" opacity="0.9"/>
+  <circle cx="128" cy="112" r="76" fill="rgba(9,13,18,0.44)" stroke="rgba(255,255,255,0.24)" stroke-width="1.5" filter="url(#shadow-badge-llama-dorada)"/>
+  <circle cx="128" cy="112" r="52" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="10"/>
+  <circle cx="128" cy="112" r="32" fill="rgba(255,255,255,0.10)" stroke="rgba(255,255,255,0.26)" stroke-width="1"/>
+  <text x="128" y="101" text-anchor="middle" font-family="Cormorant Garamond, Georgia, serif" font-size="44" font-weight="700" fill="white">A</text>
+  <text x="128" y="139" text-anchor="middle" font-family="Cormorant Garamond, Georgia, serif" font-size="30" font-weight="700" fill="white">03</text>
+  <text x="128" y="191" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" font-weight="700" fill="rgba(255,255,255,0.94)">Llama Dorada</text>
+  <text x="128" y="214" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="700" letter-spacing="1.6" fill="rgba(255,255,255,0.72)">AWARD · STEP 3</text>
+  <text x="128" y="31" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="700" letter-spacing="2.8" fill="rgba(255,255,255,0.72)">badge-llama-dorada</text>
+</svg>

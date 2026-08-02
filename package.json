@@ -1,0 +1,35 @@
+{
+  "name": "lo-renaciente",
+  "private": true,
+  "workspaces": [
+    "apps/api",
+    "apps/web",
+    "apps/admin"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev --workspace @lo-renaciente/api",
+    "build:api": "npm run build --workspace @lo-renaciente/api",
+    "dev:landing": "npm run dev --prefix webprincipal",
+    "build:landing": "npm run build --prefix webprincipal",
+    "preview:landing": "npm run preview --prefix webprincipal",
+    "api:install-service": "./scripts/install-api-launchagent.sh",
+    "api:daemon:start": "./scripts/start-api-daemon.sh",
+    "api:daemon:stop": "./scripts/stop-api-daemon.sh",
+    "api:daemon:status": "./scripts/status-api-daemon.sh",
+    "api:deploy:production": "./scripts/deploy-api-production.sh",
+    "mobile:ios:device": "./scripts/run-ios-device.sh",
+    "mobile:ios:public": "./scripts/build-ios-public.sh",
+    "mobile:ios:testflight": "./scripts/build-ios-testflight.sh",
+    "mobile:android:wifi": "./scripts/run-android-wifi.sh",
+    "mobile:android:public": "./scripts/build-android-public.sh",
+    "tailnet:install": "./scripts/install-tailscale-userspace-launchagent.sh",
+    "api:tailnet": "./scripts/publish-api-tailscale.sh",
+    "dev:web": "npm run dev --workspace @lo-renaciente/web",
+    "build:web": "npm run build --workspace @lo-renaciente/web",
+    "dev:admin": "npm run dev --workspace @lo-renaciente/admin",
+    "build:admin": "npm run build --workspace @lo-renaciente/admin",
+    "api:migrate": "npm run migrate --workspace @lo-renaciente/api",
+    "infra:up": "docker compose up -d postgres redis minio",
+    "infra:down": "docker compose down"
+  }
+}
