@@ -402,6 +402,7 @@ type AdminSession = {
 
 type AuthStatus = "loading" | "unauthenticated" | "authenticated";
 type AdminSection =
+  | "dashboard"
   | "specialists"
   | "services"
   | "agenda"
@@ -412,6 +413,8 @@ type AdminSection =
   | "library"
   | "users"
   | "community"
+  | "privateChats"
+  | "orderChats"
   | "support"
   | "developer";
 
@@ -1263,19 +1266,48 @@ const badgeMetricByPath: Record<BadgePathId, string | null> = {
 };
 
 const adminSectionLabels: Record<AdminSection, string> = {
-  specialists: "Especialistas",
+  dashboard: "Resumen",
+  specialists: "Equipo",
   services: "Servicios",
   agenda: "Agenda",
   bookings: "Reservas",
   orders: "Órdenes",
-  shop: "Tienda",
+  shop: "Catálogo",
   courses: "Cursos",
   library: "Biblioteca",
   users: "Usuarios",
-  community: "Chat",
+  community: "Comunicaciones",
+  privateChats: "Mensajes privados",
+  orderChats: "Conversaciones de compra",
   support: "Soporte",
-  developer: "Admin desarrollador",
+  developer: "Herramientas técnicas",
 };
+
+const adminNavigationGroups: Array<{
+  label: string;
+  sections: AdminSection[];
+}> = [
+  {
+    label: "Inicio",
+    sections: ["dashboard"],
+  },
+  {
+    label: "Operación",
+    sections: ["specialists", "agenda", "orders", "users"],
+  },
+  {
+    label: "Contenido",
+    sections: ["shop"],
+  },
+  {
+    label: "Comunicaciones",
+    sections: ["community"],
+  },
+  {
+    label: "Sistema",
+    sections: ["developer"],
+  },
+];
 
 const developerSectionLabels: Record<DeveloperSection, string> = {
   incidents: "Incidencias",
@@ -1283,29 +1315,6 @@ const developerSectionLabels: Record<DeveloperSection, string> = {
   audit: "Auditoría",
   diagnostics: "Diagnóstico",
   settings: "Configuración",
-};
-
-const developerSectionMeta: Record<
-  DeveloperSection,
-  {
-    description: string;
-  }
-> = {
-  incidents: {
-    description: "Revisa fallos operativos y estado general del sistema.",
-  },
-  badges: {
-    description: "Gestiona rutas, insignias y progresión de usuarios.",
-  },
-  audit: {
-    description: "Inspecciona cambios, eventos y trazabilidad.",
-  },
-  diagnostics: {
-    description: "Detecta inconsistencias y puntos de atención.",
-  },
-  settings: {
-    description: "Consulta sesión activa y conexiones del panel.",
-  },
 };
 
 type UserAccessPreset = "client" | "specialist" | "admin";
@@ -1335,6 +1344,7 @@ const userAccessByPreset: Record<UserAccessPreset, string[]> = {
 function isAdminSection(value: string | null): value is AdminSection {
   return (
     value === "specialists" ||
+    value === "dashboard" ||
     value === "services" ||
     value === "agenda" ||
     value === "bookings" ||
@@ -1344,6 +1354,8 @@ function isAdminSection(value: string | null): value is AdminSection {
     value === "library" ||
     value === "users" ||
     value === "community" ||
+    value === "privateChats" ||
+    value === "orderChats" ||
     value === "support" ||
     value === "developer"
   );
@@ -1353,7 +1365,7 @@ function getInitialAdminSection(): AdminSection {
   if (typeof window !== "undefined") {
     const hashSection = window.location.hash.replace("#", "").trim();
     if (isAdminSection(hashSection)) {
-      return hashSection;
+      return hashSection === "bookings" ? "agenda" : hashSection;
     }
 
     if (window.location.pathname.startsWith("/courses")) {
@@ -1361,7 +1373,12 @@ function getInitialAdminSection(): AdminSection {
     }
   }
 
-  return "specialists";
+  const savedSection = window.localStorage.getItem("admin:last-section");
+  return isAdminSection(savedSection)
+    ? savedSection === "bookings"
+      ? "agenda"
+      : savedSection
+    : "dashboard";
 }
 
 function getUserAccessSummary(user: AdminUser): string[] {
@@ -1382,6 +1399,7 @@ type SidebarIconName = AdminSection | DeveloperSection;
 function SidebarIcon({ name }: { name: SidebarIconName }) {
   switch (name) {
     case "specialists":
+    case "dashboard":
       return (
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M16.5 20v-2a4.5 4.5 0 0 0-9 0v2" />
@@ -1450,6 +1468,8 @@ function SidebarIcon({ name }: { name: SidebarIconName }) {
         </svg>
       );
     case "community":
+    case "privateChats":
+    case "orderChats":
       return (
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M5 18v-2a3 3 0 0 1 3-3h3" />
@@ -1984,18 +2004,6 @@ function getProductVisibilityLabel(status: string): string {
   }
 
   return "Visible";
-}
-
-function getProductCommercialLabel(status: string): string {
-  if (status === "active") {
-    return "Activo";
-  }
-
-  if (status === "archived") {
-    return "Inactivo";
-  }
-
-  return "Borrador";
 }
 
 function buildBookingDraft(
@@ -2977,13 +2985,9 @@ function App() {
 
   const handleNavigateSection = useCallback(
     (section: AdminSection) => {
+      if (section === "bookings") section = "agenda";
       if (section === "developer") {
         requestDeveloperAccess("incidents");
-        return;
-      }
-
-      if (section === "courses") {
-        setActiveSection("courses");
         return;
       }
 
@@ -2999,7 +3003,7 @@ function App() {
       }
 
       if (typeof window !== "undefined") {
-        window.history.replaceState(
+        window.history.pushState(
           {},
           "",
           `${window.location.pathname}${window.location.search}#${section}`,
@@ -3018,6 +3022,12 @@ function App() {
       setSelectedCourseId(route.courseId);
       if (route.open) {
         setActiveSection("courses");
+      } else {
+        const rawHashSection = window.location.hash.slice(1) as AdminSection;
+        const hashSection = rawHashSection === "bookings" ? "agenda" : rawHashSection;
+        if (Object.prototype.hasOwnProperty.call(adminSectionLabels, hashSection)) {
+          setActiveSection(hashSection);
+        }
       }
       if (route.open) {
         setSelectedCourseModuleId(null);
@@ -3034,6 +3044,11 @@ function App() {
       window.removeEventListener("popstate", syncRouteState);
     };
   }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem("admin:last-section", activeSection);
+    document.title = `${adminSectionLabels[activeSection]} · Lo Renaciente Admin`;
+  }, [activeSection]);
 
   useEffect(() => {
     if (!isCourseDrawerOpen) {
@@ -3597,6 +3612,16 @@ function App() {
 
       const requiredResources = (() => {
         switch (activeSection) {
+          case "dashboard":
+            return [
+              "bookings",
+              "orders",
+              "products",
+              "support",
+              "chat",
+              "community",
+              "incidents",
+            ] as ProtectedResourceKey[];
           case "specialists":
             return ["specialists", "users"] as ProtectedResourceKey[];
           case "services":
@@ -3626,6 +3651,10 @@ function App() {
             return ["users"] as ProtectedResourceKey[];
           case "community":
             return ["chat", "community"] as ProtectedResourceKey[];
+          case "privateChats":
+            return ["chat"] as ProtectedResourceKey[];
+          case "orderChats":
+            return ["orders"] as ProtectedResourceKey[];
           case "support":
             return ["support"] as ProtectedResourceKey[];
           case "developer":
@@ -3912,20 +3941,45 @@ function App() {
   }, [badges, selectedBadgeId]);
 
   useEffect(() => {
+    const hasOverlayOpen =
+      isSpecialistDrawerOpen ||
+      isProductDrawerOpen ||
+      isBookingDrawerOpen ||
+      isUserDrawerOpen ||
+      isBadgeEditorOpen ||
+      selectedAuditEntry !== null ||
+      developerAccessModalOpen;
+
+    if (!hasOverlayOpen) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setSelectedAuditEntry(null);
-      }
+      if (event.key !== "Escape") return;
+      setIsSpecialistDrawerOpen(false);
+      setIsProductDrawerOpen(false);
+      setIsBookingDrawerOpen(false);
+      setIsUserDrawerOpen(false);
+      setIsBadgeEditorOpen(false);
+      setSelectedAuditEntry(null);
+      setDeveloperAccessModalOpen(false);
     }
 
-    if (selectedAuditEntry) {
-      window.addEventListener("keydown", handleKeyDown);
-    }
-
+    window.addEventListener("keydown", handleKeyDown);
     return () => {
+      document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [selectedAuditEntry]);
+  }, [
+    developerAccessModalOpen,
+    isBadgeEditorOpen,
+    isBookingDrawerOpen,
+    isProductDrawerOpen,
+    isSpecialistDrawerOpen,
+    isUserDrawerOpen,
+    selectedAuditEntry,
+  ]);
 
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -4199,15 +4253,22 @@ function App() {
     userId: string,
     action: "mute" | "ban" | "clear",
   ) {
-    const reason =
+    const requestedReason =
       action === "clear"
         ? ""
-        : (window.prompt(
+        : window.prompt(
             action === "mute"
               ? "Motivo del silencio temporal:"
               : "Motivo del baneo temporal:",
             "",
-          ) ?? "");
+          );
+
+    if (requestedReason === null) return;
+    const reason = requestedReason.trim();
+    if (action !== "clear" && reason.length === 0) {
+      setCommunityReplyError("Indica un motivo antes de aplicar la moderación.");
+      return;
+    }
 
     setModeratingCommunityUserId(userId);
     setCommunityReplyError(null);
@@ -6280,53 +6341,6 @@ function App() {
     );
   }
 
-  async function handleAdjustProductPrice(product: AdminShopProduct) {
-    const nextValue = window.prompt(
-      `Nuevo precio para ${product.name}`,
-      String(product.price.amount),
-    );
-    if (nextValue == null) {
-      return;
-    }
-
-    const nextAmount = Number(nextValue);
-    if (!Number.isFinite(nextAmount) || nextAmount <= 0) {
-      setOperatingPanelError("Ingresa un precio válido.");
-      return;
-    }
-
-    await handleQuickProductPatch(
-      product,
-      { price: { amount: nextAmount, currency: product.price.currency } },
-      `Precio actualizado para ${product.name}.`,
-    );
-  }
-
-  async function handleAdjustProductStock(product: AdminShopProduct) {
-    const nextValue = window.prompt(
-      `Nuevo stock para ${product.name}`,
-      String(product.stockQuantity),
-    );
-    if (nextValue == null) {
-      return;
-    }
-
-    const nextStock = Number(nextValue);
-    if (!Number.isFinite(nextStock) || nextStock < 0) {
-      setOperatingPanelError("Ingresa un stock válido.");
-      return;
-    }
-
-    await handleQuickProductPatch(
-      product,
-      {
-        stockQuantity: Math.round(nextStock),
-        madeToOrder: product.madeToOrder,
-      },
-      `Stock actualizado para ${product.name}.`,
-    );
-  }
-
   function handleDuplicateProduct(product: AdminShopProduct) {
     setSelectedProductId(null);
     setProductForm({
@@ -6944,7 +6958,7 @@ function App() {
           return 0;
       }
     });
-  const visibleProducts = filteredProducts.slice(0, 24);
+  const visibleProducts = filteredProducts;
   const hasProductFilters =
     productFilters.search.trim().length > 0 ||
     productFilters.category.length > 0 ||
@@ -7291,6 +7305,22 @@ function App() {
       "level",
     ].includes(selectedAuditEntry.fieldChanged);
 
+  const navigationAttentionCounts: Partial<Record<AdminSection, number>> = {
+    agenda: bookings.filter(
+      (booking) =>
+        new Date(booking.scheduledAt).toDateString() === new Date().toDateString(),
+    ).length,
+    orders: orders.filter((order) =>
+      ["pending", "confirmed", "preparing"].includes(order.status),
+    ).length,
+    shop: products.filter(
+      (product) => product.stockQuantity <= 0 && !product.madeToOrder,
+    ).length,
+    community: activeCommunityModerations.length,
+    support: supportOverview?.summary.open ?? 0,
+    developer: incidents.filter((incident) => incident.status !== "closed").length,
+  };
+
   if (authStatus === "loading") {
     return null;
   }
@@ -7300,7 +7330,7 @@ function App() {
 
     return (
       <main
-        className="admin-shell admin-auth-shell container-xxl"
+        className="admin-shell admin-auth-shell"
         data-build={adminBuildStamp}
       >
         <section className="admin-auth-panel admin-auth-panel-entry">
@@ -7359,8 +7389,8 @@ function App() {
     <main
       className={
         isCourseDrawerOpen
-          ? "admin-shell admin-dashboard-shell admin-shell-course-view container-xxl"
-          : "admin-shell admin-dashboard-shell container-xxl"
+          ? "admin-shell admin-dashboard-shell admin-shell-course-view"
+          : "admin-shell admin-dashboard-shell"
       }
       data-build={adminBuildStamp}
     >
@@ -7375,36 +7405,53 @@ function App() {
           <BrandLockup compact />
 
           <nav className="admin-nav" aria-label="Secciones administrativas">
-            {(
-              Object.entries(adminSectionLabels) as Array<
-                [AdminSection, string]
-              >
-            ).map(([section, label]) => (
-              <button
-                key={section}
-                type="button"
-                className={
-                  activeSection === section
-                    ? "nav-item nav-item-active"
-                    : "nav-item"
-                }
-                aria-current={activeSection === section ? "page" : undefined}
-                onClick={() => handleNavigateSection(section)}
-              >
-                <span className="nav-item-icon" aria-hidden="true">
-                  <SidebarIcon name={section} />
-                </span>
-                <span className="nav-item-copy">
-                  <strong>{label}</strong>
-                </span>
-              </button>
+            {adminNavigationGroups.map((group) => (
+              <div className="nav-group" key={group.label}>
+                <p className="nav-group-label">{group.label}</p>
+                <div className="nav-group-items">
+                  {group.sections.map((section) => (
+                    <button
+                      key={section}
+                      type="button"
+                      className={
+                        (activeSection === section ||
+                        (section === "specialists" && activeSection === "services") ||
+                        (section === "shop" && ["courses", "library"].includes(activeSection)) ||
+                        (section === "community" &&
+                          ["privateChats", "support", "orderChats"].includes(activeSection)))
+                          ? "nav-item nav-item-active"
+                          : "nav-item"
+                      }
+                      aria-current={
+                        activeSection === section ||
+                        (section === "specialists" && activeSection === "services") ||
+                        (section === "shop" && ["courses", "library"].includes(activeSection)) ||
+                        (section === "community" &&
+                          ["privateChats", "support", "orderChats"].includes(activeSection))
+                          ? "page"
+                          : undefined
+                      }
+                      onClick={() => handleNavigateSection(section)}
+                    >
+                      <span className="nav-item-icon" aria-hidden="true">
+                        <SidebarIcon name={section} />
+                      </span>
+                      <span className="nav-item-copy">
+                        <strong>{adminSectionLabels[section]}</strong>
+                      </span>
+                      {(navigationAttentionCounts[section] ?? 0) > 0 ? (
+                        <span className="nav-attention-count" aria-label={`${navigationAttentionCounts[section]} pendientes`}>
+                          {navigationAttentionCounts[section]}
+                        </span>
+                      ) : null}
+                    </button>
+                  ))}
+                </div>
+              </div>
             ))}
           </nav>
 
-          <div className="sidebar-session">
-            <span>Sesión activa</span>
-            <strong>Cuenta activa</strong>
-            <p>{adminUser?.email ?? "Sin email"}</p>
+          <div className="sidebar-session sidebar-session-compact">
             <button
               type="button"
               className="secondary-button button-with-icon"
@@ -7429,15 +7476,151 @@ function App() {
 
           {operatingPanelError ? (
             <section className="admin-panel admin-error">
-              <h2>Operación pendiente</h2>
+              <h2>No se pudo completar la acción</h2>
               <p>{operatingPanelError}</p>
             </section>
           ) : null}
 
           {operatingPanelMessage ? (
             <section className="admin-panel admin-success">
-              <h2>Actualización correcta</h2>
               <p>{operatingPanelMessage}</p>
+            </section>
+          ) : null}
+
+          {(["specialists", "services"] as AdminSection[]).includes(activeSection) ? (
+            <nav className="communications-tabs" aria-label="Secciones de equipo">
+              {([
+                ["specialists", "Especialistas"],
+                ["services", "Servicios"],
+              ] as Array<[AdminSection, string]>).map(([section, label]) => (
+                <button
+                  key={section}
+                  type="button"
+                  className={activeSection === section ? "is-active" : ""}
+                  aria-current={activeSection === section ? "page" : undefined}
+                  onClick={() => handleNavigateSection(section)}
+                >
+                  <span>{label}</span>
+                </button>
+              ))}
+            </nav>
+          ) : null}
+
+          {(["shop", "courses", "library"] as AdminSection[]).includes(activeSection) ? (
+            <nav className="communications-tabs" aria-label="Secciones de catálogo">
+              {([
+                ["shop", "Productos"],
+                ["courses", "Cursos"],
+                ["library", "Biblioteca"],
+              ] as Array<[AdminSection, string]>).map(([section, label]) => (
+                <button
+                  key={section}
+                  type="button"
+                  className={activeSection === section ? "is-active" : ""}
+                  aria-current={activeSection === section ? "page" : undefined}
+                  onClick={() => handleNavigateSection(section)}
+                >
+                  <span>{label}</span>
+                </button>
+              ))}
+            </nav>
+          ) : null}
+
+          {(["community", "privateChats", "support", "orderChats"] as AdminSection[]).includes(activeSection) ? (
+            <nav className="communications-tabs" aria-label="Bandejas de comunicaciones">
+              {([
+                ["community", "Comunidad", communityMessages.length],
+                ["privateChats", "Privados", chat?.openThreads ?? 0],
+                ["support", "Soporte", supportOverview?.summary.open ?? 0],
+                ["orderChats", "Compras", orders.length],
+              ] as Array<[AdminSection, string, number]>).map(([section, label, count]) => (
+                <button
+                  key={section}
+                  type="button"
+                  className={activeSection === section ? "is-active" : ""}
+                  aria-current={activeSection === section ? "page" : undefined}
+                  onClick={() => handleNavigateSection(section)}
+                >
+                  <span>{label}</span>
+                  {count > 0 ? <small>{count}</small> : null}
+                </button>
+              ))}
+            </nav>
+          ) : null}
+
+          {activeSection === "dashboard" ? (
+            <section className="admin-panel admin-panel-wide operations-dashboard">
+              <div className="panel-head dashboard-head">
+                <div>
+                  <p className="eyebrow">Hoy</p>
+                  <h2>Resumen operativo</h2>
+                  <p>Prioridades que requieren revisión o una acción del equipo.</p>
+                </div>
+              </div>
+              <div className="operations-dashboard-grid">
+                {[
+                  {
+                    label: "Reservas de hoy",
+                    value: bookings.filter((booking) =>
+                      new Date(booking.scheduledAt).toDateString() === new Date().toDateString(),
+                    ).length,
+                    detail: "Agenda y sesiones programadas",
+                    section: "agenda" as AdminSection,
+                    tone: "info",
+                  },
+                  {
+                    label: "Órdenes pendientes",
+                    value: orders.filter((order) =>
+                      ["pending", "confirmed", "preparing"].includes(order.status),
+                    ).length,
+                    detail: "Compras por procesar",
+                    section: "orders" as AdminSection,
+                    tone: "warning",
+                  },
+                  {
+                    label: "Tickets abiertos",
+                    value: supportOverview?.summary.open ?? 0,
+                    detail: "Solicitudes esperando atención",
+                    section: "support" as AdminSection,
+                    tone: "warning",
+                  },
+                  {
+                    label: "Productos sin stock",
+                    value: products.filter(
+                      (product) => product.stockQuantity <= 0 && !product.madeToOrder,
+                    ).length,
+                    detail: "Catálogo que requiere reposición",
+                    section: "shop" as AdminSection,
+                    tone: "danger",
+                  },
+                  {
+                    label: "Usuarios restringidos",
+                    value: activeCommunityModerations.length,
+                    detail: "Moderaciones activas",
+                    section: "community" as AdminSection,
+                    tone: "info",
+                  },
+                  {
+                    label: "Incidencias abiertas",
+                    value: incidents.filter((incident) => incident.status !== "closed").length,
+                    detail: "Problemas técnicos pendientes",
+                    section: "developer" as AdminSection,
+                    tone: "danger",
+                  },
+                ].map((item) => (
+                  <button
+                    key={item.label}
+                    type="button"
+                    className={`operations-dashboard-card tone-${item.tone}`}
+                    onClick={() => handleNavigateSection(item.section)}
+                  >
+                    <span>{item.label}</span>
+                    <strong>{item.value}</strong>
+                    <p>{item.detail}</p>
+                    <small>Abrir bandeja →</small>
+                  </button>
+                ))}
+              </div>
             </section>
           ) : null}
 
@@ -7445,16 +7628,8 @@ function App() {
             <section className="admin-panel admin-panel-wide">
               <div className="panel-head badge-panel-head">
                 <div>
-                  <p className="eyebrow">Especialistas</p>
                   <h2>Equipo operativo</h2>
                 </div>
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={() => setActiveSection("agenda")}
-                >
-                  Ver agenda
-                </button>
               </div>
 
               <div className="specialist-summary-grid">
@@ -7658,12 +7833,7 @@ function App() {
             <section className="admin-panel admin-panel-wide">
               <div className="panel-head badge-panel-head">
                 <div>
-                  <p className="eyebrow">Servicios</p>
-                  <h2>Precio y duración</h2>
-                  <p className="hero-copy">
-                    Filtra por especialista y abre el editor para crear un nuevo
-                    servicio.
-                  </p>
+                  <h2>Servicios</h2>
                 </div>
                 <div className="editor-actions">
                   <button
@@ -7776,7 +7946,6 @@ function App() {
             <section className="admin-panel admin-panel-wide">
               <div className="panel-head badge-panel-head">
                 <div>
-                  <p className="eyebrow">Agenda</p>
                   <h2>Próximas sesiones</h2>
                 </div>
                 <button
@@ -7861,7 +8030,6 @@ function App() {
             <section className="admin-panel admin-panel-wide">
               <div className="panel-head badge-panel-head">
                 <div>
-                  <p className="eyebrow">Reservas / Agenda</p>
                   <h2>Agenda global</h2>
                 </div>
                 <div className="editor-actions">
@@ -7871,13 +8039,6 @@ function App() {
                     onClick={() => handleOpenBookingDrawer()}
                   >
                     Nueva reunión
-                  </button>
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    onClick={() => setActiveSection("orders")}
-                  >
-                    Órdenes
                   </button>
                 </div>
               </div>
@@ -7923,16 +8084,8 @@ function App() {
             <section className="admin-panel admin-panel-wide">
               <div className="panel-head badge-panel-head">
                 <div>
-                  <p className="eyebrow">Órdenes</p>
-                  <h2>Seguimiento comercial</h2>
+                  <h2>Órdenes</h2>
                 </div>
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={() => setActiveSection("shop")}
-                >
-                  Tienda
-                </button>
               </div>
               <div className="table-list">
                 {orders.slice(0, 8).map((order) => (
@@ -7951,42 +8104,22 @@ function App() {
                     </div>
                     <div className="align-right">
                       <div className="editor-actions">
-                        <button
-                          type="button"
-                          className="secondary-button"
-                          onClick={() =>
-                            void handleUpdateOrderStatus(order, "confirmed")
-                          }
-                        >
-                          Confirmar
-                        </button>
-                        <button
-                          type="button"
-                          className="secondary-button"
-                          onClick={() =>
-                            void handleUpdateOrderStatus(order, "preparing")
-                          }
-                        >
-                          Preparar
-                        </button>
-                        <button
-                          type="button"
-                          className="secondary-button"
-                          onClick={() =>
-                            void handleUpdateOrderStatus(order, "shipped")
-                          }
-                        >
-                          Enviar
-                        </button>
-                        <button
-                          type="button"
-                          className="secondary-button"
-                          onClick={() =>
-                            void handleUpdateOrderStatus(order, "delivered")
-                          }
-                        >
-                          Entregada
-                        </button>
+                        <label className="order-status-control">
+                          <span>Estado</span>
+                          <select
+                            value={order.status}
+                            onChange={(event) =>
+                              void handleUpdateOrderStatus(order, event.target.value)
+                            }
+                          >
+                            <option value="pending">Pendiente</option>
+                            <option value="confirmed">Confirmada</option>
+                            <option value="preparing">En preparación</option>
+                            <option value="shipped">Enviada</option>
+                            <option value="delivered">Entregada</option>
+                            <option value="cancelled">Cancelada</option>
+                          </select>
+                        </label>
                         <button
                           type="button"
                           className="primary-button"
@@ -7995,8 +8128,7 @@ function App() {
                           Chat
                         </button>
                       </div>
-                      <strong>{formatOrderStatusLabel(order.status)}</strong>
-                      <p>{order.itemCount} items</p>
+                      <p>{order.itemCount} productos</p>
                     </div>
                   </article>
                 ))}
@@ -8008,12 +8140,7 @@ function App() {
             <section className="admin-panel admin-panel-wide product-admin-panel">
               <div className="panel-head badge-panel-head">
                 <div>
-                  <p className="eyebrow">Productos</p>
-                  <h2>Administra catálogo, precios, stock y visibilidad.</h2>
-                  <p className="hero-copy">
-                    Filtra, edita y archiva productos reales sin salir de la
-                    vista.
-                  </p>
+                  <h2>Productos</h2>
                 </div>
                 <div className="editor-actions">
                   <button
@@ -8023,18 +8150,11 @@ function App() {
                   >
                     Nuevo producto
                   </button>
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    onClick={() => setActiveSection("orders")}
-                  >
-                    Órdenes
-                  </button>
                 </div>
               </div>
 
               <div className="product-toolbar">
-                <label>
+                <label className="product-search-field">
                   <span>Buscar</span>
                   <input
                     value={productFilters.search}
@@ -8064,24 +8184,6 @@ function App() {
                         {category}
                       </option>
                     ))}
-                  </select>
-                </label>
-                <label>
-                  <span>Estado</span>
-                  <select
-                    value={productFilters.status}
-                    onChange={(event) =>
-                      setProductFilters((current) => ({
-                        ...current,
-                        status: event.target.value,
-                      }))
-                    }
-                  >
-                    <option value="">Todos</option>
-                    <option value="active">Activos</option>
-                    <option value="hidden">Ocultos</option>
-                    <option value="draft">Borradores</option>
-                    <option value="archived">Archivados</option>
                   </select>
                 </label>
                 <label>
@@ -8154,23 +8256,41 @@ function App() {
                 </div>
               </div>
 
+              <div className="product-results-bar">
+                <div>
+                  <strong>{filteredProducts.length} productos</strong>
+                  <span>
+                    {hasProductFilters
+                      ? ` de ${products.length} en el catálogo`
+                      : " en el catálogo"}
+                  </span>
+                </div>
+                <div className="product-quick-filters" aria-label="Filtros rápidos">
+                  {[
+                    ["", "Todos"],
+                    ["active", "Activos"],
+                    ["hidden", "Ocultos"],
+                    ["draft", "Borradores"],
+                    ["archived", "Archivados"],
+                  ].map(([value, label]) => (
+                    <button
+                      key={label}
+                      type="button"
+                      className={productFilters.status === value ? "is-active" : ""}
+                      onClick={() =>
+                        setProductFilters((current) => ({
+                          ...current,
+                          status: value,
+                        }))
+                      }
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="hero-status product-stats-grid">
-                <div className="status-card">
-                  <span>Total</span>
-                  <strong>{products.length}</strong>
-                </div>
-                <div className="status-card">
-                  <span>Visibles</span>
-                  <strong>
-                    {
-                      products.filter(
-                        (product) =>
-                          product.status !== "hidden" &&
-                          product.status !== "archived",
-                      ).length
-                    }
-                  </strong>
-                </div>
                 <div className="status-card">
                   <span>Destacados</span>
                   <strong>
@@ -8229,9 +8349,6 @@ function App() {
                                 )}
                               </p>
                             </div>
-                            <span className="topbar-pill">
-                              {product.status}
-                            </span>
                           </div>
 
                           <div className="product-card-pricing">
@@ -8248,44 +8365,25 @@ function App() {
                             <span className="badge-pill badge-pill-type">
                               {getProductVisibilityLabel(product.status)}
                             </span>
-                            <span className="badge-pill badge-pill-type">
-                              {getProductCommercialLabel(product.status)}
-                            </span>
-                            <span
-                              className={`badge-pill ${
-                                product.featured
-                                  ? "badge-pill-manual"
-                                  : "badge-pill-rarity"
-                              }`}
-                            >
-                              {product.featured ? "Destacado" : "Normal"}
-                            </span>
-                            <span className="badge-pill badge-pill-type">
-                              {product.madeToOrder ? "A pedido" : "Stock"}
-                            </span>
+                            {product.featured ? (
+                              <span className="badge-pill badge-pill-manual">
+                                Destacado
+                              </span>
+                            ) : null}
+                            {product.madeToOrder ? (
+                              <span className="badge-pill badge-pill-type">
+                                A pedido
+                              </span>
+                            ) : null}
                           </div>
 
-                          <div className="product-card-actions">
+                          <div className="product-card-actions product-card-primary-actions">
                             <button
                               type="button"
-                              className="secondary-button"
-                              onClick={() => handleOpenProductDrawer(product)}
-                            >
-                              Ver detalle
-                            </button>
-                            <button
-                              type="button"
-                              className="secondary-button"
+                              className="primary-button"
                               onClick={() => handleOpenProductDrawer(product)}
                             >
                               Editar
-                            </button>
-                            <button
-                              type="button"
-                              className="secondary-button"
-                              onClick={() => handleDuplicateProduct(product)}
-                            >
-                              Duplicar
                             </button>
                             <button
                               type="button"
@@ -8309,32 +8407,25 @@ function App() {
                                 ? "Quitar destacado"
                                 : "Destacar"}
                             </button>
-                            <button
-                              type="button"
-                              className="secondary-button"
-                              onClick={() =>
-                                void handleAdjustProductPrice(product)
-                              }
-                            >
-                              Precio
-                            </button>
-                            <button
-                              type="button"
-                              className="secondary-button"
-                              onClick={() =>
-                                void handleAdjustProductStock(product)
-                              }
-                            >
-                              Stock
-                            </button>
-                            <button
-                              type="button"
-                              className="danger-button"
-                              onClick={() => void handleArchiveProduct(product)}
-                            >
-                              Archivar
-                            </button>
                           </div>
+                          <details className="product-more-actions">
+                            <summary>Más acciones</summary>
+                            <div className="product-more-actions-menu">
+                              <button
+                                type="button"
+                                onClick={() => handleDuplicateProduct(product)}
+                              >
+                                Duplicar producto
+                              </button>
+                              <button
+                                type="button"
+                                className="is-danger"
+                                onClick={() => void handleArchiveProduct(product)}
+                              >
+                                Archivar producto
+                              </button>
+                            </div>
+                          </details>
                         </div>
                       </article>
                     );
@@ -8363,24 +8454,9 @@ function App() {
               <section className="admin-panel admin-panel-wide">
                 <div className="panel-head badge-panel-head course-panel-head">
                   <div>
-                    <p className="eyebrow">Cursos</p>
-                    <h2>Biblioteca formativa</h2>
-                    <p className="hero-copy">
-                      Gestiona cursos, módulos, lecciones, biblioteca PDF y
-                      publicación desde un solo panel.
-                    </p>
+                    <h2>Cursos</h2>
                   </div>
                   <div className="course-panel-actions">
-                    <button
-                      type="button"
-                      className="secondary-button"
-                      onClick={() =>
-                        openCourseWorkspaceTab(courses[0]?.id ?? null, "data")
-                      }
-                      disabled={courses.length === 0}
-                    >
-                      Continuar edición
-                    </button>
                     <button
                       type="button"
                       className="primary-button"
@@ -8395,27 +8471,23 @@ function App() {
                   <article className="course-stat-card">
                     <span>Total</span>
                     <strong>{courseStats.total}</strong>
-                    <p>Biblioteca completa</p>
                   </article>
                   <article className="course-stat-card">
                     <span>Publicados</span>
                     <strong>{courseStats.published}</strong>
-                    <p>Listos para consumo</p>
                   </article>
                   <article className="course-stat-card">
                     <span>Borradores</span>
                     <strong>{courseStats.draft}</strong>
-                    <p>En edición</p>
                   </article>
                   <article className="course-stat-card">
                     <span>Archivados</span>
                     <strong>{courseStats.archived}</strong>
-                    <p>Guardados fuera de la vista</p>
                   </article>
                 </div>
 
                 <div className="course-grid">
-                  {courses.slice(0, 12).map((course) => (
+                  {courses.map((course) => (
                     <article key={course.id} className="course-card">
                       <div className="course-card-head">
                         <div>
@@ -8525,21 +8597,13 @@ function App() {
               <div className="library-shell">
                 <div className="library-hero">
                   <div className="library-hero-copy">
-                    <p className="eyebrow">Biblioteca</p>
-                    <h2>Gestión simple de PDFs</h2>
+                    <h2>Biblioteca PDF</h2>
                     <p className="hero-copy">
                       Sube uno o varios PDFs, define una categoría clara y
                       decide si el material queda libre o vinculado a un curso.
                     </p>
                   </div>
                   <div className="library-hero-actions">
-                    <button
-                      type="button"
-                      className="secondary-button"
-                      onClick={() => setActiveSection("courses")}
-                    >
-                      Ir a cursos
-                    </button>
                     <button
                       type="button"
                       className="primary-button"
@@ -9027,11 +9091,7 @@ function App() {
                 <article className="course-subview-card library-catalog-card">
                   <div className="panel-head library-panel-head">
                     <div>
-                      <p className="eyebrow">Catálogo</p>
                       <h3>PDFs publicados</h3>
-                      <p className="hero-copy">
-                        Filtra por estado, categoría o busca por título o curso.
-                      </p>
                     </div>
                     <span className="topbar-pill">
                       {libraryVisiblePdfs.length} visibles
@@ -9157,12 +9217,7 @@ function App() {
             <section className="admin-panel admin-panel-wide">
               <div className="panel-head badge-panel-head">
                 <div>
-                  <p className="eyebrow">Usuarios</p>
                   <h2>Usuarios y accesos</h2>
-                  <p className="hero-copy">
-                    Crea usuarios, filtra por rol y define qué partes del panel
-                    pueden ver.
-                  </p>
                 </div>
                 <div className="editor-actions">
                   <button
@@ -9171,13 +9226,6 @@ function App() {
                     onClick={() => handleOpenUserDrawer()}
                   >
                     Nuevo usuario
-                  </button>
-                  <button
-                    type="button"
-                    className="secondary-button"
-                    onClick={() => setActiveSection("community")}
-                  >
-                    Chat
                   </button>
                 </div>
               </div>
@@ -9466,15 +9514,19 @@ function App() {
 
           {activeSection === "community" ? (
             <section className="admin-panel admin-panel-wide">
+              <div className="panel-head chat-page-head">
+                <div>
+                  <h2>Chat de comunidad</h2>
+                  <p>Publica como guía y modera conversaciones de usuarios.</p>
+                </div>
+              </div>
               <div className="chat-summary">
-                <span>Total hilos: {chat?.totalThreads ?? 0}</span>
-                <span>Abiertos: {chat?.openThreads ?? 0}</span>
-                <span>Mensajes: {chat?.totalMessages ?? 0}</span>
-                <span>Mensajes visibles: {communityMessages.length}</span>
-                <span>Restricciones: {activeCommunityModerations.length}</span>
+                <span>{communityMessages.length} mensajes visibles</span>
+                <span>{activeCommunityModerations.length} restricciones activas</span>
+                <span>{chat?.openThreads ?? 0} conversaciones privadas abiertas</span>
               </div>
               <div className="admin-chat-layout">
-                <section className="admin-chat-panel">
+                <section className="admin-chat-panel community-chat-main">
                   <form
                     className="chat-compose"
                     onSubmit={handleSendCommunityReply}
@@ -9653,7 +9705,9 @@ function App() {
                                       </span>
                                     </div>
                                   </div>
-                                  <div className="chat-message-tools">
+                                  <details className="chat-message-actions-menu">
+                                    <summary>Acciones</summary>
+                                    <div className="chat-message-tools">
                                     {canModerateUser ? (
                                       <>
                                         <button
@@ -9742,13 +9796,14 @@ function App() {
                                         ? "Procesando..."
                                         : "Eliminar"}
                                     </button>
-                                  </div>
+                                    </div>
+                                  </details>
                                 </div>
                                 {message.imageUrl ? (
                                   <a
                                     href={resolveMediaUrl(message.imageUrl)}
                                     target="_blank"
-                                    rel="noreferrer"
+                                    rel="noopener noreferrer"
                                     className="chat-message-image-link"
                                   >
                                     <img
@@ -9764,10 +9819,15 @@ function App() {
                               </article>
                             );
                           })
-                      : null}
+                      : (
+                        <div className="chat-empty-state">
+                          <strong>Aún no hay mensajes</strong>
+                          <span>Publica el primer mensaje para iniciar la comunidad.</span>
+                        </div>
+                      )}
                   </div>
                 </section>
-                <section className="admin-chat-panel">
+                <section className="admin-chat-panel community-chat-sidebar">
                   <div className="panel-head chat-side-head">
                     <div>
                       <p className="eyebrow">Moderación</p>
@@ -9811,34 +9871,99 @@ function App() {
                       </div>
                     )}
                   </div>
-                  <div className="panel-head chat-side-head">
-                    <div>
-                      <p className="eyebrow">Privados</p>
-                      <h3>Hilos recientes</h3>
-                    </div>
-                  </div>
-                  <div className="chat-thread-list">
-                    {chat?.recentThreads.slice(0, 5).map((thread) => (
-                      <article key={thread.id} className="chat-thread-card">
+                </section>
+              </div>
+            </section>
+          ) : null}
+
+          {activeSection === "privateChats" ? (
+            <section className="admin-panel admin-panel-wide communication-inbox">
+              <div className="panel-head communication-inbox-head">
+                <div>
+                  <h2>Conversaciones privadas</h2>
+                  <p>Interacciones directas entre usuarios y especialistas.</p>
+                </div>
+                <span className="topbar-pill">
+                  {chat?.openThreads ?? 0} abiertas
+                </span>
+              </div>
+              <div className="private-thread-list">
+                {chat?.recentThreads.length ? (
+                  chat.recentThreads.map((thread) => (
+                    <article key={thread.id} className="private-thread-row">
+                      <div className="private-thread-identity">
+                        <span className="private-thread-avatar" aria-hidden="true">
+                          {getNameInitials(thread.userName)}
+                        </span>
                         <div>
                           <strong>{thread.userName}</strong>
-                          <p>{thread.specialistName}</p>
+                          <p>con {thread.specialistName}</p>
                         </div>
-                        <div>
-                          <strong>{thread.status}</strong>
-                          <p>
-                            {thread.lastMessageAt
-                              ? formatDate(thread.lastMessageAt)
-                              : "sin mensajes"}
-                          </p>
-                        </div>
-                        <div className="align-right">
-                          <p>{thread.lastMessagePreview || "sin contenido"}</p>
-                        </div>
-                      </article>
-                    )) ?? null}
+                      </div>
+                      <p className="private-thread-preview">
+                        {thread.lastMessagePreview || "Sin mensajes todavía"}
+                      </p>
+                      <div className="private-thread-meta">
+                        <span className="topbar-pill">{thread.status}</span>
+                        <small>
+                          {thread.lastMessageAt
+                            ? formatDate(thread.lastMessageAt)
+                            : "Sin actividad"}
+                        </small>
+                      </div>
+                    </article>
+                  ))
+                ) : (
+                  <div className="empty-state">
+                    <h3>No hay conversaciones privadas</h3>
+                    <p>Aparecerán cuando usuarios y especialistas inicien un hilo.</p>
                   </div>
-                </section>
+                )}
+              </div>
+            </section>
+          ) : null}
+
+          {activeSection === "orderChats" ? (
+            <section className="admin-panel admin-panel-wide communication-inbox">
+              <div className="panel-head communication-inbox-head">
+                <div>
+                  <h2>Conversaciones de compra</h2>
+                  <p>Conversaciones vinculadas a compras, entrega y seguimiento.</p>
+                </div>
+                <span className="topbar-pill">{orders.length} órdenes</span>
+              </div>
+              <div className="order-chat-inbox-list">
+                {orders.length ? (
+                  orders.map((order) => (
+                    <article key={order.id} className="order-chat-inbox-row">
+                      <div>
+                        <strong>{order.orderCode}</strong>
+                        <p>{order.userName ?? order.userId}</p>
+                      </div>
+                      <div>
+                        <strong>{order.specialistName}</strong>
+                        <p>{order.itemCount} productos</p>
+                      </div>
+                      <div className="order-chat-inbox-actions">
+                        <span className="topbar-pill">
+                          {formatOrderStatusLabel(order.status)}
+                        </span>
+                        <button
+                          type="button"
+                          className="primary-button"
+                          onClick={() => void handleOpenOrderChat(order)}
+                        >
+                          Abrir conversación
+                        </button>
+                      </div>
+                    </article>
+                  ))
+                ) : (
+                  <div className="empty-state">
+                    <h3>No hay chats de órdenes</h3>
+                    <p>Las conversaciones aparecerán cuando exista una compra.</p>
+                  </div>
+                )}
               </div>
             </section>
           ) : null}
@@ -9847,12 +9972,7 @@ function App() {
             <section className="admin-panel admin-panel-wide support-panel">
               <div className="panel-head badge-panel-head">
                 <div>
-                  <p className="eyebrow">Soporte</p>
-                  <h2>Tickets y chat con administración</h2>
-                  <p className="hero-copy">
-                    Responde solicitudes, cambia estados y mantén el conteo de
-                    tickets abierto al día.
-                  </p>
+                  <h2>Soporte</h2>
                 </div>
                 <button
                   type="button"
@@ -10061,12 +10181,7 @@ function App() {
             <section className="admin-panel admin-panel-wide developer-panel">
               <div className="panel-head badge-panel-head">
                 <div>
-                  <p className="eyebrow">Admin desarrollador</p>
                   <h2>Herramientas técnicas</h2>
-                  <p className="hero-copy">
-                    Agrupa incidencias, insignias, auditoría, diagnóstico y
-                    configuración.
-                  </p>
                 </div>
               </div>
               <div className="developer-tabs">
@@ -10090,7 +10205,6 @@ function App() {
                     </span>
                     <span className="developer-tab-copy">
                       <strong>{label}</strong>
-                      <span>{developerSectionMeta[section].description}</span>
                     </span>
                     <span className="developer-tab-chevron" aria-hidden="true">
                       →
@@ -10105,8 +10219,7 @@ function App() {
             <section className="admin-panel admin-panel-wide">
               <div className="panel-head badge-panel-head">
                 <div>
-                  <p className="eyebrow">Incidencias</p>
-                  <h2>Estado básico</h2>
+                  <h2>Incidencias</h2>
                 </div>
                 <button
                   type="button"
@@ -10158,12 +10271,7 @@ function App() {
             <section className="admin-panel admin-panel-wide badge-atlas-panel">
               <div className="panel-head badge-panel-head">
                 <div>
-                  <p className="eyebrow">Insignias</p>
-                  <h2>Trabaja una ruta a la vez</h2>
-                  <p className="hero-copy">
-                    Elige una ruta, revisa sus 5 escalones y abre el editor solo
-                    cuando haga falta.
-                  </p>
+                  <h2>Insignias</h2>
                 </div>
                 <button
                   type="button"
@@ -10333,18 +10441,21 @@ function App() {
                           <div className="badge-card-actions">
                             <button
                               type="button"
+                              className="primary-button"
                               onClick={() => handleSelectBadge(badge)}
                             >
                               Editar
                             </button>
                             <button
                               type="button"
+                              className="secondary-button"
                               onClick={() => handleViewBadgeHistory(badge)}
                             >
                               Historial
                             </button>
                             <button
                               type="button"
+                              className={badge.isActive ? "danger-button" : "secondary-button"}
                               onClick={() => toggleBadgeActive(badge)}
                               disabled={savingBadgeId === badge.id}
                             >
@@ -10358,9 +10469,10 @@ function App() {
                           className="badge-card badge-card-empty"
                         >
                           <p>Escalón {index + 1}</p>
-                          <strong>Sin badge</strong>
+                          <strong>Sin insignia</strong>
                           <button
                             type="button"
+                            className="primary-button"
                             onClick={() =>
                               handleCreateBadge(selectedRoute.pathId, index + 1)
                             }
@@ -10704,21 +10816,18 @@ function App() {
           >
             <div className="audit-detail-head">
               <div>
-                <p className="eyebrow">Especialista</p>
                 <h2 id="specialist-drawer-title">
                   {selectedSpecialistDetail?.name ?? "Detalle operativo"}
                 </h2>
-                <p className="badge-editor-copy">
-                  Perfil, servicios, disponibilidad, reservas, métricas e
-                  historial.
-                </p>
               </div>
               <button
                 type="button"
-                className="secondary-button"
+                className="icon-button"
                 onClick={handleCloseSpecialistDrawer}
+                aria-label="Cerrar detalle de especialista"
+                title="Cerrar"
               >
-                Cerrar
+                <ActionIcon name="close" />
               </button>
             </div>
 
@@ -11562,22 +11671,20 @@ function App() {
           >
             <div className="audit-detail-head">
               <div>
-                <p className="eyebrow">Tienda</p>
                 <h2 id="product-drawer-title">
                   {selectedProduct
                     ? `Editar ${selectedProduct.name}`
                     : "Nuevo producto"}
                 </h2>
-                <p className="badge-editor-copy">
-                  Gestiona fotos, precio, stock y estado desde un solo panel.
-                </p>
               </div>
               <button
                 type="button"
-                className="secondary-button"
+                className="icon-button"
                 onClick={handleCloseProductDrawer}
+                aria-label="Cerrar editor de producto"
+                title="Cerrar"
               >
-                Cerrar
+                <ActionIcon name="close" />
               </button>
             </div>
 
@@ -11916,7 +12023,7 @@ function App() {
                 <button type="submit" className="primary-button">
                   Guardar producto
                 </button>
-                <button type="button" onClick={handleCloseProductDrawer}>
+                <button type="button" className="secondary-button" onClick={handleCloseProductDrawer}>
                   Cancelar
                 </button>
               </div>
@@ -11940,22 +12047,20 @@ function App() {
           >
             <div className="audit-detail-head">
               <div>
-                <p className="eyebrow">Agenda</p>
                 <h2 id="booking-drawer-title">
                   {selectedBooking
                     ? `Editar ${selectedBooking.serviceName}`
                     : "Nueva reunión"}
                 </h2>
-                <p className="badge-editor-copy">
-                  Crea o ajusta citas, estados y horarios sin salir de la vista.
-                </p>
               </div>
               <button
                 type="button"
-                className="secondary-button"
+                className="icon-button"
                 onClick={handleCloseBookingDrawer}
+                aria-label="Cerrar editor de reunión"
+                title="Cerrar"
               >
-                Cerrar
+                <ActionIcon name="close" />
               </button>
             </div>
 
@@ -12128,7 +12233,7 @@ function App() {
                 <button type="submit" className="primary-button">
                   Guardar reunión
                 </button>
-                <button type="button" onClick={handleCloseBookingDrawer}>
+                <button type="button" className="secondary-button" onClick={handleCloseBookingDrawer}>
                   Cancelar
                 </button>
               </div>
@@ -12152,21 +12257,18 @@ function App() {
           >
             <div className="audit-detail-head">
               <div>
-                <p className="eyebrow">Usuarios</p>
                 <h2 id="user-drawer-title">
                   {selectedUserId ? "Editar usuario" : "Nuevo usuario"}
                 </h2>
-                <p className="badge-editor-copy">
-                  Define datos básicos, plan y roles para controlar qué puede
-                  ver cada usuario.
-                </p>
               </div>
               <button
                 type="button"
-                className="secondary-button"
+                className="icon-button"
                 onClick={handleCloseUserDrawer}
+                aria-label="Cerrar editor de usuario"
+                title="Cerrar"
               >
-                Cerrar
+                <ActionIcon name="close" />
               </button>
             </div>
 
@@ -12305,32 +12407,13 @@ function App() {
                         ...current,
                         accountType: event.target.value as
                           "client" | "specialist",
-                        specialistAccess:
-                          event.target.value === "specialist"
-                            ? true
-                            : current.specialistAccess,
+                        specialistAccess: event.target.value === "specialist",
                       }))
                     }
                   >
                     <option value="client">Cliente</option>
                     <option value="specialist">Especialista</option>
                   </select>
-                </label>
-                <label className="switch-row">
-                  <input
-                    type="checkbox"
-                    checked={userForm.specialistAccess}
-                    onChange={(event) =>
-                      setUserForm((current) => ({
-                        ...current,
-                        specialistAccess: event.target.checked,
-                        accountType: event.target.checked
-                          ? "specialist"
-                          : current.accountType,
-                      }))
-                    }
-                  />
-                  <span>Acceso especialista</span>
                 </label>
                 <label className="switch-row">
                   <input
@@ -12418,7 +12501,7 @@ function App() {
                       ? "Actualizar usuario"
                       : "Crear usuario"}
                 </button>
-                <button type="button" onClick={handleCloseUserDrawer}>
+                <button type="button" className="secondary-button" onClick={handleCloseUserDrawer}>
                   Cancelar
                 </button>
               </div>
@@ -12810,7 +12893,7 @@ function App() {
                       >
                         {savingCourseId ? "Guardando..." : "Guardar curso"}
                       </button>
-                      <button type="button" onClick={handleCloseCourseDrawer}>
+                      <button type="button" className="secondary-button" onClick={handleCloseCourseDrawer}>
                         Cancelar
                       </button>
                     </div>
@@ -13957,10 +14040,12 @@ function App() {
               </div>
               <button
                 type="button"
-                className="secondary-button"
+                className="icon-button"
                 onClick={handleCloseBadgeEditor}
+                aria-label="Cerrar editor de insignia"
+                title="Cerrar"
               >
-                Cerrar
+                <ActionIcon name="close" />
               </button>
             </div>
 
@@ -13973,6 +14058,7 @@ function App() {
                     : "secondary-button"
                 }
                 onClick={() => setEditorMode("edit")}
+                aria-pressed={editorMode === "edit"}
               >
                 Editar
               </button>
@@ -13984,8 +14070,9 @@ function App() {
                     : "secondary-button"
                 }
                 onClick={() => setEditorMode("preview")}
+                aria-pressed={editorMode === "preview"}
               >
-                Preview
+                Vista previa
               </button>
               {selectedBadge ? (
                 <button
@@ -14451,12 +14538,13 @@ function App() {
                       updateBadgeForm("isSecret", event.target.checked)
                     }
                   />
-                  <span>isSecret</span>
+                  <span>Insignia secreta</span>
                 </label>
                 {selectedBadge ? (
                   <div className="editor-actions form-wide">
                     <button
                       type="button"
+                      className="secondary-button"
                       onClick={() => void moveBadge(selectedBadge, -1)}
                       disabled={selectedBadge.stepIndex <= 1}
                     >
@@ -14464,6 +14552,7 @@ function App() {
                     </button>
                     <button
                       type="button"
+                      className="secondary-button"
                       onClick={() => void moveBadge(selectedBadge, 1)}
                       disabled={selectedBadge.stepIndex >= 5}
                     >
@@ -14515,6 +14604,7 @@ function App() {
               </button>
               <button
                 type="button"
+                className="secondary-button"
                 onClick={() => handleCreateBadge(badgeForm.pathId)}
               >
                 Limpiar editor
@@ -14793,7 +14883,7 @@ function App() {
                       <a
                         href={resolveMediaUrl(message.imageUrl)}
                         target="_blank"
-                        rel="noreferrer"
+                        rel="noopener noreferrer"
                         className="chat-message-image-link"
                       >
                         <img

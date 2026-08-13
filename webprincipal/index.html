@@ -804,7 +804,7 @@
         <a href="#rituals">Rituales</a>
         <a href="#community">Comunidad</a>
         <a href="#download">Descarga</a>
-        <a href="/admin">Iniciar sesión</a>
+        <a href="/admin" data-admin-link>Iniciar sesión</a>
       </div>
     </div>
   </nav>
@@ -827,7 +827,7 @@
         <button class="btn-platform btn-platform-ios" onclick="handleDownload('ios')">
           <span>🍎</span> Descargar iPhone
         </button>
-        <button class="btn-secondary" onclick="window.location.href='/admin'">
+        <button class="btn-secondary" data-admin-link>
           Iniciar sesión
         </button>
         <button class="btn-secondary" onclick="document.getElementById('features').scrollIntoView({behavior:'smooth'})">
@@ -1053,7 +1053,7 @@
             <button class="btn-platform btn-platform-ios" onclick="handleDownload('ios')">
               🍎 Descargar iPhone
             </button>
-            <button class="btn-secondary" onclick="window.location.href='/admin'">
+            <button class="btn-secondary" data-admin-link>
               Iniciar sesión
             </button>
           </div>
@@ -1090,6 +1090,17 @@
 ════════════════════════════════════ -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
 <script>
+  const adminUrl = ["127.0.0.1", "localhost"].includes(window.location.hostname)
+    ? "http://127.0.0.1:5174/"
+    : "/admin/";
+
+  document.querySelectorAll("[data-admin-link]").forEach((element) => {
+    if (element instanceof HTMLAnchorElement) element.href = adminUrl;
+    element.addEventListener("click", () => {
+      window.location.href = adminUrl;
+    });
+  });
+
 /* ============================================================
    UTILITY: DETECT MOBILE / LOW PERF
 ============================================================ */
@@ -1592,7 +1603,6 @@ function handleDownload(platform='android'){
      BUTTERFLY 3D
   ══════════════════════════════ */
   const butterfly = new THREE.Group();
-  scene.add(butterfly);
 
   // Wing shape using custom geometry
   function createWingGeometry(side) {
@@ -1762,7 +1772,6 @@ function handleDownload(platform='android'){
     depthWrite:false, blending:THREE.AdditiveBlending,
   });
   const trailParticles = new THREE.Points(trailGeo, trailMat);
-  scene.add(trailParticles);
 
   let trailIndex = 0;
   function addTrailPoint(x, y, z){
@@ -1812,32 +1821,52 @@ function handleDownload(platform='android'){
     let geo, mat, group = new THREE.Group();
 
     if(type==='planet'){
-      const r = 0.3 + Math.random()*0.5;
-      geo = new THREE.SphereGeometry(r, 14, 14);
-      const hue = Math.random()<0.5 ? 0x6759AA : 0x2B2F63;
-      mat = new THREE.MeshStandardMaterial({
-        color:hue, emissive:hue, emissiveIntensity:0.3,
-        roughness:0.7, metalness:0.2
+      // Small celestial orbit: a clear system instead of an isolated purple ball.
+      const core = new THREE.Mesh(
+        new THREE.OctahedronGeometry(0.14, 1),
+        new THREE.MeshStandardMaterial({
+          color:0xD9A04C, emissive:0xD9A04C, emissiveIntensity:0.45,
+          roughness:0.25, metalness:0.7
+        })
+      );
+      group.add(core);
+      [0.42, 0.68].forEach((radius, index) => {
+        const orbit = new THREE.Mesh(
+          new THREE.TorusGeometry(radius, 0.012, 6, 48),
+          new THREE.MeshBasicMaterial({
+            color:index === 0 ? 0x8F7BC5 : 0xD9A04C,
+            transparent:true, opacity:index === 0 ? 0.42 : 0.28
+          })
+        );
+        orbit.scale.y = 0.48;
+        orbit.rotation.set(Math.PI * 0.35, index * 0.55, index * 0.8);
+        group.add(orbit);
+        const satellite = new THREE.Mesh(
+          new THREE.SphereGeometry(index === 0 ? 0.045 : 0.032, 8, 8),
+          new THREE.MeshBasicMaterial({color:index === 0 ? 0xFFF4D6 : 0x8F7BC5})
+        );
+        satellite.position.set(radius, 0, 0);
+        orbit.add(satellite);
       });
-      group.add(new THREE.Mesh(geo,mat));
-      // Ring
-      if(Math.random()>.5){
-        const rGeo = new THREE.TorusGeometry(r*1.6, 0.04, 8, 32);
-        const rMat = new THREE.MeshBasicMaterial({
-          color:0x8F7BC5,transparent:true,opacity:0.4,
-          side:THREE.DoubleSide
-        });
-        const ring = new THREE.Mesh(rGeo,rMat);
-        ring.rotation.x = Math.PI/3;
-        group.add(ring);
-      }
     } else if(type==='moon'){
-      geo = new THREE.SphereGeometry(0.25+Math.random()*0.2,12,12);
-      mat = new THREE.MeshStandardMaterial({
-        color:0xD9A04C, emissive:0xB8862A, emissiveIntensity:0.3,
-        roughness:0.9
-      });
-      group.add(new THREE.Mesh(geo,mat));
+      // Crescent moon with a subtle orbit, recognisable as a lunar phase.
+      const moonRadius = 0.28 + Math.random()*0.12;
+      const moon = new THREE.Mesh(
+        new THREE.TorusGeometry(moonRadius, moonRadius*0.24, 10, 42, Math.PI*1.32),
+        new THREE.MeshStandardMaterial({
+          color:0xF2D28C, emissive:0xB8862A, emissiveIntensity:0.28,
+          roughness:0.55, metalness:0.12
+        })
+      );
+      moon.rotation.z = Math.PI*0.34;
+      group.add(moon);
+      const lunarOrbit = new THREE.Mesh(
+        new THREE.TorusGeometry(moonRadius*1.55, 0.01, 6, 40),
+        new THREE.MeshBasicMaterial({color:0x8F7BC5,transparent:true,opacity:0.18})
+      );
+      lunarOrbit.scale.y = 0.42;
+      lunarOrbit.rotation.x = Math.PI*0.28;
+      group.add(lunarOrbit);
     } else if(type==='crystal'){
       geo = new THREE.OctahedronGeometry(0.2+Math.random()*0.2);
       mat = new THREE.MeshStandardMaterial({
@@ -1868,16 +1897,24 @@ function handleDownload(platform='android'){
       dot.position.z = 0.03;
       group.add(dot);
     } else if(type==='zodiac'){
-      // Ring symbol
-      geo = new THREE.TorusGeometry(0.25, 0.04, 8, 24);
-      mat = new THREE.MeshBasicMaterial({color:0x8F7BC5,transparent:true,opacity:0.6});
-      group.add(new THREE.Mesh(geo,mat));
+      // Mini astrolabe: concentric rings and radial markers give the circle purpose.
+      [0.22, 0.34].forEach((radius, index) => {
+        const ring = new THREE.Mesh(
+          new THREE.TorusGeometry(radius, index ? 0.014 : 0.022, 6, 40),
+          new THREE.MeshBasicMaterial({
+            color:index ? 0x8F7BC5 : 0xD9A04C,
+            transparent:true, opacity:index ? 0.38 : 0.58
+          })
+        );
+        group.add(ring);
+      });
       const dotGeo = new THREE.SphereGeometry(0.04,8,8);
-      const dotMat = new THREE.MeshBasicMaterial({color:0xD9A04C,transparent:true,opacity:0.7});
-      for(let i=0;i<6;i++){
-        const a = (i/6)*Math.PI*2;
+      const dotMat = new THREE.MeshBasicMaterial({color:0xFFF4D6,transparent:true,opacity:0.72});
+      for(let i=0;i<8;i++){
+        const a = (i/8)*Math.PI*2;
         const d = new THREE.Mesh(dotGeo,dotMat);
-        d.position.set(Math.cos(a)*0.25,Math.sin(a)*0.25,0);
+        d.scale.setScalar(i%2 ? 0.45 : 0.7);
+        d.position.set(Math.cos(a)*0.34,Math.sin(a)*0.34,0);
         group.add(d);
       }
     } else if(type==='star5'){
@@ -1903,7 +1940,7 @@ function handleDownload(platform='android'){
   }
 
   // Distribute floating objects
-  const OBJ_COUNT = isLowPerf ? 25 : 50;
+  const OBJ_COUNT = isLowPerf ? 16 : 30;
   const types = ['planet','moon','crystal','tarot','zodiac','star5'];
   const typeWeights = [3,3,4,6,4,5];
   for(let i=0;i<OBJ_COUNT;i++){
@@ -1920,6 +1957,9 @@ function handleDownload(platform='android'){
       (Math.random()-0.5)*22,
       (Math.random()-0.5)*15 - 5
     );
+    // Objects in the distance remain smaller and dimmer, strengthening depth.
+    const depthScale = THREE.MathUtils.mapLinear(obj.position.z, -12.5, 2.5, 0.45, 1.15);
+    obj.scale.setScalar(depthScale);
     obj.rotation.set(
       Math.random()*Math.PI*2,
       Math.random()*Math.PI*2,
