@@ -793,6 +793,148 @@ function normalizeCourseRecord(course: Course): Course {
   return normalized;
 }
 
+function normalizeCourseResourceKind(kind: string, url: string): string {
+  const normalized = kind.trim().toLowerCase();
+  if (["pdf", "canva", "file", "image", "link", "video"].includes(normalized)) {
+    return normalized;
+  }
+
+  const lowercaseUrl = url.toLowerCase();
+  if (lowercaseUrl.includes("canva.com")) {
+    return "canva";
+  }
+  if (lowercaseUrl.endsWith(".pdf")) {
+    return "pdf";
+  }
+  if (/\.(png|jpe?g|webp|gif|svg)(\?|#|$)/.test(lowercaseUrl)) {
+    return "image";
+  }
+  if (/\.(mp4|m4v|mov|webm)(\?|#|$)/.test(lowercaseUrl)) {
+    return "video";
+  }
+
+  return lowercaseUrl.startsWith("http://") || lowercaseUrl.startsWith("https://") ? "link" : "file";
+}
+
+function courseResourceIsPublic(resource: CourseResourceRecord): boolean {
+  return (
+    normalizeCourseStatus(resource.status) === "published" &&
+    resource.isActive !== false &&
+    resource.url.trim().length > 0
+  );
+}
+
+function courseResourceToLesson(
+  resource: CourseResourceRecord,
+  order: number,
+): CourseLesson {
+  return {
+    id: `lesson-${resource.id}`,
+    title: resource.title.trim() || "Recurso",
+    format: normalizeCourseResourceKind(resource.kind, resource.url),
+    durationMinutes: 0,
+    prompt: resource.description.trim() || "Abrir recurso del curso.",
+    content: resource.description.trim() || undefined,
+    resourceUrl: resource.url.trim(),
+    order,
+    status: "published",
+    isActive: true,
+  };
+}
+
+function attachPublishedCourseResources(course: Course): Course {
+  const normalized = normalizeCourseRecord(course);
+  const resources = mockCourseResourceStore
+    .filter((resource) => resource.courseId === normalized.id)
+    .filter(courseResourceIsPublic)
+    .sort((left, right) => left.updatedAt.localeCompare(right.updatedAt));
+
+  if (resources.length === 0) {
+    return normalized;
+  }
+
+  const existingUrls = new Set(
+    normalized.modules.flatMap((module) =>
+      module.lessons
+        .map((lesson) => lesson.resourceUrl?.trim())
+        .filter((url): url is string => Boolean(url)),
+    ),
+  );
+  const appendedResources: CourseResourceRecord[] = [];
+  const modules = normalized.modules.map((module) => {
+    let nextLessons = module.lessons;
+    for (const resource of resources) {
+      const url = resource.url.trim();
+      if (!url || existingUrls.has(url)) {
+        continue;
+      }
+
+      const linkedLessonIndex = resource.lessonId
+        ? nextLessons.findIndex((lesson) => lesson.id === resource.lessonId)
+        : -1;
+      if (linkedLessonIndex >= 0) {
+        nextLessons = nextLessons.map((lesson, lessonIndex) =>
+          lessonIndex === linkedLessonIndex
+            ? {
+                ...lesson,
+                format: normalizeCourseResourceKind(resource.kind, url),
+                prompt: lesson.prompt || resource.description,
+                content: lesson.content ?? resource.description,
+                resourceUrl: url,
+              }
+            : lesson,
+        );
+        existingUrls.add(url);
+        continue;
+      }
+
+      if (resource.moduleId && resource.moduleId === module.id) {
+        nextLessons = [
+          ...nextLessons,
+          courseResourceToLesson(resource, nextLessons.length + 1),
+        ];
+        existingUrls.add(url);
+      }
+    }
+
+    return {
+      ...module,
+      lessons: nextLessons,
+    };
+  });
+
+  for (const resource of resources) {
+    const url = resource.url.trim();
+    if (!url || existingUrls.has(url)) {
+      continue;
+    }
+    appendedResources.push(resource);
+    existingUrls.add(url);
+  }
+
+  if (appendedResources.length > 0) {
+    const nextOrder =
+      Math.max(0, ...modules.map((module) => module.order ?? 0)) + 1;
+    modules.push({
+      id: `module-${normalized.id}-resources`,
+      title: "Recursos del curso",
+      summary: "Materiales adicionales del curso.",
+      durationMinutes: 0,
+      order: nextOrder,
+      status: "published",
+      isActive: true,
+      lessons: appendedResources.map((resource, index) =>
+        courseResourceToLesson(resource, index + 1),
+      ),
+    });
+  }
+
+  return normalizeCourseRecord({
+    ...normalized,
+    modules,
+  });
+}
+
 function courseIsVisible(course: Course): boolean {
   return normalizeCourseStatus(course.status) !== "archived";
 }
@@ -4014,7 +4156,7 @@ export async function updateShopOrderStatusAsAdmin(
 }
 
 export function getCourses(): Course[] {
-  return getCoursesMock();
+  return getCoursesMock().map(attachPublishedCourseResources);
 }
 
 export function getAdminCourses(): Course[] {
@@ -4022,7 +4164,8 @@ export function getAdminCourses(): Course[] {
 }
 
 export function getCourseById(courseId: string): Course | null {
-  return getCourseByIdMock(courseId);
+  const course = getCourseByIdMock(courseId);
+  return course ? attachPublishedCourseResources(course) : null;
 }
 
 export function getAdminCourseById(courseId: string): Course | null {

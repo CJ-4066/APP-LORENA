@@ -462,8 +462,23 @@ test("cursos admin soportan crear, publicar y exponer solo publicados en públic
     url: "/api/content/courses",
   });
   assert.equal(publicAfterPublish.statusCode, 200);
-  const publicAfterJson = publicAfterPublish.json() as { items: Array<{ id: string }> };
-  assert.ok(publicAfterJson.items.some((item) => item.id === courseId));
+  const publicAfterJson = publicAfterPublish.json() as {
+    items: Array<{
+      id: string;
+      modules: Array<{ lessons: Array<{ title: string; format: string; resourceUrl?: string }> }>;
+    }>;
+  };
+  const publicCourse = publicAfterJson.items.find((item) => item.id === courseId);
+  assert.ok(publicCourse);
+  const publicLessons = publicCourse.modules.flatMap((module) => module.lessons);
+  assert.ok(
+    publicLessons.some(
+      (lesson) =>
+        lesson.title === "Recurso 1" &&
+        lesson.format === "link" &&
+        lesson.resourceUrl === "https://example.com/recurso",
+    ),
+  );
 
   const auditResponse = await app.inject({
     method: "GET",
