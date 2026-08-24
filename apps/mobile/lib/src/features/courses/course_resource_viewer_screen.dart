@@ -311,7 +311,7 @@ String _videoHtml(String url) {
   </style>
 </head>
 <body>
-  <video src="$escapedUrl" controls playsinline></video>
+  <video src="$escapedUrl" controls preload="metadata" playsinline></video>
 </body>
 </html>
 ''';

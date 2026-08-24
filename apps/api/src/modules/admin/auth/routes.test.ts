@@ -634,6 +634,35 @@ test("admin puede subir archivos y servirlos públicamente", async () => {
   });
   assert.equal(publicResponse.statusCode, 200);
   assert.equal(publicResponse.headers["content-type"], "image/png");
+  assert.equal(publicResponse.headers["accept-ranges"], "bytes");
+
+  const rangeResponse = await app.inject({
+    method: "GET",
+    url: publicPath,
+    headers: {
+      range: "bytes=0-7",
+    },
+  });
+  assert.equal(rangeResponse.statusCode, 206);
+  assert.equal(
+    rangeResponse.headers["content-range"],
+    `bytes 0-7/${pngBytes.byteLength}`,
+  );
+  assert.equal(rangeResponse.headers["content-length"], "8");
+  assert.deepEqual(rangeResponse.rawPayload, pngBytes.subarray(0, 8));
+
+  const invalidRangeResponse = await app.inject({
+    method: "GET",
+    url: publicPath,
+    headers: {
+      range: `bytes=${pngBytes.byteLength}-`,
+    },
+  });
+  assert.equal(invalidRangeResponse.statusCode, 416);
+  assert.equal(
+    invalidRangeResponse.headers["content-range"],
+    `bytes */${pngBytes.byteLength}`,
+  );
 
   const listResponse = await app.inject({
     method: "GET",

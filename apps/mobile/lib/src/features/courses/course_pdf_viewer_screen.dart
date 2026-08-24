@@ -86,7 +86,7 @@ class _CoursePdfViewerScreenState extends State<CoursePdfViewerScreen> {
           lowercase.endsWith('.mov') ||
           lowercase.contains('video');
 
-      if (!_isPdf && !_isImage) {
+      if (!_isPdf && !_isImage && !_isVideo) {
         // Fallback timer: force hide loading spinner after 4 seconds
         Future.delayed(const Duration(seconds: 4), () {
           if (mounted && _isLoadingWeb) {
@@ -119,42 +119,7 @@ class _CoursePdfViewerScreenState extends State<CoursePdfViewerScreen> {
             ),
           );
 
-        if (_isVideo) {
-          final html = '''
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-              <style>
-                body, html {
-                  margin: 0;
-                  padding: 0;
-                  background-color: black;
-                  width: 100%;
-                  height: 100%;
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                  overflow: hidden;
-                }
-                video {
-                  width: 100%;
-                  height: 100%;
-                  max-width: 100%;
-                  max-height: 100%;
-                  object-fit: contain;
-                }
-              </style>
-            </head>
-            <body>
-              <video src="$url" controls autoplay playsinline></video>
-            </body>
-            </html>
-          ''';
-          _webViewController!.loadHtmlString(html);
-        } else {
-          _webViewController!.loadRequest(Uri.parse(url));
-        }
+        _webViewController!.loadRequest(Uri.parse(url));
       }
     }
   }
