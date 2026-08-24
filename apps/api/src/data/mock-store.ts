@@ -855,6 +855,7 @@ let courses: Course[] = [
     lessonCount: 12,
     progressPercent: 28,
     streakDays: 4,
+    coverImageUrl: "https://images.unsplash.com/photo-1601049676099-e7ed07d825b0?auto=format&fit=crop&q=80&w=800",
     hook: "Una ruta corta, elegante y muy práctica para que el tarot deje de sentirse confuso y empiece a darte claridad accionable.",
     description:
       "Este curso cambia la lógica de 'decir el futuro' por lectura simbólica, foco emocional y pequeñas decisiones concretas después de cada tirada.",
@@ -877,7 +878,8 @@ let courses: Course[] = [
           {
             id: "course-tarot-sin-ruido-m1-l1",
             title: "La pregunta que abre símbolo",
-            format: "video",
+            format: "canva",
+            resourceUrl: "https://www.canva.com/design/DAF8YpL25uI/view?embed",
             durationMinutes: 11,
             prompt:
               "Reescribe una pregunta cerrada como una pregunta de claridad.",
@@ -1058,6 +1060,7 @@ let courses: Course[] = [
     lessonCount: 15,
     progressPercent: 8,
     streakDays: 1,
+    coverImageUrl: "https://images.unsplash.com/photo-1506318137071-a8e063b4bec0?auto=format&fit=crop&q=80&w=800",
     hook: "Una experiencia con ritmo de serie corta: entiendes tus ciclos, reconoces tus ventanas y sales con mapa de acción trimestral.",
     description:
       "Cruza sendero de vida, año personal, Sol, Luna y tránsitos clave para pasar de intuición suelta a estrategia personal con timing.",
@@ -1080,7 +1083,8 @@ let courses: Course[] = [
           {
             id: "course-arquitectura-del-destino-m1-l1",
             title: "Sol, Luna y Ascendente en lenguaje humano",
-            format: "video",
+            format: "canva",
+            resourceUrl: "https://www.canva.com/design/DAF8YpL25uI/view?embed",
             durationMinutes: 18,
             prompt:
               "Describe tu energía base, necesidad emocional y forma de entrar al mundo.",
