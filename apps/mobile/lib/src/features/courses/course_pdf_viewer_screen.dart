@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:webview_flutter/webview_flutter.dart';
 
 import '../../core/i18n/app_i18n.dart';
 import '../../core/theme/app_palette.dart';
@@ -40,7 +41,7 @@ Future<void> _openCourseResource(
   }
 }
 
-class CoursePdfViewerScreen extends StatelessWidget {
+class CoursePdfViewerScreen extends StatefulWidget {
   const CoursePdfViewerScreen({
     super.key,
     required this.course,
@@ -49,9 +50,42 @@ class CoursePdfViewerScreen extends StatelessWidget {
   final Course course;
 
   @override
+  State<CoursePdfViewerScreen> createState() => _CoursePdfViewerScreenState();
+}
+
+class _CoursePdfViewerScreenState extends State<CoursePdfViewerScreen> {
+  WebViewController? _webViewController;
+  bool _isLoadingWeb = true;
+
+  @override
+  void initState() {
+    super.initState();
+    final firstResourceUrl = widget.course.modules
+        .firstOrNull?.lessons.firstOrNull?.resourceUrl?.trim();
+    if (firstResourceUrl != null &&
+        (firstResourceUrl.startsWith('http://') ||
+            firstResourceUrl.startsWith('https://'))) {
+      _webViewController = WebViewController()
+        ..setJavaScriptMode(JavaScriptMode.unrestricted)
+        ..setNavigationDelegate(
+          NavigationDelegate(
+            onPageFinished: (_) {
+              if (mounted) {
+                setState(() {
+                  _isLoadingWeb = false;
+                });
+              }
+            },
+          ),
+        )
+        ..loadRequest(Uri.parse(firstResourceUrl));
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final hasCover = course.coverImageUrl?.trim().isNotEmpty ?? false;
+    final hasCover = widget.course.coverImageUrl?.trim().isNotEmpty ?? false;
 
     return Scaffold(
       backgroundColor: AppPalette.petalSoft,
@@ -59,7 +93,7 @@ class CoursePdfViewerScreen extends StatelessWidget {
         backgroundColor: AppPalette.petalSoft,
         foregroundColor: AppPalette.butterflyInk,
         elevation: 0,
-        title: Text(course.title),
+        title: Text(widget.course.title),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(18, 12, 18, 28),
@@ -68,28 +102,52 @@ class CoursePdfViewerScreen extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (hasCover) ...[
+                if (_webViewController != null) ...[
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(22),
+                    child: Container(
+                      height: 260,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.black,
+                        borderRadius: BorderRadius.circular(22),
+                      ),
+                      child: Stack(
+                        children: [
+                          WebViewWidget(controller: _webViewController!),
+                          if (_isLoadingWeb)
+                            const Center(
+                              child: CircularProgressIndicator(
+                                color: AppPalette.flameGold,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ] else if (hasCover) ...[
                   ClipRRect(
                     borderRadius: BorderRadius.circular(22),
                     child: SizedBox(
                       height: 180,
                       width: double.infinity,
                       child: Image.network(
-                        course.coverImageUrl!.trim(),
+                        widget.course.coverImageUrl!.trim(),
                         fit: BoxFit.cover,
                         errorBuilder: (_, __, ___) => _CoverFallback(
-                          course: course,
+                          course: widget.course,
                         ),
                       ),
                     ),
                   ),
                   const SizedBox(height: 16),
                 ] else ...[
-                  _CoverFallback(course: course),
+                  _CoverFallback(course: widget.course),
                   const SizedBox(height: 16),
                 ],
                 Text(
-                  l10n.ts(course.category),
+                  l10n.ts(widget.course.category),
                   style: const TextStyle(
                     color: AppPalette.royalViolet,
                     fontSize: 12,
@@ -99,7 +157,7 @@ class CoursePdfViewerScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  course.title,
+                  widget.course.title,
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                         color: AppPalette.midnight,
                         fontWeight: FontWeight.w900,
@@ -107,7 +165,7 @@ class CoursePdfViewerScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  course.subtitle,
+                  widget.course.subtitle,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         color: AppPalette.butterflyInk,
                         fontWeight: FontWeight.w700,
@@ -121,27 +179,27 @@ class CoursePdfViewerScreen extends StatelessWidget {
                     _MetaPill(
                       label: l10n.ts(
                         '{count} lecciones',
-                        {'count': '${course.lessonCount}'},
+                        {'count': '${widget.course.lessonCount}'},
                       ),
                     ),
                     _MetaPill(
                       label: l10n.ts(
                         '{hours} h',
-                        {'hours': course.estimatedHours.toStringAsFixed(1)},
+                        {'hours': widget.course.estimatedHours.toStringAsFixed(1)},
                       ),
                     ),
-                    _MetaPill(label: l10n.ts(course.level)),
+                    _MetaPill(label: l10n.ts(widget.course.level)),
                   ],
                 ),
                 const SizedBox(height: 18),
                 Text(
-                  course.description,
+                  widget.course.description,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         color: AppPalette.butterflyInk,
                         height: 1.55,
                       ),
                 ),
-                if (course.outcomes.isNotEmpty) ...[
+                if (widget.course.outcomes.isNotEmpty) ...[
                   const SizedBox(height: 18),
                   Text(
                     l10n.ts('Resultados clave'),
@@ -151,7 +209,7 @@ class CoursePdfViewerScreen extends StatelessWidget {
                         ),
                   ),
                   const SizedBox(height: 10),
-                  ...course.outcomes.map(
+                  ...widget.course.outcomes.map(
                     (item) => Padding(
                       padding: const EdgeInsets.only(bottom: 10),
                       child: Row(
@@ -186,7 +244,7 @@ class CoursePdfViewerScreen extends StatelessWidget {
               ],
             ),
           ),
-          ...course.modules.asMap().entries.map(
+          ...widget.course.modules.asMap().entries.map(
                 (entry) => Padding(
                   padding: const EdgeInsets.only(top: 14),
                   child: _PdfPage(
