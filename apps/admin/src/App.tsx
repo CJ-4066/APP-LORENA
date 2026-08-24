@@ -4616,10 +4616,13 @@ function App() {
           },
         );
         const moduleJson = (await moduleResponse.json()) as {
-          item?: { id: string };
+          item?: AdminCourse;
         };
         if (moduleResponse.ok && moduleJson.item) {
-          moduleId = moduleJson.item.id;
+          const createdModule = moduleJson.item.modules?.[0];
+          if (createdModule) {
+            moduleId = createdModule.id;
+          }
         }
       }
 
