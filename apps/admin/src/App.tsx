@@ -12763,37 +12763,37 @@ function App() {
                         </div>
                       </section>
 
-                      <section className="course-editor-card">
+                      <section className="course-editor-card course-editor-card-visual">
                         <div className="course-editor-card-head">
                           <div>
                             <p className="eyebrow">Recurso interactivo</p>
                             <h3>Presentación, Video o PDF</h3>
                           </div>
                         </div>
+                        <AdminFileUploader
+                          apiBaseUrl={apiBaseUrl}
+                          label="Archivo del Curso"
+                          description="Sube la presentación (PowerPoint, PDF) o el video del curso."
+                          accept="application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,video/mp4,video/quicktime"
+                          mode="general"
+                          value={courseForm.resourceUrl}
+                          category="course"
+                          entityType="course"
+                          entityId={selectedCourseId ?? undefined}
+                          onUploaded={(asset) =>
+                            setCourseForm((current) => ({
+                              ...current,
+                              resourceUrl: asset.publicUrl,
+                            }))
+                          }
+                          onClear={() =>
+                            setCourseForm((current) => ({
+                              ...current,
+                              resourceUrl: "",
+                            }))
+                          }
+                        />
                         <div className="badge-form-grid badge-form-grid-compact">
-                          <AdminFileUploader
-                            apiBaseUrl={apiBaseUrl}
-                            label="Archivo del Curso"
-                            description="Sube la presentación (PowerPoint, PDF) o el video del curso."
-                            accept="application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,video/mp4,video/quicktime"
-                            mode="general"
-                            value={courseForm.resourceUrl}
-                            category="course"
-                            entityType="course"
-                            entityId={selectedCourseId ?? undefined}
-                            onUploaded={(asset) =>
-                              setCourseForm((current) => ({
-                                ...current,
-                                resourceUrl: asset.publicUrl,
-                              }))
-                            }
-                            onClear={() =>
-                              setCourseForm((current) => ({
-                                ...current,
-                                resourceUrl: "",
-                              }))
-                            }
-                          />
                           <label className="form-wide">
                             <span>Enlace alternativo (Canva, PowerPoint Online, etc.)</span>
                             <input
