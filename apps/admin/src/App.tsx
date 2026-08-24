@@ -2456,7 +2456,19 @@ function resolveMediaUrl(url: string): string {
     return "";
   }
 
-  if (/^(https?:\/\/|data:|blob:)/i.test(trimmed)) {
+  if (/^(data:|blob:)/i.test(trimmed)) {
+    return trimmed;
+  }
+
+  if (/^https?:\/\//i.test(trimmed)) {
+    try {
+      const parsed = new URL(trimmed);
+      if (parsed.pathname.startsWith("/uploads/")) {
+        return new URL(`/api${parsed.pathname}${parsed.search}${parsed.hash}`, apiBaseUrl).toString();
+      }
+    } catch {
+      return trimmed;
+    }
     return trimmed;
   }
 

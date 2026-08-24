@@ -5,13 +5,14 @@ import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 
 import '../../core/i18n/app_i18n.dart';
 import '../../core/theme/app_palette.dart';
-import '../../core/widgets/in_app_webview_screen.dart';
 import '../../models/app_models.dart';
+import 'course_resource_viewer_screen.dart';
 
 Future<void> _openCourseResource(
   BuildContext context,
   String value, {
   required String title,
+  String? format,
 }) async {
   final trimmed = value.trim();
   final uri = Uri.tryParse(trimmed);
@@ -25,9 +26,10 @@ Future<void> _openCourseResource(
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => InAppWebViewScreen(
+        builder: (_) => CourseResourceViewerScreen(
           title: title,
           url: trimmed,
+          format: format,
         ),
       ),
     );
@@ -59,6 +61,7 @@ class _CoursePdfViewerScreenState extends State<CoursePdfViewerScreen> {
   bool _isLoadingWeb = true;
   String? _firstResourceUrl;
   bool _isPdf = false;
+  bool _isImage = false;
   bool _isVideo = false;
 
   @override
@@ -74,13 +77,16 @@ class _CoursePdfViewerScreenState extends State<CoursePdfViewerScreen> {
       _isPdf = format == 'pdf' ||
           lowercase.endsWith('.pdf') ||
           lowercase.contains('/pdf');
+      _isImage = format == 'image' ||
+          format == 'imagen' ||
+          RegExp(r'\.(png|jpe?g|webp|gif|svg)(\?|#|$)').hasMatch(lowercase);
       _isVideo = format == 'video' ||
           lowercase.endsWith('.mp4') ||
           lowercase.endsWith('.m4v') ||
           lowercase.endsWith('.mov') ||
           lowercase.contains('video');
 
-      if (!_isPdf) {
+      if (!_isPdf && !_isImage) {
         // Fallback timer: force hide loading spinner after 4 seconds
         Future.delayed(const Duration(seconds: 4), () {
           if (mounted && _isLoadingWeb) {
@@ -188,6 +194,27 @@ class _CoursePdfViewerScreenState extends State<CoursePdfViewerScreen> {
                         _firstResourceUrl!,
                         canShowScrollHead: false,
                         canShowScrollStatus: false,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ] else if (_isImage && _firstResourceUrl != null) ...[
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(22),
+                    child: Container(
+                      height: 260,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(22),
+                        border: Border.all(color: AppPalette.border),
+                      ),
+                      child: Image.network(
+                        _firstResourceUrl!,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) => _CoverFallback(
+                          course: widget.course,
+                        ),
                       ),
                     ),
                   ),
@@ -446,6 +473,7 @@ class _CoursePdfViewerScreenState extends State<CoursePdfViewerScreen> {
                                               context,
                                               lessonEntry.value.resourceUrl!,
                                               title: lessonEntry.value.title,
+                                              format: lessonEntry.value.format,
                                             ),
                                             icon: const Icon(
                                               Icons.open_in_new_rounded,

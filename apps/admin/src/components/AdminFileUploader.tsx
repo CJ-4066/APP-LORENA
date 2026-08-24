@@ -37,13 +37,25 @@ function resolveMediaUrl(apiBaseUrl: string, value: string): string {
     return "";
   }
 
-  if (
-    trimmed.startsWith("http://") ||
-    trimmed.startsWith("https://") ||
-    trimmed.startsWith("data:") ||
-    trimmed.startsWith("blob:")
-  ) {
+  if (trimmed.startsWith("data:") || trimmed.startsWith("blob:")) {
     return trimmed;
+  }
+
+  if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+    try {
+      const parsed = new URL(trimmed);
+      if (parsed.pathname.startsWith("/uploads/")) {
+        return new URL(`/api${parsed.pathname}${parsed.search}${parsed.hash}`, apiBaseUrl).toString();
+      }
+    } catch {
+      return trimmed;
+    }
+    return trimmed;
+  }
+
+  if (/^(\/?uploads\/)/i.test(trimmed)) {
+    const normalized = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+    return new URL(`/api${normalized}`, apiBaseUrl).toString();
   }
 
   return new URL(trimmed, apiBaseUrl.endsWith("/") ? apiBaseUrl : `${apiBaseUrl}/`).toString();

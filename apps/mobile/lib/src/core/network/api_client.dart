@@ -767,15 +767,35 @@ class ApiClient {
 
   String _resolveAssetUrl(String value) {
     final trimmed = value.trim();
-    if (trimmed.isEmpty ||
-        trimmed.startsWith('data:') ||
-        trimmed.startsWith('http://') ||
-        trimmed.startsWith('https://')) {
+    if (trimmed.isEmpty || trimmed.startsWith('data:')) {
       return trimmed;
     }
 
-    if (trimmed.startsWith('/uploads/')) {
-      return Uri.parse(baseUrl).resolve('/api$trimmed').toString();
+    final parsed = Uri.tryParse(trimmed);
+    if (parsed != null && parsed.hasScheme) {
+      if ((parsed.scheme == 'http' || parsed.scheme == 'https') &&
+          parsed.path.startsWith('/uploads/')) {
+        return Uri.parse(baseUrl)
+            .resolve(
+              Uri(
+                path: '/api${parsed.path}',
+                query: parsed.hasQuery ? parsed.query : null,
+                fragment: parsed.hasFragment ? parsed.fragment : null,
+              ).toString(),
+            )
+            .toString();
+      }
+
+      return trimmed;
+    }
+
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      return trimmed;
+    }
+
+    if (trimmed.startsWith('/uploads/') || trimmed.startsWith('uploads/')) {
+      final normalized = trimmed.startsWith('/') ? trimmed : '/$trimmed';
+      return Uri.parse(baseUrl).resolve('/api$normalized').toString();
     }
 
     return Uri.parse(baseUrl).resolve(trimmed).toString();
