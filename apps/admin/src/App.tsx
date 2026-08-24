@@ -1108,6 +1108,16 @@ function buildCourseForm(course: AdminCourse | null) {
   };
 }
 
+function guessCourseResourceKind(url: string): string {
+  const lowercase = url.toLowerCase();
+  if (lowercase.includes("canva.com")) return "canva";
+  if (lowercase.endsWith(".pdf")) return "pdf";
+  if (lowercase.endsWith(".ppt") || lowercase.endsWith(".pptx")) return "pdf";
+  if (/\.(png|jpe?g|webp|gif|svg)$/.test(lowercase)) return "image";
+  if (/\.(mp4|m4v|mov|webm)$/.test(lowercase)) return "video";
+  return lowercase.startsWith("http") ? "link" : "file";
+}
+
 function getConnectionErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof TypeError && error.message === "Failed to fetch") {
     return "No se pudo conectar con la API de administración. Verifica que el servidor esté en ejecución.";
@@ -4640,19 +4650,10 @@ function App() {
 
       if (moduleId) {
         const firstLesson = existingModule?.lessons?.[0];
-        const guessKind = (url: string) => {
-          const lowercase = url.toLowerCase();
-          if (lowercase.includes("canva.com")) return "canva";
-          if (lowercase.endsWith(".pdf")) return "pdf";
-          if (lowercase.endsWith(".ppt") || lowercase.endsWith(".pptx")) return "pdf";
-          if (/\.(png|jpe?g|webp|svg)$/.test(lowercase)) return "image";
-          if (/\.(mp4|m4v|mov)$/.test(lowercase)) return "video";
-          return lowercase.startsWith("http") ? "link" : "file";
-        };
 
         const lessonPayload = {
           title: courseForm.title,
-          format: guessKind(courseForm.resourceUrl),
+          format: guessCourseResourceKind(courseForm.resourceUrl),
           durationMinutes: 0,
           prompt: "Revisar el material adjunto.",
           content: courseForm.description,
@@ -4722,6 +4723,103 @@ function App() {
       );
     } finally {
       setSavingCourseId(null);
+    }
+  }
+
+  async function handleAutoAttachCourseResource(resourceUrl: string) {
+    if (!selectedCourseId) {
+      setCourseMessage("Archivo subido. Guarda el curso para vincularlo.");
+      return;
+    }
+
+    const currentCourse = courses.find((item) => item.id === selectedCourseId);
+    setCourseError(null);
+    setCourseMessage("Archivo subido. Vinculando al curso...");
+
+    try {
+      let moduleId = currentCourse?.modules?.[0]?.id ?? "";
+      let nextCourse = currentCourse ?? null;
+
+      if (!moduleId) {
+        const moduleResponse = await fetch(
+          `${apiBaseUrl}/api/admin/courses/${encodeURIComponent(selectedCourseId)}/modules`,
+          {
+            method: "POST",
+            credentials: "include",
+            headers: {
+              "content-type": "application/json",
+            },
+            body: JSON.stringify({
+              title: "Material principal",
+              summary: courseForm.description || "Contenido del curso",
+              durationMinutes: 0,
+              order: 1,
+              status: "published",
+              isActive: true,
+            }),
+          },
+        );
+        const moduleJson = (await moduleResponse.json()) as {
+          item?: AdminCourse;
+          error?: string;
+        };
+        if (!moduleResponse.ok || !moduleJson.item) {
+          throw new Error(moduleJson.error ?? "No se pudo crear el módulo.");
+        }
+        nextCourse = moduleJson.item;
+        moduleId = moduleJson.item.modules?.[0]?.id ?? "";
+      }
+
+      if (!moduleId) {
+        throw new Error("No se pudo encontrar el módulo principal.");
+      }
+
+      const firstLesson = nextCourse?.modules?.find((module) => module.id === moduleId)?.lessons?.[0];
+      const lessonPayload = {
+        title: courseForm.title.trim() || currentCourse?.title || "Material principal",
+        format: guessCourseResourceKind(resourceUrl),
+        durationMinutes: firstLesson?.durationMinutes ?? 0,
+        prompt: firstLesson?.prompt || "Revisar el material adjunto.",
+        content: courseForm.description.trim() || firstLesson?.content || currentCourse?.description || "",
+        resourceUrl,
+        order: firstLesson?.order ?? 1,
+        status: "published",
+        isActive: true,
+      };
+
+      const lessonResponse = await fetch(
+        firstLesson
+          ? `${apiBaseUrl}/api/admin/courses/${encodeURIComponent(selectedCourseId)}/modules/${encodeURIComponent(moduleId)}/lessons/${encodeURIComponent(firstLesson.id)}`
+          : `${apiBaseUrl}/api/admin/courses/${encodeURIComponent(selectedCourseId)}/modules/${encodeURIComponent(moduleId)}/lessons`,
+        {
+          method: firstLesson ? "PATCH" : "POST",
+          credentials: "include",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify(lessonPayload),
+        },
+      );
+      const lessonJson = (await lessonResponse.json()) as {
+        item?: AdminCourse;
+        error?: string;
+      };
+      if (!lessonResponse.ok || !lessonJson.item) {
+        throw new Error(lessonJson.error ?? "No se pudo vincular el archivo.");
+      }
+
+      const savedCourse = lessonJson.item;
+      setCourses((current) =>
+        current.map((item) => (item.id === savedCourse.id ? savedCourse : item)),
+      );
+      setCourseForm(buildCourseForm(savedCourse));
+      setCourseMessage("Archivo vinculado al curso.");
+    } catch (error) {
+      setCourseError(
+        error instanceof Error
+          ? error.message
+          : "No se pudo vincular el archivo al curso.",
+      );
     }
   }
 
@@ -12796,12 +12894,13 @@ function App() {
                           category="course"
                           entityType="course"
                           entityId={selectedCourseId ?? undefined}
-                          onUploaded={(asset) =>
+                          onUploaded={(asset) => {
                             setCourseForm((current) => ({
                               ...current,
                               resourceUrl: asset.publicUrl,
-                            }))
-                          }
+                            }));
+                            void handleAutoAttachCourseResource(asset.publicUrl);
+                          }}
                           onClear={() =>
                             setCourseForm((current) => ({
                               ...current,
