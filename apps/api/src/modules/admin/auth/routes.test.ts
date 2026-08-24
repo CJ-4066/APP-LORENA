@@ -640,3 +640,72 @@ test("admin puede subir archivos y servirlos públicamente", async () => {
   });
   assert.equal(deleteResponse.statusCode, 200);
 });
+
+test("admin puede subir videos de cursos y servirlos públicamente", async () => {
+  const loginResponse = await app.inject({
+    method: "POST",
+    url: "/api/admin/auth/login",
+    payload: {
+      email: "admin@lore.com",
+      password: "Admin123!",
+    },
+  });
+  const cookie = extractCookie(loginResponse.headers["set-cookie"]);
+
+  const mp4Bytes = Buffer.from([
+    0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70,
+    0x69, 0x73, 0x6f, 0x6d, 0x00, 0x00, 0x02, 0x00,
+    0x69, 0x73, 0x6f, 0x6d, 0x69, 0x73, 0x6f, 0x32,
+  ]);
+  const multipart = buildMultipartBody([
+    {
+      fieldName: "category",
+      value: "course",
+    },
+    {
+      fieldName: "entityType",
+      value: "course",
+    },
+    {
+      fieldName: "entityId",
+      value: "course-video-test",
+    },
+    {
+      fieldName: "file",
+      value: mp4Bytes,
+      fileName: "clase.mp4",
+      contentType: "video/mp4",
+    },
+  ]);
+
+  const uploadResponse = await app.inject({
+    method: "POST",
+    url: "/api/admin/uploads",
+    headers: {
+      cookie,
+      "content-type": multipart.contentType,
+    },
+    payload: multipart.body,
+  });
+
+  assert.equal(uploadResponse.statusCode, 201);
+  const uploadJson = uploadResponse.json() as {
+    item: {
+      publicUrl: string;
+      mimeType: string;
+      category: string;
+      storagePath: string;
+    };
+  };
+  assert.equal(uploadJson.item.mimeType, "video/mp4");
+  assert.equal(uploadJson.item.category, "course");
+  assert.ok(uploadJson.item.publicUrl.includes("/uploads/courses/"));
+  assert.ok(uploadJson.item.storagePath.endsWith(".mp4"));
+
+  const publicResponse = await app.inject({
+    method: "GET",
+    url: getPathnameFromUrl(uploadJson.item.publicUrl),
+  });
+  assert.equal(publicResponse.statusCode, 200);
+  assert.equal(publicResponse.headers["content-type"], "video/mp4");
+});

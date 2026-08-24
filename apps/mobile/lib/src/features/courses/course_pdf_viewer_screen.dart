@@ -64,14 +64,19 @@ class _CoursePdfViewerScreenState extends State<CoursePdfViewerScreen> {
   @override
   void initState() {
     super.initState();
-    final url = widget.course.modules
-        .firstOrNull?.lessons.firstOrNull?.resourceUrl?.trim();
+    final firstLesson = widget.course.modules.firstOrNull?.lessons.firstOrNull;
+    final url = firstLesson?.resourceUrl?.trim();
     if (url != null &&
         (url.startsWith('http://') || url.startsWith('https://'))) {
       _firstResourceUrl = url;
       final lowercase = url.toLowerCase();
-      _isPdf = lowercase.endsWith('.pdf') || lowercase.contains('/pdf');
-      _isVideo = lowercase.endsWith('.mp4') ||
+      final format = firstLesson?.format.trim().toLowerCase() ?? '';
+      _isPdf = format == 'pdf' ||
+          lowercase.endsWith('.pdf') ||
+          lowercase.contains('/pdf');
+      _isVideo = format == 'video' ||
+          lowercase.endsWith('.mp4') ||
+          lowercase.endsWith('.m4v') ||
           lowercase.endsWith('.mov') ||
           lowercase.contains('video');
 
@@ -270,7 +275,10 @@ class _CoursePdfViewerScreenState extends State<CoursePdfViewerScreen> {
                     _MetaPill(
                       label: l10n.ts(
                         '{hours} h',
-                        {'hours': widget.course.estimatedHours.toStringAsFixed(1)},
+                        {
+                          'hours':
+                              widget.course.estimatedHours.toStringAsFixed(1)
+                        },
                       ),
                     ),
                     _MetaPill(label: l10n.ts(widget.course.level)),

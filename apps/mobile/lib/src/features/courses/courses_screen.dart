@@ -410,6 +410,12 @@ class _CreateCourseResourceScreenState
     if (lower.endsWith('.docx')) {
       return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
     }
+    if (lower.endsWith('.ppt')) {
+      return 'application/vnd.ms-powerpoint';
+    }
+    if (lower.endsWith('.pptx')) {
+      return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+    }
     if (lower.endsWith('.png')) {
       return 'image/png';
     }
@@ -421,6 +427,12 @@ class _CreateCourseResourceScreenState
     }
     if (lower.endsWith('.svg')) {
       return 'image/svg+xml';
+    }
+    if (lower.endsWith('.mp4') || lower.endsWith('.m4v')) {
+      return 'video/mp4';
+    }
+    if (lower.endsWith('.mov')) {
+      return 'video/quicktime';
     }
     return 'application/octet-stream';
   }
@@ -436,6 +448,11 @@ class _CreateCourseResourceScreenState
         lower.endsWith('.webp') ||
         lower.endsWith('.svg')) {
       return 'image';
+    }
+    if (lower.endsWith('.mp4') ||
+        lower.endsWith('.m4v') ||
+        lower.endsWith('.mov')) {
+      return 'video';
     }
     return 'file';
   }

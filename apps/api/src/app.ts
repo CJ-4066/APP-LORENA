@@ -71,6 +71,10 @@ export async function buildServer() {
     "application/pdf",
     "application/msword",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-powerpoint",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "video/mp4",
+    "video/quicktime",
   ]) {
     app.addContentTypeParser(
       binaryContentType,

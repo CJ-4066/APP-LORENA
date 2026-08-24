@@ -4634,6 +4634,7 @@ function App() {
           if (lowercase.endsWith(".pdf")) return "pdf";
           if (lowercase.endsWith(".ppt") || lowercase.endsWith(".pptx")) return "pdf";
           if (/\.(png|jpe?g|webp|svg)$/.test(lowercase)) return "image";
+          if (/\.(mp4|m4v|mov)$/.test(lowercase)) return "video";
           return lowercase.startsWith("http") ? "link" : "file";
         };
 

@@ -113,6 +113,10 @@ const allowedDocumentMimes = new Set([
   "application/vnd.ms-powerpoint",
   "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 ]);
+const allowedVideoMimes = new Set([
+  "video/mp4",
+  "video/quicktime",
+]);
 const officeDocumentMimes = new Set([
   "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -175,6 +179,10 @@ function getMaxBytesForMime(mimeType: string): number {
     return env.maxPdfUploadMb * 1024 * 1024;
   }
 
+  if (allowedVideoMimes.has(mimeType)) {
+    return env.maxPdfUploadMb * 1024 * 1024;
+  }
+
   return 0;
 }
 
@@ -203,20 +211,6 @@ function detectMimeType(bytes: Uint8Array): string | null {
   }
 
   if (
-    bytes.length >= 8 &&
-    bytes[0] === 0xd0 &&
-    bytes[1] === 0xcf &&
-    bytes[2] === 0x11 &&
-    bytes[3] === 0xe0 &&
-    bytes[4] === 0xa1 &&
-    bytes[5] === 0xb1 &&
-    bytes[6] === 0x1a &&
-    bytes[7] === 0xe1
-  ) {
-    return "application/msword";
-  }
-
-  if (
     bytes.length >= 4 &&
     bytes[0] === 0x50 &&
     bytes[1] === 0x4b &&
@@ -224,16 +218,20 @@ function detectMimeType(bytes: Uint8Array): string | null {
     bytes[3] === 0x04
   ) {
     const zipText = readUtf8(bytes);
-    if (
-      zipText.includes("[Content_Types].xml") ||
-      zipText.includes("word/") ||
-      zipText.includes("docProps/")
-    ) {
-      return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-    }
     if (zipText.includes("ppt/")) {
       return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
     }
+    if (zipText.includes("word/")) {
+      return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    }
+  }
+
+  if (
+    bytes.length >= 12 &&
+    readUtf8(bytes.slice(4, 8)) === "ftyp"
+  ) {
+    const brand = readUtf8(bytes.slice(8, 12));
+    return brand === "qt  " ? "video/quicktime" : "video/mp4";
   }
 
   const text = readUtf8(bytes).trim();
@@ -258,7 +256,11 @@ function resolveUploadMimeType(input: CreateMediaAssetInput, bytes: Uint8Array):
     throw new Error("Formato no permitido.");
   }
 
-  if (allowedDocumentMimes.has(declaredMimeType) || allowedImageMimes.has(declaredMimeType)) {
+  if (
+    allowedDocumentMimes.has(declaredMimeType) ||
+    allowedImageMimes.has(declaredMimeType) ||
+    allowedVideoMimes.has(declaredMimeType)
+  ) {
     if (detectedMimeType && detectedMimeType !== declaredMimeType) {
       throw new Error("Formato no permitido.");
     }
@@ -277,6 +279,8 @@ function validateMimeForCategory(category: MediaAssetCategory, mimeType: string)
     category === "product" || category === "course" || category === "lesson" || category === "general";
   const documentAllowed =
     category === "course" || category === "lesson" || category === "library" || category === "general";
+  const videoAllowed =
+    category === "course" || category === "lesson" || category === "general";
 
   if (allowedImageMimes.has(mimeType)) {
     if (!imageAllowed) {
@@ -292,6 +296,13 @@ function validateMimeForCategory(category: MediaAssetCategory, mimeType: string)
     return;
   }
 
+  if (allowedVideoMimes.has(mimeType)) {
+    if (!videoAllowed) {
+      throw new Error("El tipo de archivo no es válido para esta categoría.");
+    }
+    return;
+  }
+
   throw new Error("Formato no permitido.");
 }
 
@@ -301,8 +312,9 @@ async function convertOfficeDocumentToPdfBytes(
 ): Promise<Uint8Array> {
   const workDir = await mkdtemp(join(tmpdir(), "lo-renaciente-office-"));
   const sanitizedOriginal = sanitizeFileName(originalName);
+  const originalExtension = getExtension(sanitizedOriginal);
   const inputFileName =
-    sanitizedOriginal.endsWith(".docx") || sanitizedOriginal.endsWith(".doc")
+    ["doc", "docx", "ppt", "pptx"].includes(originalExtension)
       ? sanitizedOriginal
       : `${sanitizedOriginal}.docx`;
   const inputPath = join(workDir, inputFileName);
@@ -596,7 +608,7 @@ export async function createMediaAsset(input: CreateMediaAssetInput, bytes: Uint
     isActive: true,
   };
 
-  await writeUploadFile(storagePath, storedBytes);
+  await writeUploadFile(storedStoragePath, storedBytes);
 
   if (!isDatabaseConfigured()) {
     mockMediaAssets.set(asset.id, { asset, bytes: storedBytes });

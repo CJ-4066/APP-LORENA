@@ -9,6 +9,7 @@ import {
   isStorageConfigured,
   putStorageObject,
 } from "../infrastructure/storage.js";
+import { getAppEnv } from "../infrastructure/env.js";
 
 const demoUserId = "user-mark";
 const uploadSessionExpiresInSeconds = 10 * 60;
@@ -176,7 +177,12 @@ function validateUploadSessionInput(input: CreateUploadSessionInput): {
     throw new Error("La categoría del archivo no es válida.");
   }
 
-  const maxBytes = category === "avatar" ? avatarMaxBytes : genericMaxBytes;
+  const maxBytes =
+    category === "avatar"
+      ? avatarMaxBytes
+      : category === "course" || category === "lesson"
+        ? getAppEnv().maxPdfUploadMb * 1024 * 1024
+        : genericMaxBytes;
   if (byteSize > maxBytes) {
     throw new Error(`El archivo excede el límite permitido de ${maxBytes} bytes.`);
   }
