@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 
 import '../../core/i18n/app_i18n.dart';
 import '../../core/theme/app_palette.dart';
@@ -56,29 +57,94 @@ class CoursePdfViewerScreen extends StatefulWidget {
 class _CoursePdfViewerScreenState extends State<CoursePdfViewerScreen> {
   WebViewController? _webViewController;
   bool _isLoadingWeb = true;
+  String? _firstResourceUrl;
+  bool _isPdf = false;
+  bool _isVideo = false;
 
   @override
   void initState() {
     super.initState();
-    final firstResourceUrl = widget.course.modules
+    final url = widget.course.modules
         .firstOrNull?.lessons.firstOrNull?.resourceUrl?.trim();
-    if (firstResourceUrl != null &&
-        (firstResourceUrl.startsWith('http://') ||
-            firstResourceUrl.startsWith('https://'))) {
-      _webViewController = WebViewController()
-        ..setJavaScriptMode(JavaScriptMode.unrestricted)
-        ..setNavigationDelegate(
-          NavigationDelegate(
-            onPageFinished: (_) {
-              if (mounted) {
-                setState(() {
-                  _isLoadingWeb = false;
-                });
-              }
-            },
-          ),
-        )
-        ..loadRequest(Uri.parse(firstResourceUrl));
+    if (url != null &&
+        (url.startsWith('http://') || url.startsWith('https://'))) {
+      _firstResourceUrl = url;
+      final lowercase = url.toLowerCase();
+      _isPdf = lowercase.endsWith('.pdf') || lowercase.contains('/pdf');
+      _isVideo = lowercase.endsWith('.mp4') ||
+          lowercase.endsWith('.mov') ||
+          lowercase.contains('video');
+
+      if (!_isPdf) {
+        // Fallback timer: force hide loading spinner after 4 seconds
+        Future.delayed(const Duration(seconds: 4), () {
+          if (mounted && _isLoadingWeb) {
+            setState(() {
+              _isLoadingWeb = false;
+            });
+          }
+        });
+
+        _webViewController = WebViewController()
+          ..setJavaScriptMode(JavaScriptMode.unrestricted)
+          ..setNavigationDelegate(
+            NavigationDelegate(
+              onProgress: (progress) {
+                if (progress > 60) {
+                  if (mounted && _isLoadingWeb) {
+                    setState(() {
+                      _isLoadingWeb = false;
+                    });
+                  }
+                }
+              },
+              onPageFinished: (_) {
+                if (mounted && _isLoadingWeb) {
+                  setState(() {
+                    _isLoadingWeb = false;
+                  });
+                }
+              },
+            ),
+          );
+
+        if (_isVideo) {
+          final html = '''
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+              <style>
+                body, html {
+                  margin: 0;
+                  padding: 0;
+                  background-color: black;
+                  width: 100%;
+                  height: 100%;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  overflow: hidden;
+                }
+                video {
+                  width: 100%;
+                  height: 100%;
+                  max-width: 100%;
+                  max-height: 100%;
+                  object-fit: contain;
+                }
+              </style>
+            </head>
+            <body>
+              <video src="$url" controls autoplay playsinline></video>
+            </body>
+            </html>
+          ''';
+          _webViewController!.loadHtmlString(html);
+        } else {
+          _webViewController!.loadRequest(Uri.parse(url));
+        }
+      }
     }
   }
 
@@ -102,11 +168,30 @@ class _CoursePdfViewerScreenState extends State<CoursePdfViewerScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (_webViewController != null) ...[
+                if (_isPdf && _firstResourceUrl != null) ...[
                   ClipRRect(
                     borderRadius: BorderRadius.circular(22),
                     child: Container(
-                      height: 260,
+                      height: 380,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(22),
+                        border: Border.all(color: AppPalette.border),
+                      ),
+                      child: SfPdfViewer.network(
+                        _firstResourceUrl!,
+                        canShowScrollHead: false,
+                        canShowScrollStatus: false,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ] else if (_webViewController != null) ...[
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(22),
+                    child: Container(
+                      height: _isVideo ? 200 : 260,
                       width: double.infinity,
                       decoration: BoxDecoration(
                         color: Colors.black,
