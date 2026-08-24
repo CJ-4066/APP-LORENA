@@ -49,6 +49,7 @@ flutter:
     - assets/badges/
     - assets/tarot_cards/
     - assets/fonts/NotoSans-Regular.ttf
+    - shorebird.yaml
   fonts:
     - family: NotoSans
       fonts:

@@ -3,13 +3,31 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/i18n/app_i18n.dart';
 import '../../core/theme/app_palette.dart';
+import '../../core/widgets/in_app_webview_screen.dart';
 import '../../models/app_models.dart';
 
-Future<void> _openCourseResource(BuildContext context, String value) async {
-  final uri = Uri.tryParse(value.trim());
+Future<void> _openCourseResource(
+  BuildContext context,
+  String value, {
+  required String title,
+}) async {
+  final trimmed = value.trim();
+  final uri = Uri.tryParse(trimmed);
   if (uri == null) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('No se pudo abrir el recurso.')),
+    );
+    return;
+  }
+
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => InAppWebViewScreen(
+          title: title,
+          url: trimmed,
+        ),
+      ),
     );
     return;
   }
@@ -276,6 +294,7 @@ class CoursePdfViewerScreen extends StatelessWidget {
                                                 _openCourseResource(
                                               context,
                                               lessonEntry.value.resourceUrl!,
+                                              title: lessonEntry.value.title,
                                             ),
                                             icon: const Icon(
                                               Icons.open_in_new_rounded,

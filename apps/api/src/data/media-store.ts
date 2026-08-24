@@ -110,10 +110,14 @@ const allowedDocumentMimes = new Set([
   "application/pdf",
   "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 ]);
 const officeDocumentMimes = new Set([
   "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 ]);
 
 function toIsoString(value: Date | string | null): string {
@@ -226,6 +230,9 @@ function detectMimeType(bytes: Uint8Array): string | null {
       zipText.includes("docProps/")
     ) {
       return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    }
+    if (zipText.includes("ppt/")) {
+      return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
     }
   }
 
