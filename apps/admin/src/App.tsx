@@ -1061,7 +1061,7 @@ function createEmptyCourseForm() {
   return {
     title: "",
     subtitle: "",
-    category: "",
+    category: "General",
     level: "Inicial",
     premium: false,
     featured: false,
@@ -1073,18 +1073,26 @@ function createEmptyCourseForm() {
     outcomes: "",
     status: "draft",
     coverImageUrl: "",
+    resourceUrl: "",
   };
 }
 
 function buildCourseForm(course: AdminCourse | null) {
   if (!course) {
-    return createEmptyCourseForm();
+    return {
+      ...createEmptyCourseForm(),
+      resourceUrl: "",
+    };
   }
+
+  const firstModule = course.modules?.[0];
+  const firstLesson = firstModule?.lessons?.[0];
+  const resourceUrl = firstLesson?.resourceUrl ?? "";
 
   return {
     title: course.title ?? "",
     subtitle: course.subtitle ?? "",
-    category: course.category ?? "",
+    category: course.category ?? "General",
     level: course.level ?? "Inicial",
     premium: course.premium ?? false,
     featured: course.featured ?? false,
@@ -1096,6 +1104,7 @@ function buildCourseForm(course: AdminCourse | null) {
     outcomes: course.outcomes?.join("\n") ?? "",
     status: course.status ?? "draft",
     coverImageUrl: course.coverImageUrl ?? "",
+    resourceUrl,
   };
 }
 
@@ -3153,22 +3162,7 @@ function App() {
     setCourseMessage(null);
     setCourseError(null);
     setSavingCourseId(null);
-    setCourseForm({
-      title: "",
-      subtitle: "",
-      category: "",
-      level: "Inicial",
-      premium: false,
-      featured: false,
-      removable: true,
-      estimatedHours: "",
-      progressPercent: "",
-      hook: "",
-      description: "",
-      outcomes: "",
-      status: "draft",
-      coverImageUrl: "",
-    });
+    setCourseForm(createEmptyCourseForm());
     setCourseModuleForm({
       title: "",
       summary: "",
@@ -4598,34 +4592,111 @@ function App() {
       }
       const savedCourse = json.item;
 
+      let moduleId = "";
+      const existingModule = savedCourse.modules?.[0];
+      if (existingModule) {
+        moduleId = existingModule.id;
+      } else {
+        const moduleResponse = await fetch(
+          `${apiBaseUrl}/api/admin/courses/${encodeURIComponent(savedCourse.id)}/modules`,
+          {
+            method: "POST",
+            credentials: "include",
+            headers: {
+              "content-type": "application/json",
+            },
+            body: JSON.stringify({
+              title: "Material principal",
+              summary: courseForm.description || "Contenido del curso",
+              durationMinutes: 0,
+              order: 1,
+              status: "published",
+              isActive: true,
+            }),
+          },
+        );
+        const moduleJson = (await moduleResponse.json()) as {
+          item?: { id: string };
+        };
+        if (moduleResponse.ok && moduleJson.item) {
+          moduleId = moduleJson.item.id;
+        }
+      }
+
+      if (moduleId) {
+        const firstLesson = existingModule?.lessons?.[0];
+        const guessKind = (url: string) => {
+          const lowercase = url.toLowerCase();
+          if (lowercase.includes("canva.com")) return "canva";
+          if (lowercase.endsWith(".pdf")) return "pdf";
+          if (lowercase.endsWith(".ppt") || lowercase.endsWith(".pptx")) return "pdf";
+          if (/\.(png|jpe?g|webp|svg)$/.test(lowercase)) return "image";
+          return lowercase.startsWith("http") ? "link" : "file";
+        };
+
+        const lessonPayload = {
+          title: courseForm.title,
+          format: guessKind(courseForm.resourceUrl),
+          durationMinutes: 0,
+          prompt: "Revisar el material adjunto.",
+          content: courseForm.description,
+          resourceUrl: courseForm.resourceUrl,
+          order: 1,
+          status: "published",
+          isActive: true,
+        };
+
+        if (firstLesson) {
+          await fetch(
+            `${apiBaseUrl}/api/admin/courses/${encodeURIComponent(savedCourse.id)}/modules/${encodeURIComponent(moduleId)}/lessons/${encodeURIComponent(firstLesson.id)}`,
+            {
+              method: "PATCH",
+              credentials: "include",
+              headers: {
+                "content-type": "application/json",
+              },
+              body: JSON.stringify(lessonPayload),
+            },
+          );
+        } else {
+          await fetch(
+            `${apiBaseUrl}/api/admin/courses/${encodeURIComponent(savedCourse.id)}/modules/${encodeURIComponent(moduleId)}/lessons`,
+            {
+              method: "POST",
+              credentials: "include",
+              headers: {
+                "content-type": "application/json",
+              },
+              body: JSON.stringify(lessonPayload),
+            },
+          );
+        }
+      }
+
+      const refreshResponse = await fetch(
+        `${apiBaseUrl}/api/admin/courses/${encodeURIComponent(savedCourse.id)}`,
+        {
+          credentials: "include",
+        },
+      );
+      const refreshJson = (await refreshResponse.json()) as {
+        item?: AdminCourse;
+      };
+      const finalCourse = refreshJson.item ?? savedCourse;
+
       setCourses((current) => {
         const existingIndex = current.findIndex(
-          (item) => item.id === savedCourse.id,
+          (item) => item.id === finalCourse.id,
         );
         if (existingIndex >= 0) {
           const next = [...current];
-          next[existingIndex] = savedCourse;
+          next[existingIndex] = finalCourse;
           return next;
         }
-        return [savedCourse, ...current];
+        return [finalCourse, ...current];
       });
-      setSelectedCourseId(savedCourse.id);
-      setCourseForm({
-        title: savedCourse.title ?? "",
-        subtitle: savedCourse.subtitle ?? "",
-        category: savedCourse.category ?? "",
-        level: savedCourse.level ?? "Inicial",
-        premium: savedCourse.premium ?? false,
-        featured: savedCourse.featured ?? false,
-        removable: savedCourse.removable ?? true,
-        estimatedHours: savedCourse.estimatedHours?.toString() ?? "",
-        progressPercent: savedCourse.progressPercent?.toString() ?? "",
-        hook: savedCourse.hook ?? "",
-        description: savedCourse.description ?? "",
-        outcomes: savedCourse.outcomes?.join("\n") ?? "",
-        status: savedCourse.status ?? "draft",
-        coverImageUrl: savedCourse.coverImageUrl ?? "",
-      });
+      setSelectedCourseId(finalCourse.id);
+      setCourseForm(buildCourseForm(finalCourse));
       setCourseMessage(wasEditing ? "Curso actualizado." : "Curso creado.");
     } catch (saveError) {
       setCourseError(
@@ -12592,13 +12663,8 @@ function App() {
 
                 <div className="course-drawer-rail">
                   {[
-                    ["data", "Datos", "Título, resumen y portada"],
-                    ["modules", "Módulos", "Estructura del curso"],
-                    ["lessons", "Lecciones", "Contenido detallado"],
-                    ["resources", "Recursos", "Material asociado"],
-                    ["library", "Biblioteca", "PDFs y descargas"],
-                    ["publication", "Publicación", "Estado y visibilidad"],
-                    ["history", "Historial", "Cambios y auditoría"],
+                    ["data", "Datos", "Información y archivo del curso"],
+                    ["history", "Historial", "Auditoría y cambios"],
                   ].map(([value, label, hint]) => (
                     <button
                       key={value}
@@ -12648,14 +12714,15 @@ function App() {
                       <section className="course-editor-card">
                         <div className="course-editor-card-head">
                           <div>
-                            <p className="eyebrow">Datos base</p>
-                            <h3>Identidad y alcance</h3>
+                            <p className="eyebrow">Datos principales</p>
+                            <h3>Información del curso</h3>
                           </div>
                         </div>
                         <div className="badge-form-grid badge-form-grid-compact">
                           <label className="form-wide">
-                            <span>Título</span>
+                            <span>Título del curso</span>
                             <input
+                              required
                               value={courseForm.title}
                               onChange={(event) =>
                                 setCourseForm((current) => ({
@@ -12663,21 +12730,10 @@ function App() {
                                   title: event.target.value,
                                 }))
                               }
+                              placeholder="Ej: Tarot Evolutivo Nivel 1"
                             />
                           </label>
                           <label className="form-wide">
-                            <span>Subtítulo</span>
-                            <input
-                              value={courseForm.subtitle}
-                              onChange={(event) =>
-                                setCourseForm((current) => ({
-                                  ...current,
-                                  subtitle: event.target.value,
-                                }))
-                              }
-                            />
-                          </label>
-                          <label>
                             <span>Categoría</span>
                             <input
                               value={courseForm.category}
@@ -12687,45 +12743,21 @@ function App() {
                                   category: event.target.value,
                                 }))
                               }
+                              placeholder="Ej: Tarot, Astrología, General"
                             />
                           </label>
-                          <label>
-                            <span>Nivel</span>
-                            <input
-                              value={courseForm.level}
+                          <label className="form-wide">
+                            <span>Descripción</span>
+                            <textarea
+                              rows={5}
+                              value={courseForm.description}
                               onChange={(event) =>
                                 setCourseForm((current) => ({
                                   ...current,
-                                  level: event.target.value,
+                                  description: event.target.value,
                                 }))
                               }
-                            />
-                          </label>
-                          <label>
-                            <span>Horas estimadas</span>
-                            <input
-                              type="number"
-                              step="0.1"
-                              value={courseForm.estimatedHours}
-                              onChange={(event) =>
-                                setCourseForm((current) => ({
-                                  ...current,
-                                  estimatedHours: event.target.value,
-                                }))
-                              }
-                            />
-                          </label>
-                          <label>
-                            <span>Progreso</span>
-                            <input
-                              type="number"
-                              value={courseForm.progressPercent}
-                              onChange={(event) =>
-                                setCourseForm((current) => ({
-                                  ...current,
-                                  progressPercent: event.target.value,
-                                }))
-                              }
+                              placeholder="Describe brevemente de qué trata este curso..."
                             />
                           </label>
                         </div>
@@ -12734,49 +12766,45 @@ function App() {
                       <section className="course-editor-card">
                         <div className="course-editor-card-head">
                           <div>
-                            <p className="eyebrow">Narrativa</p>
-                            <h3>Texto y orientación</h3>
+                            <p className="eyebrow">Recurso interactivo</p>
+                            <h3>Presentación, Video o PDF</h3>
                           </div>
                         </div>
                         <div className="badge-form-grid badge-form-grid-compact">
+                          <AdminFileUploader
+                            apiBaseUrl={apiBaseUrl}
+                            label="Archivo del Curso"
+                            description="Sube la presentación (PowerPoint, PDF) o el video del curso."
+                            accept="application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,video/mp4,video/quicktime"
+                            mode="general"
+                            value={courseForm.resourceUrl}
+                            category="course"
+                            entityType="course"
+                            entityId={selectedCourseId ?? undefined}
+                            onUploaded={(asset) =>
+                              setCourseForm((current) => ({
+                                ...current,
+                                resourceUrl: asset.publicUrl,
+                              }))
+                            }
+                            onClear={() =>
+                              setCourseForm((current) => ({
+                                ...current,
+                                resourceUrl: "",
+                              }))
+                            }
+                          />
                           <label className="form-wide">
-                            <span>Hook</span>
-                            <textarea
-                              rows={2}
-                              value={courseForm.hook}
+                            <span>Enlace alternativo (Canva, PowerPoint Online, etc.)</span>
+                            <input
+                              value={courseForm.resourceUrl}
                               onChange={(event) =>
                                 setCourseForm((current) => ({
                                   ...current,
-                                  hook: event.target.value,
+                                  resourceUrl: event.target.value,
                                 }))
                               }
-                            />
-                          </label>
-                          <label className="form-wide">
-                            <span>Descripción</span>
-                            <textarea
-                              rows={4}
-                              value={courseForm.description}
-                              onChange={(event) =>
-                                setCourseForm((current) => ({
-                                  ...current,
-                                  description: event.target.value,
-                                }))
-                              }
-                            />
-                          </label>
-                          <label className="form-wide">
-                            <span>Objetivos</span>
-                            <textarea
-                              rows={4}
-                              value={courseForm.outcomes}
-                              onChange={(event) =>
-                                setCourseForm((current) => ({
-                                  ...current,
-                                  outcomes: event.target.value,
-                                }))
-                              }
-                              placeholder="Un objetivo por línea"
+                              placeholder="https://www.canva.com/design/... o URL externa del archivo"
                             />
                           </label>
                         </div>
@@ -12833,7 +12861,7 @@ function App() {
                               onChange={(event) =>
                                 setCourseForm((current) => ({
                                   ...current,
-                                  status: event.target.value,
+                                  status: event.target.value as any,
                                 }))
                               }
                             >
