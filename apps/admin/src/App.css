@@ -1313,6 +1313,14 @@ summary:focus-visible {
   margin-top: 18px;
 }
 
+.course-drawer-layout-create {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.course-create-shell .course-drawer-main {
+  width: 100%;
+}
+
 .course-drawer-sidebar {
   display: grid;
   gap: 14px;

@@ -7311,6 +7311,8 @@ function App() {
   const selectedCourse = selectedCourseId
     ? (courses.find((course) => course.id === selectedCourseId) ?? null)
     : null;
+  const isCreatingCourse =
+    courseDrawerTab !== "library" && selectedCourseId === null;
   const selectedCourseModules = selectedCourse?.modules ?? [];
   const selectedCourseModule = selectedCourseModuleId
     ? (selectedCourseModules.find(
@@ -12697,7 +12699,13 @@ function App() {
 
       {isCourseDrawerOpen ? (
         <section className="admin-panel admin-panel-wide course-workspace-page">
-          <div className="course-workspace-shell">
+          <div
+            className={
+              isCreatingCourse
+                ? "course-workspace-shell course-create-shell"
+                : "course-workspace-shell"
+            }
+          >
             <div className="audit-detail-head course-drawer-head">
               <div>
                 <p className="eyebrow">
@@ -12715,24 +12723,30 @@ function App() {
                 <p className="badge-editor-copy">
                   {courseDrawerTab === "library"
                     ? "Datos del PDF, categoría, vínculo opcional y publicación."
-                    : "Datos del curso, módulos, lecciones, biblioteca PDF y publicación."}
+                    : isCreatingCourse
+                      ? "Completa las casillas y crea el curso. El material quedará vinculado automáticamente."
+                      : "Datos del curso, material y publicación."}
                 </p>
               </div>
               <div className="course-drawer-head-actions">
-                <span className="topbar-pill">
-                  {selectedCourse?.status === "published"
-                    ? "Publicado"
-                    : selectedCourse?.status === "archived"
-                      ? "Archivado"
-                      : "Borrador"}
-                </span>
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={() => openCourseWorkspaceTab(null, "data")}
-                >
-                  Nuevo curso
-                </button>
+                {!isCreatingCourse ? (
+                  <>
+                    <span className="topbar-pill">
+                      {selectedCourse?.status === "published"
+                        ? "Publicado"
+                        : selectedCourse?.status === "archived"
+                          ? "Archivado"
+                          : "Borrador"}
+                    </span>
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => openCourseWorkspaceTab(null, "data")}
+                    >
+                      Nuevo curso
+                    </button>
+                  </>
+                ) : null}
                 <button
                   type="button"
                   className="secondary-button"
@@ -12743,8 +12757,15 @@ function App() {
               </div>
             </div>
 
-            <div className="course-drawer-layout">
-              <aside className="course-drawer-sidebar">
+            <div
+              className={
+                isCreatingCourse
+                  ? "course-drawer-layout course-drawer-layout-create"
+                  : "course-drawer-layout"
+              }
+            >
+              {!isCreatingCourse ? (
+                <aside className="course-drawer-sidebar">
                 <div className="course-drawer-summary">
                   <div>
                     <span className="course-drawer-kicker">
@@ -12805,7 +12826,8 @@ function App() {
                     sin perder el contexto del resto.
                   </p>
                 </div>
-              </aside>
+                </aside>
+              ) : null}
 
               <section className="course-drawer-main">
                 {courseError ? (
@@ -13034,7 +13056,11 @@ function App() {
                         className="primary-button"
                         disabled={savingCourseId !== null}
                       >
-                        {savingCourseId ? "Guardando..." : "Guardar curso"}
+                        {savingCourseId
+                          ? "Guardando..."
+                          : isCreatingCourse
+                            ? "Crear curso"
+                            : "Guardar cambios"}
                       </button>
                       <button type="button" className="secondary-button" onClick={handleCloseCourseDrawer}>
                         Cancelar
