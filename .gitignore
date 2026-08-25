@@ -18,5 +18,6 @@ coverage/
 !.env.example
 
 # Generated PDF/cache data. These are recreated by the API and ingest scripts.
+apps/api/uploads/
 apps/api/uploads/library-cache/
 apps/api/data/knowledge/cache/
