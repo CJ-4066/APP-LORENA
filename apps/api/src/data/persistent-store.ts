@@ -16,6 +16,7 @@ import {
   withTransaction,
 } from "../infrastructure/database.js";
 import { getAppEnv } from "../infrastructure/env.js";
+import { normalizeMediaType } from "./media-type.js";
 import {
   getRedisTtl,
   isRedisConfigured,
@@ -366,6 +367,8 @@ export interface CourseResourceRecord {
   lessonId?: string | null;
   title: string;
   kind: string;
+  mediaType?: string;
+  mimeType?: string | null;
   description: string;
   url: string;
   status: "draft" | "published" | "archived";
@@ -475,6 +478,8 @@ interface CourseLessonRow extends QueryResultRow {
   module_id: string;
   title: string;
   format: string;
+  media_type: string | null;
+  mime_type: string | null;
   duration_minutes: number;
   prompt: string;
   content: string | null;
@@ -780,6 +785,7 @@ function normalizeCourseRecord(course: Course): Course {
           order: lesson.order ?? lessonIndex + 1,
           status: normalizeCourseStatus(lesson.status),
           isActive: lesson.isActive ?? lesson.status !== "archived",
+          mediaType: normalizeMediaType(lesson.format, lesson.resourceUrl, (lesson as any).mimeType),
         }))
         .sort((left, right) => (left.order ?? 0) - (right.order ?? 0)),
     }))
@@ -794,26 +800,7 @@ function normalizeCourseRecord(course: Course): Course {
 }
 
 function normalizeCourseResourceKind(kind: string, url: string): string {
-  const normalized = kind.trim().toLowerCase();
-  if (["pdf", "canva", "file", "image", "link", "video"].includes(normalized)) {
-    return normalized;
-  }
-
-  const lowercaseUrl = url.toLowerCase();
-  if (lowercaseUrl.includes("canva.com")) {
-    return "canva";
-  }
-  if (lowercaseUrl.endsWith(".pdf")) {
-    return "pdf";
-  }
-  if (/\.(png|jpe?g|webp|gif|svg)(\?|#|$)/.test(lowercaseUrl)) {
-    return "image";
-  }
-  if (/\.(mp4|m4v|mov|webm)(\?|#|$)/.test(lowercaseUrl)) {
-    return "video";
-  }
-
-  return lowercaseUrl.startsWith("http://") || lowercaseUrl.startsWith("https://") ? "link" : "file";
+  return normalizeMediaType(kind, url, null);
 }
 
 function courseResourceIsPublic(resource: CourseResourceRecord): boolean {
@@ -831,7 +818,8 @@ function courseResourceToLesson(
   return {
     id: `lesson-${resource.id}`,
     title: resource.title.trim() || "Recurso",
-    format: normalizeCourseResourceKind(resource.kind, resource.url),
+    format: resource.kind.trim() || normalizeCourseResourceKind(resource.kind, resource.url),
+    mediaType: normalizeMediaType(resource.kind, resource.url, null),
     durationMinutes: 0,
     prompt: resource.description.trim() || "Abrir recurso del curso.",
     content: resource.description.trim() || undefined,
@@ -877,7 +865,10 @@ function attachPublishedCourseResources(course: Course): Course {
           lessonIndex === linkedLessonIndex
             ? {
                 ...lesson,
-                format: normalizeCourseResourceKind(resource.kind, url),
+                format:
+                  resource.kind.trim() ||
+                  normalizeCourseResourceKind(resource.kind, url),
+                mediaType: normalizeMediaType(resource.kind, url, null),
                 prompt: lesson.prompt || resource.description,
                 content: lesson.content ?? resource.description,
                 resourceUrl: url,
@@ -960,6 +951,8 @@ function mapCourseRow(row: CourseRow, modules: CourseModuleRow[], lessons: Cours
           id: lesson.lesson_id,
           title: lesson.title,
           format: lesson.format,
+          mediaType: lesson.media_type ?? undefined,
+          mimeType: lesson.mime_type ?? undefined,
           durationMinutes: Number(lesson.duration_minutes),
           prompt: lesson.prompt,
           content: lesson.content ?? undefined,

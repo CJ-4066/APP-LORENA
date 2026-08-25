@@ -34,7 +34,6 @@ export interface CourseWorkspaceProps {
   formatDate: any;
   getCourseAuditActionLabel: any;
   getCourseAuditElementLabel: any;
-  handleAutoAttachCourseResource: any;
   handleCloseCourseDrawer: any;
   handleLibraryPdfAction: any;
   handleOpenAuditEntry: any;
@@ -95,7 +94,6 @@ export const CourseWorkspace: React.FC<CourseWorkspaceProps> = ({
   formatDate,
   getCourseAuditActionLabel,
   getCourseAuditElementLabel,
-  handleAutoAttachCourseResource,
   handleCloseCourseDrawer,
   handleLibraryPdfAction,
   handleOpenAuditEntry,
@@ -141,7 +139,13 @@ export const CourseWorkspace: React.FC<CourseWorkspaceProps> = ({
 }) => {
 
   return (
-            <section className="admin-panel admin-panel-wide course-workspace-page">
+            <section
+              className={
+                isCreatingCourse
+                  ? "admin-panel admin-panel-wide course-workspace-page course-workspace-page-create"
+                  : "admin-panel admin-panel-wide course-workspace-page"
+              }
+            >
           <div
             className={
               isCreatingCourse
@@ -544,7 +548,6 @@ export const CourseWorkspace: React.FC<CourseWorkspaceProps> = ({
   resetLibraryPdfDraft={resetLibraryPdfDraft}
   handleLibraryPdfAction={handleLibraryPdfAction}
   openLibraryPdfEditor={openLibraryPdfEditor}
-  handleAutoAttachCourseResource={handleAutoAttachCourseResource}
   selectedCourseResources={selectedCourseResources}
   courseResourceForm={courseResourceForm}
   setCourseResourceForm={setCourseResourceForm}

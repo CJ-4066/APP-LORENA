@@ -1,23 +1,23 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:webview_flutter/webview_flutter.dart';
-// ignore: depend_on_referenced_packages
-import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
-import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 
 import '../../core/i18n/app_i18n.dart';
+import '../../core/config/app_config.dart';
 import '../../core/theme/app_palette.dart';
 import '../../models/app_models.dart';
 import 'course_resource_viewer_screen.dart';
+import 'media_url_resolver.dart';
 
 Future<void> _openCourseResource(
   BuildContext context,
   String value, {
   required String title,
-  String? format,
+  required CourseMediaType mediaType,
 }) async {
-  final trimmed = value.trim();
-  final uri = Uri.tryParse(trimmed);
+  final resolved = MediaUrlResolver.resolve(
+    value,
+    baseUrl: AppConfig.apiBaseUrl,
+  );
+  final uri = Uri.tryParse(resolved);
   if (uri == null) {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('No se pudo abrir el recurso.')),
@@ -25,23 +25,24 @@ Future<void> _openCourseResource(
     return;
   }
 
-  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+  if (uri.scheme == 'http' || uri.scheme == 'https') {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => CourseResourceViewerScreen(
           title: title,
-          url: trimmed,
-          format: format,
+          url: resolved,
+          mediaType: mediaType,
         ),
       ),
     );
     return;
   }
 
-  final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
-  if (!opened && context.mounted) {
+  if (context.mounted) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('No se pudo abrir el recurso.')),
+      const SnackBar(
+        content: Text('Este enlace no se puede mostrar dentro de la app.'),
+      ),
     );
   }
 }
@@ -59,133 +60,9 @@ class CoursePdfViewerScreen extends StatefulWidget {
 }
 
 class _CoursePdfViewerScreenState extends State<CoursePdfViewerScreen> {
-  WebViewController? _webViewController;
-  bool _isLoadingWeb = true;
-  String? _firstResourceUrl;
-  bool _isPdf = false;
-  bool _isImage = false;
-  bool _isVideo = false;
-
-  @override
-  void initState() {
-    super.initState();
-    final firstLesson = widget.course.modules.firstOrNull?.lessons.firstOrNull;
-    final url = firstLesson?.resourceUrl?.trim();
-    if (url != null &&
-        (url.startsWith('http://') || url.startsWith('https://'))) {
-      _firstResourceUrl = url;
-      final lowercase = url.toLowerCase();
-      final format = firstLesson?.format.trim().toLowerCase() ?? '';
-      _isPdf = format == 'pdf' ||
-          lowercase.endsWith('.pdf') ||
-          lowercase.contains('/pdf');
-      _isImage = format == 'image' ||
-          format == 'imagen' ||
-          RegExp(r'\.(png|jpe?g|webp|gif|svg)(\?|#|$)').hasMatch(lowercase);
-      _isVideo = format == 'video' ||
-          lowercase.endsWith('.mp4') ||
-          lowercase.endsWith('.m4v') ||
-          lowercase.endsWith('.mov') ||
-          lowercase.contains('video');
-
-      if (!_isPdf && !_isImage) {
-        // Fallback timer: force hide loading spinner after 4 seconds
-        Future.delayed(const Duration(seconds: 4), () {
-          if (mounted && _isLoadingWeb) {
-            setState(() {
-              _isLoadingWeb = false;
-            });
-          }
-        });
-
-        late final PlatformWebViewControllerCreationParams params;
-        if (WebViewPlatform.instance is WebKitWebViewPlatform) {
-          params = WebKitWebViewControllerCreationParams(
-            allowsInlineMediaPlayback: true,
-          );
-        } else {
-          params = const PlatformWebViewControllerCreationParams();
-        }
-
-        _webViewController = WebViewController.fromPlatformCreationParams(params)
-          ..setJavaScriptMode(JavaScriptMode.unrestricted)
-          ..setUserAgent("Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/605.1.15")
-          ..setNavigationDelegate(
-            NavigationDelegate(
-              onProgress: (progress) {
-                if (progress > 60) {
-                  if (mounted && _isLoadingWeb) {
-                    setState(() {
-                      _isLoadingWeb = false;
-                    });
-                  }
-                }
-              },
-              onPageFinished: (_) {
-                if (mounted && _isLoadingWeb) {
-                  setState(() {
-                    _isLoadingWeb = false;
-                  });
-                }
-              },
-            ),
-          );
-
-        if (_isVideo) {
-          final html = '''
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-              <style>
-                body, html {
-                  margin: 0;
-                  padding: 0;
-                  background-color: black;
-                  width: 100%;
-                  height: 100%;
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                  overflow: hidden;
-                }
-                video {
-                  width: 100%;
-                  height: 100%;
-                  max-width: 100%;
-                  max-height: 100%;
-                  object-fit: contain;
-                }
-              </style>
-            </head>
-            <body>
-              <video src="$url" controls autoplay playsinline></video>
-            </body>
-            </html>
-          ''';
-          _webViewController!.loadHtmlString(html);
-        } else {
-          var finalUrl = url;
-          if (finalUrl.contains('canva.com/design/')) {
-            if (!finalUrl.contains('view?embed')) {
-              final parts = finalUrl.split('/');
-              final designIndex = parts.indexOf('design');
-              if (designIndex != -1 && parts.length > designIndex + 1) {
-                final designId = parts[designIndex + 1];
-                finalUrl = 'https://www.canva.com/design/$designId/view?embed';
-              }
-            }
-          }
-          _webViewController!.loadRequest(Uri.parse(finalUrl));
-        }
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    final hasCover = widget.course.coverImageUrl?.trim().isNotEmpty ?? false;
 
     return Scaffold(
       backgroundColor: AppPalette.petalSoft,
@@ -202,103 +79,8 @@ class _CoursePdfViewerScreenState extends State<CoursePdfViewerScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (_isPdf && _firstResourceUrl != null) ...[
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(22),
-                    child: Container(
-                      height: 380,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(22),
-                        border: Border.all(color: AppPalette.border),
-                      ),
-                      child: SfPdfViewer.network(
-                        _firstResourceUrl!,
-                        canShowScrollHead: false,
-                        canShowScrollStatus: false,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ] else if (_isImage && _firstResourceUrl != null) ...[
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(22),
-                    child: Container(
-                      height: 260,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(22),
-                        border: Border.all(color: AppPalette.border),
-                      ),
-                      child: Image.network(
-                        _firstResourceUrl!,
-                        fit: BoxFit.contain,
-                        errorBuilder: (_, __, ___) => _CoverFallback(
-                          course: widget.course,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ] else if (_webViewController != null) ...[
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(22),
-                    child: Container(
-                      height: _isVideo ? 200 : 260,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: _isVideo ? Colors.black : Colors.white,
-                        borderRadius: BorderRadius.circular(22),
-                        border: Border.all(color: AppPalette.border),
-                      ),
-                      child: Stack(
-                        children: [
-                          WebViewWidget(controller: _webViewController!),
-                          if (_isLoadingWeb) ...[
-                            if (hasCover)
-                              Positioned.fill(
-                                child: Image.network(
-                                  widget.course.coverImageUrl!.trim(),
-                                  fit: BoxFit.cover,
-                                ),
-                              )
-                            else
-                              Positioned.fill(
-                                child: _CoverFallback(course: widget.course),
-                              ),
-                            const Center(
-                              child: CircularProgressIndicator(
-                                color: AppPalette.flameGold,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ] else if (hasCover) ...[
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(22),
-                    child: SizedBox(
-                      height: 180,
-                      width: double.infinity,
-                      child: Image.network(
-                        widget.course.coverImageUrl!.trim(),
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _CoverFallback(
-                          course: widget.course,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ] else ...[
-                  _CoverFallback(course: widget.course),
-                  const SizedBox(height: 16),
-                ],
+                _CourseCover(course: widget.course),
+                const SizedBox(height: 16),
                 Text(
                   l10n.ts(widget.course.category),
                   style: const TextStyle(
@@ -509,10 +291,12 @@ class _CoursePdfViewerScreenState extends State<CoursePdfViewerScreen> {
                                               context,
                                               lessonEntry.value.resourceUrl!,
                                               title: lessonEntry.value.title,
-                                              format: lessonEntry.value.format,
+                                              mediaType:
+                                                  lessonEntry.value.mediaType ??
+                                                      CourseMediaType.unknown,
                                             ),
                                             icon: const Icon(
-                                              Icons.open_in_new_rounded,
+                                              Icons.visibility_outlined,
                                               size: 18,
                                             ),
                                             label: Text(
@@ -532,6 +316,48 @@ class _CoursePdfViewerScreenState extends State<CoursePdfViewerScreen> {
                 ),
               ),
         ],
+      ),
+    );
+  }
+}
+
+class _CourseCover extends StatelessWidget {
+  const _CourseCover({required this.course});
+
+  final Course course;
+
+  @override
+  Widget build(BuildContext context) {
+    final coverUrl = course.coverImageUrl?.trim() ?? '';
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(22),
+      child: AspectRatio(
+        aspectRatio: 16 / 9,
+        child: coverUrl.isEmpty
+            ? _CoverFallback(course: course)
+            : Image.network(
+                coverUrl,
+                fit: BoxFit.cover,
+                gaplessPlayback: true,
+                frameBuilder: (context, child, frame, loadedSynchronously) {
+                  if (loadedSynchronously || frame != null) {
+                    return child;
+                  }
+                  return Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      _CoverFallback(course: course),
+                      const Center(
+                        child: CircularProgressIndicator(
+                          color: AppPalette.flameGold,
+                        ),
+                      ),
+                    ],
+                  );
+                },
+                errorBuilder: (_, __, ___) => _CoverFallback(course: course),
+              ),
       ),
     );
   }

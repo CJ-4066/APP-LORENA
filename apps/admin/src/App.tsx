@@ -1075,6 +1075,7 @@ function createEmptyCourseForm() {
     status: "draft",
     coverImageUrl: "",
     resourceUrl: "",
+    resourceKind: "",
   };
 }
 
@@ -1106,16 +1107,17 @@ function buildCourseForm(course: AdminCourse | null) {
     status: course.status ?? "draft",
     coverImageUrl: course.coverImageUrl ?? "",
     resourceUrl,
+    resourceKind: firstLesson?.format ?? guessCourseResourceKind(resourceUrl),
   };
 }
 
 function guessCourseResourceKind(url: string): string {
   const lowercase = url.toLowerCase();
   if (lowercase.includes("canva.com")) return "canva";
-  if (lowercase.endsWith(".pdf")) return "pdf";
-  if (lowercase.endsWith(".ppt") || lowercase.endsWith(".pptx")) return "pdf";
-  if (/\.(png|jpe?g|webp|gif|svg)$/.test(lowercase)) return "image";
-  if (/\.(mp4|m4v|mov|webm)$/.test(lowercase)) return "video";
+  if (/\.pdf(\?|#|$)/.test(lowercase)) return "pdf";
+  if (/\.(ppt|pptx)(\?|#|$)/.test(lowercase)) return "file";
+  if (/\.(png|jpe?g|webp|gif|svg)(\?|#|$)/.test(lowercase)) return "image";
+  if (/\.(mp4|m4v|mov|webm)(\?|#|$)/.test(lowercase)) return "video";
   return lowercase.startsWith("http") ? "link" : "file";
 }
 
@@ -2677,7 +2679,6 @@ function App() {
     string | null
   >(null);
   const initialCourseWorkspaceRoute = getCourseWorkspaceRouteFromLocation();
-  const [isCreatingDraft, setIsCreatingDraft] = useState(false);
   const [isCourseDrawerOpen, setIsCourseDrawerOpen] = useState(
     initialCourseWorkspaceRoute.open,
   );
@@ -3015,41 +3016,6 @@ function App() {
     },
     [courses],
   );
-
-
-  const handleCreateDraftCourse = useCallback(async (tab: CourseWorkspaceTab = "data") => {
-    setIsCreatingDraft(true);
-    try {
-      const response = await fetch(`${apiBaseUrl}/api/admin/courses`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          title: "Curso nuevo (borrador)",
-          status: "draft"
-        }),
-      });
-      const json = await response.json();
-      if (response.ok && json.item) {
-        setCourses((current) => {
-          const index = current.findIndex(c => c.id === json.item.id);
-          if (index >= 0) {
-             const copy = [...current];
-             copy[index] = json.item;
-             return copy;
-          }
-          return [json.item, ...current];
-        });
-        openCourseWorkspaceTab(json.item.id, tab);
-      } else {
-        alert(json.error ?? "No se pudo crear el curso en borrador.");
-      }
-    } catch (e) {
-      alert("Error de red al crear borrador.");
-    } finally {
-      setIsCreatingDraft(false);
-    }
-  }, [apiBaseUrl, openCourseWorkspaceTab, setCourses]);
 
   const handleNavigateSection = useCallback(
     (section: AdminSection) => {
@@ -4601,12 +4567,66 @@ function App() {
     });
   }
 
-  async function handleSaveCourse(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function handleSaveCourse(
+    event?: FormEvent<HTMLFormElement>,
+    statusOverride?: "draft" | "published" | "archived",
+  ) {
+    event?.preventDefault();
     setCourseMessage(null);
     setCourseError(null);
     const wasEditing = Boolean(selectedCourseId);
+    const currentCourse = selectedCourseId
+      ? courses.find((item) => item.id === selectedCourseId) ?? null
+      : null;
+    const currentMainModule = currentCourse?.modules?.[0];
+    const currentMainLesson = currentMainModule?.lessons?.[0];
+    const requestedStatus = statusOverride ?? courseForm.status;
+    const resourceUrl = courseForm.resourceUrl.trim();
+    const resourceKind =
+      courseForm.resourceKind || guessCourseResourceKind(resourceUrl);
+    const hasPublishedResource =
+      resourceUrl.length > 0 ||
+      Boolean(
+        currentCourse?.modules?.some((module) =>
+          module.lessons.some(
+            (lesson) =>
+              lesson.isActive !== false &&
+              lesson.status !== "archived" &&
+              Boolean(lesson.resourceUrl?.trim()),
+          ),
+        ),
+      );
+
+    if (!courseForm.title.trim()) {
+      setCourseError("Escribe el título del curso antes de guardarlo.");
+      return;
+    }
+
+    if (requestedStatus === "published") {
+      const missingFields = [
+        !courseForm.subtitle.trim() ? "subtítulo" : "",
+        !courseForm.description.trim() ? "descripción" : "",
+        !courseForm.coverImageUrl.trim() ? "portada" : "",
+        Number(courseForm.estimatedHours || 0) <= 0
+          ? "duración estimada"
+          : "",
+        !hasPublishedResource ? "material del curso" : "",
+      ].filter(Boolean);
+
+      if (missingFields.length > 0) {
+        setCourseError(
+          `Para publicar completa: ${missingFields.join(", ")}.`,
+        );
+        return;
+      }
+    }
+
     setSavingCourseId(wasEditing ? selectedCourseId : "new");
+    const statusForSave =
+      requestedStatus === "published" &&
+      currentCourse?.status !== "published"
+        ? "draft"
+        : requestedStatus;
     const payload = {
       title: courseForm.title.trim(),
       subtitle: courseForm.subtitle.trim(),
@@ -4623,7 +4643,7 @@ function App() {
         .split("\n")
         .map((item) => item.trim())
         .filter(Boolean),
-      status: courseForm.status,
+      status: statusForSave,
       coverImageUrl: courseForm.coverImageUrl.trim(),
     };
 
@@ -4649,13 +4669,12 @@ function App() {
         setCourseError(json.error ?? "No se pudo guardar el curso.");
         return;
       }
-      const savedCourse = json.item;
+      let savedCourse = json.item;
+      const resourceChanged =
+        resourceUrl !== (currentMainLesson?.resourceUrl?.trim() ?? "");
+      let moduleId = savedCourse.modules?.[0]?.id ?? "";
 
-      let moduleId = "";
-      const existingModule = savedCourse.modules?.[0];
-      if (existingModule) {
-        moduleId = existingModule.id;
-      } else {
+      if (resourceChanged && resourceUrl && !moduleId) {
         const moduleResponse = await fetch(
           `${apiBaseUrl}/api/admin/courses/${encodeURIComponent(savedCourse.id)}/modules`,
           {
@@ -4669,62 +4688,88 @@ function App() {
               summary: courseForm.description || "Contenido del curso",
               durationMinutes: 0,
               order: 1,
-              status: "published",
+              status:
+                savedCourse.status === "published" ? "published" : "draft",
               isActive: true,
             }),
           },
         );
         const moduleJson = (await moduleResponse.json()) as {
           item?: AdminCourse;
+          error?: string;
         };
-        if (moduleResponse.ok && moduleJson.item) {
-          const createdModule = moduleJson.item.modules?.[0];
-          if (createdModule) {
-            moduleId = createdModule.id;
-          }
+        if (!moduleResponse.ok || !moduleJson.item) {
+          throw new Error(
+            moduleJson.error ?? "No se pudo crear el módulo principal.",
+          );
         }
+        savedCourse = moduleJson.item;
+        moduleId = savedCourse.modules?.[0]?.id ?? "";
       }
 
-      if (moduleId) {
-        const firstLesson = existingModule?.lessons?.[0];
-
+      if (resourceChanged && moduleId) {
+        const mainModule = savedCourse.modules?.find(
+          (module) => module.id === moduleId,
+        );
+        const firstLesson = mainModule?.lessons?.[0];
         const lessonPayload = {
-          title: courseForm.title,
-          format: guessCourseResourceKind(courseForm.resourceUrl),
-          durationMinutes: 0,
-          prompt: "Revisar el material adjunto.",
-          content: courseForm.description,
-          resourceUrl: courseForm.resourceUrl,
-          order: 1,
-          status: "published",
-          isActive: true,
+          title: firstLesson?.title || courseForm.title.trim(),
+          format: resourceKind,
+          durationMinutes: firstLesson?.durationMinutes ?? 0,
+          prompt:
+            firstLesson?.prompt?.trim() || "Revisar el material adjunto.",
+          content: firstLesson?.content ?? courseForm.description.trim(),
+          resourceUrl,
+          order: firstLesson?.order ?? 1,
+          status:
+            firstLesson?.status ??
+            (savedCourse.status === "published" ? "published" : "draft"),
+          isActive: firstLesson?.isActive ?? true,
         };
 
-        if (firstLesson) {
-          await fetch(
-            `${apiBaseUrl}/api/admin/courses/${encodeURIComponent(savedCourse.id)}/modules/${encodeURIComponent(moduleId)}/lessons/${encodeURIComponent(firstLesson.id)}`,
-            {
-              method: "PATCH",
-              credentials: "include",
-              headers: {
-                "content-type": "application/json",
-              },
-              body: JSON.stringify(lessonPayload),
+        const lessonResponse = await fetch(
+          firstLesson
+            ? `${apiBaseUrl}/api/admin/courses/${encodeURIComponent(savedCourse.id)}/modules/${encodeURIComponent(moduleId)}/lessons/${encodeURIComponent(firstLesson.id)}`
+            : `${apiBaseUrl}/api/admin/courses/${encodeURIComponent(savedCourse.id)}/modules/${encodeURIComponent(moduleId)}/lessons`,
+          {
+            method: firstLesson ? "PATCH" : "POST",
+            credentials: "include",
+            headers: {
+              "content-type": "application/json",
             },
-          );
-        } else {
-          await fetch(
-            `${apiBaseUrl}/api/admin/courses/${encodeURIComponent(savedCourse.id)}/modules/${encodeURIComponent(moduleId)}/lessons`,
-            {
-              method: "POST",
-              credentials: "include",
-              headers: {
-                "content-type": "application/json",
-              },
-              body: JSON.stringify(lessonPayload),
-            },
+            body: JSON.stringify(lessonPayload),
+          },
+        );
+        const lessonJson = (await lessonResponse.json()) as {
+          item?: AdminCourse;
+          error?: string;
+        };
+        if (!lessonResponse.ok || !lessonJson.item) {
+          throw new Error(
+            lessonJson.error ?? "No se pudo vincular el material principal.",
           );
         }
+        savedCourse = lessonJson.item;
+      }
+
+      if (statusOverride === "published") {
+        const publishResponse = await fetch(
+          `${apiBaseUrl}/api/admin/courses/${encodeURIComponent(savedCourse.id)}/publish`,
+          {
+            method: "POST",
+            credentials: "include",
+          },
+        );
+        const publishJson = (await publishResponse.json()) as {
+          item?: AdminCourse;
+          error?: string;
+        };
+        if (!publishResponse.ok || !publishJson.item) {
+          throw new Error(
+            publishJson.error ?? "El curso se guardó, pero no pudo publicarse.",
+          );
+        }
+        savedCourse = publishJson.item;
       }
 
       const refreshResponse = await fetch(
@@ -4749,9 +4794,23 @@ function App() {
         }
         return [finalCourse, ...current];
       });
+      if (!wasEditing) {
+        window.history.replaceState(
+          {},
+          "",
+          buildCourseWorkspaceUrl(finalCourse.id, "data"),
+        );
+        previousCourseWorkspaceIdRef.current = finalCourse.id;
+      }
       setSelectedCourseId(finalCourse.id);
       setCourseForm(buildCourseForm(finalCourse));
-      setCourseMessage(wasEditing ? "Curso actualizado." : "Curso creado.");
+      setCourseMessage(
+        statusOverride === "published"
+          ? "Curso publicado y disponible en la aplicación."
+          : wasEditing
+            ? "Curso actualizado."
+            : "Borrador creado. Ya puedes agregar módulos y lecciones.",
+      );
     } catch (saveError) {
       setCourseError(
         saveError instanceof Error
@@ -4760,103 +4819,6 @@ function App() {
       );
     } finally {
       setSavingCourseId(null);
-    }
-  }
-
-  async function handleAutoAttachCourseResource(resourceUrl: string) {
-    if (!selectedCourseId) {
-      setCourseMessage("Archivo subido. Guarda el curso para vincularlo.");
-      return;
-    }
-
-    const currentCourse = courses.find((item) => item.id === selectedCourseId);
-    setCourseError(null);
-    setCourseMessage("Archivo subido. Vinculando al curso...");
-
-    try {
-      let moduleId = currentCourse?.modules?.[0]?.id ?? "";
-      let nextCourse = currentCourse ?? null;
-
-      if (!moduleId) {
-        const moduleResponse = await fetch(
-          `${apiBaseUrl}/api/admin/courses/${encodeURIComponent(selectedCourseId)}/modules`,
-          {
-            method: "POST",
-            credentials: "include",
-            headers: {
-              "content-type": "application/json",
-            },
-            body: JSON.stringify({
-              title: "Material principal",
-              summary: courseForm.description || "Contenido del curso",
-              durationMinutes: 0,
-              order: 1,
-              status: "published",
-              isActive: true,
-            }),
-          },
-        );
-        const moduleJson = (await moduleResponse.json()) as {
-          item?: AdminCourse;
-          error?: string;
-        };
-        if (!moduleResponse.ok || !moduleJson.item) {
-          throw new Error(moduleJson.error ?? "No se pudo crear el módulo.");
-        }
-        nextCourse = moduleJson.item;
-        moduleId = moduleJson.item.modules?.[0]?.id ?? "";
-      }
-
-      if (!moduleId) {
-        throw new Error("No se pudo encontrar el módulo principal.");
-      }
-
-      const firstLesson = nextCourse?.modules?.find((module) => module.id === moduleId)?.lessons?.[0];
-      const lessonPayload = {
-        title: courseForm.title.trim() || currentCourse?.title || "Material principal",
-        format: guessCourseResourceKind(resourceUrl),
-        durationMinutes: firstLesson?.durationMinutes ?? 0,
-        prompt: firstLesson?.prompt || "Revisar el material adjunto.",
-        content: courseForm.description.trim() || firstLesson?.content || currentCourse?.description || "",
-        resourceUrl,
-        order: firstLesson?.order ?? 1,
-        status: "published",
-        isActive: true,
-      };
-
-      const lessonResponse = await fetch(
-        firstLesson
-          ? `${apiBaseUrl}/api/admin/courses/${encodeURIComponent(selectedCourseId)}/modules/${encodeURIComponent(moduleId)}/lessons/${encodeURIComponent(firstLesson.id)}`
-          : `${apiBaseUrl}/api/admin/courses/${encodeURIComponent(selectedCourseId)}/modules/${encodeURIComponent(moduleId)}/lessons`,
-        {
-          method: firstLesson ? "PATCH" : "POST",
-          credentials: "include",
-          headers: {
-            "content-type": "application/json",
-          },
-          body: JSON.stringify(lessonPayload),
-        },
-      );
-      const lessonJson = (await lessonResponse.json()) as {
-        item?: AdminCourse;
-        error?: string;
-      };
-      if (!lessonResponse.ok || !lessonJson.item) {
-        throw new Error(lessonJson.error ?? "No se pudo vincular el archivo.");
-      }
-
-      const savedCourse = lessonJson.item;
-      setCourses((current) =>
-        current.map((item) => (item.id === savedCourse.id ? savedCourse : item)),
-      );
-      setCourseForm(buildCourseForm(savedCourse));
-      setCourseMessage("Archivo vinculado al curso.");
-    } catch (error) {
-      setCourseError(
-        error instanceof Error
-          ? error.message
-          : "No se pudo vincular el archivo al curso.",
-      );
     }
   }
 
@@ -4869,6 +4831,39 @@ function App() {
 
     setCourseMessage(null);
     setCourseError(null);
+
+    if (nextStatus === "publish") {
+      const courseToPublish = courses.find(
+        (item) => item.id === selectedCourseId,
+      );
+      const hasResource = Boolean(
+        courseToPublish?.modules?.some((module) =>
+          module.lessons.some(
+            (lesson) =>
+              lesson.isActive !== false &&
+              lesson.status !== "archived" &&
+              Boolean(lesson.resourceUrl?.trim()),
+          ),
+        ),
+      );
+      const missingFields = [
+        !courseToPublish?.subtitle?.trim() ? "subtítulo" : "",
+        !courseToPublish?.description?.trim() ? "descripción" : "",
+        !courseToPublish?.coverImageUrl?.trim() ? "portada" : "",
+        Number(courseToPublish?.estimatedHours ?? 0) <= 0
+          ? "duración estimada"
+          : "",
+        !hasResource ? "material del curso" : "",
+      ].filter(Boolean);
+
+      if (missingFields.length > 0) {
+        setCourseError(
+          `Para publicar completa: ${missingFields.join(", ")}.`,
+        );
+        return;
+      }
+    }
+
     setSavingCourseId(selectedCourseId);
     try {
       const response = await fetch(
@@ -8684,7 +8679,7 @@ function App() {
                     <button
                       type="button"
                       className="primary-button"
-                      onClick={() => handleCreateDraftCourse("data")} disabled={isCreatingDraft}
+                      onClick={() => openCourseWorkspaceTab(null, "data")}
                     >
                       Crear curso
                     </button>
@@ -8806,7 +8801,7 @@ function App() {
                     <button
                       type="button"
                       className="primary-button"
-                      onClick={() => handleCreateDraftCourse("data")} disabled={isCreatingDraft}
+                      onClick={() => openCourseWorkspaceTab(null, "data")}
                     >
                       Crear curso
                     </button>
@@ -8831,7 +8826,7 @@ function App() {
                     <button
                       type="button"
                       className="primary-button"
-                      onClick={() => handleCreateDraftCourse("library")} disabled={isCreatingDraft}
+                      onClick={() => openCourseWorkspaceTab(null, "library")}
                     >
                       Abrir editor
                     </button>
@@ -12776,7 +12771,6 @@ function App() {
         getCourseAuditActionLabel={getCourseAuditActionLabel}
         getCourseAuditElementLabel={getCourseAuditElementLabel}
         summarizeAuditValue={summarizeAuditValue}
-        handleAutoAttachCourseResource={handleAutoAttachCourseResource}
         handleCloseCourseDrawer={handleCloseCourseDrawer}
         handleLibraryPdfAction={handleLibraryPdfAction}
         handleOpenAuditEntry={handleOpenAuditEntry}

@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { normalizeMediaType } from "./media-type.js";
 
 import {
   getUserBadgeProfile,
@@ -178,6 +179,8 @@ export interface CourseLesson {
   id: string;
   title: string;
   format: string;
+  mediaType?: string;
+  mimeType?: string | null;
   durationMinutes: number;
   prompt: string;
   content?: string;
@@ -991,6 +994,7 @@ function normalizeCourseTree(course: Course): Course {
           order: lesson.order ?? lessonIndex + 1,
           status: normalizeCourseStatus(lesson.status),
           isActive: lesson.isActive ?? lesson.status !== courseArchivedStatus,
+          mediaType: normalizeMediaType(lesson.format, lesson.resourceUrl, lesson.mimeType),
         }))
         .sort((left, right) => (left.order ?? 0) - (right.order ?? 0)),
     }))
@@ -2327,7 +2331,7 @@ export function upsertCourse(courseId: string | null, input: Partial<Course>): C
   const normalizedInput = normalizeCourseTree({
     id: courseId ?? input.id ?? `course-${randomUUID()}`,
     title: input.title?.trim() || "Curso nuevo",
-    subtitle: input.subtitle?.trim() || "Descripción pendiente",
+    subtitle: input.subtitle?.trim() ?? "",
     category: input.category?.trim() || "General",
     level: input.level?.trim() || "Inicial",
     premium: input.premium ?? false,
@@ -2340,8 +2344,8 @@ export function upsertCourse(courseId: string | null, input: Partial<Course>): C
       : 0,
     progressPercent: Number.isFinite(input.progressPercent) ? Number(input.progressPercent) : 0,
     streakDays: Number.isFinite(input.streakDays) ? Number(input.streakDays) : 0,
-    hook: input.hook?.trim() || "Curso administrado desde el panel.",
-    description: input.description?.trim() || "Descripción pendiente.",
+    hook: input.hook?.trim() ?? "",
+    description: input.description?.trim() ?? "",
     outcomes: Array.isArray(input.outcomes)
       ? input.outcomes.filter((item): item is string => typeof item === "string")
       : [],
@@ -2517,6 +2521,8 @@ export function upsertCourseLesson(
         id: lessonId ?? input.id ?? `lesson-${randomUUID()}`,
         title: input.title?.trim() || "Lección",
         format: input.format?.trim() || "video",
+        mediaType: normalizeMediaType(input.format, input.resourceUrl, input.mimeType),
+        mimeType: input.mimeType || undefined,
         durationMinutes: Number.isFinite(input.durationMinutes)
           ? Number(input.durationMinutes)
           : 0,

@@ -1062,11 +1062,48 @@ class CourseModule {
   }
 }
 
+
+enum CourseMediaType {
+  image,
+  video,
+  pdf,
+  canva,
+  externalLink,
+  document,
+  unknown,
+}
+
+CourseMediaType parseCourseMediaType(String? value) {
+  if (value == null) return CourseMediaType.unknown;
+  final normalized = value.trim().toLowerCase();
+  switch (normalized) {
+    case 'image':
+    case 'imagen':
+      return CourseMediaType.image;
+    case 'video':
+      return CourseMediaType.video;
+    case 'pdf':
+      return CourseMediaType.pdf;
+    case 'canva':
+      return CourseMediaType.canva;
+    case 'external_link':
+    case 'link':
+      return CourseMediaType.externalLink;
+    case 'document':
+    case 'file':
+      return CourseMediaType.document;
+    default:
+      return CourseMediaType.unknown;
+  }
+}
+
 class CourseLesson {
   CourseLesson({
     required this.id,
     required this.title,
     required this.format,
+    this.mediaType,
+    this.mimeType,
     required this.durationMinutes,
     required this.prompt,
     required this.content,
@@ -1076,6 +1113,8 @@ class CourseLesson {
   final String id;
   final String title;
   final String format;
+  final CourseMediaType? mediaType;
+  final String? mimeType;
   final int durationMinutes;
   final String prompt;
   final String content;
@@ -1086,6 +1125,8 @@ class CourseLesson {
       id: json['id'] as String? ?? '',
       title: json['title'] as String? ?? '',
       format: json['format'] as String? ?? '',
+      mediaType: json['mediaType'] != null ? parseCourseMediaType(json['mediaType'] as String) : null,
+      mimeType: json['mimeType'] as String?,
       durationMinutes: json['durationMinutes'] as int? ?? 0,
       prompt: json['prompt'] as String? ?? '',
       content: json['content'] as String? ?? '',

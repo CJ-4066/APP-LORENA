@@ -1,11 +1,20 @@
 import Flutter
 import Photos
 import UIKit
+#if canImport(device_info_plus)
+import device_info_plus
+#endif
+#if canImport(file_picker)
+import file_picker
+#endif
 #if canImport(image_picker_ios)
 import image_picker_ios
 #endif
 #if canImport(path_provider_foundation)
 import path_provider_foundation
+#endif
+#if canImport(pdfx)
+import pdfx
 #endif
 #if canImport(share_plus)
 import share_plus
@@ -13,8 +22,17 @@ import share_plus
 #if canImport(shared_preferences_foundation)
 import shared_preferences_foundation
 #endif
+#if canImport(syncfusion_flutter_pdfviewer)
+import syncfusion_flutter_pdfviewer
+#endif
 #if canImport(url_launcher_ios)
 import url_launcher_ios
+#endif
+#if canImport(video_player_avfoundation)
+import video_player_avfoundation
+#endif
+#if canImport(webview_flutter_wkwebview)
+import webview_flutter_wkwebview
 #endif
 
 @main
@@ -41,6 +59,16 @@ import url_launcher_ios
     // gallery_saver_plus estaba provocando un crash nativo en iPhone al
     // registrarse durante el arranque. Lo omitimos en iOS para priorizar
     // apertura estable de la app; la exportacion usa fallback en Dart.
+#if canImport(device_info_plus)
+    if let registrar = engine.registrar(forPlugin: "FPPDeviceInfoPlusPlugin") {
+      FPPDeviceInfoPlusPlugin.register(with: registrar)
+    }
+#endif
+#if canImport(file_picker)
+    if let registrar = engine.registrar(forPlugin: "FilePickerPlugin") {
+      FilePickerPlugin.register(with: registrar)
+    }
+#endif
 #if canImport(image_picker_ios)
     if let registrar = engine.registrar(forPlugin: "FLTImagePickerPlugin") {
       FLTImagePickerPlugin.register(with: registrar)
@@ -49,6 +77,11 @@ import url_launcher_ios
 #if canImport(path_provider_foundation)
     if let registrar = engine.registrar(forPlugin: "PathProviderPlugin") {
       PathProviderPlugin.register(with: registrar)
+    }
+#endif
+#if canImport(pdfx)
+    if let registrar = engine.registrar(forPlugin: "PdfxPlugin") {
+      PdfxPlugin.register(with: registrar)
     }
 #endif
 #if canImport(share_plus)
@@ -61,9 +94,24 @@ import url_launcher_ios
       SharedPreferencesPlugin.register(with: registrar)
     }
 #endif
+#if canImport(syncfusion_flutter_pdfviewer)
+    if let registrar = engine.registrar(forPlugin: "SyncfusionFlutterPdfViewerPlugin") {
+      SyncfusionFlutterPdfViewerPlugin.register(with: registrar)
+    }
+#endif
 #if canImport(url_launcher_ios)
     if let registrar = engine.registrar(forPlugin: "URLLauncherPlugin") {
       URLLauncherPlugin.register(with: registrar)
+    }
+#endif
+#if canImport(video_player_avfoundation)
+    if let registrar = engine.registrar(forPlugin: "VideoPlayerPlugin") {
+      VideoPlayerPlugin.register(with: registrar)
+    }
+#endif
+#if canImport(webview_flutter_wkwebview)
+    if let registrar = engine.registrar(forPlugin: "WebViewFlutterPlugin") {
+      WebViewFlutterPlugin.register(with: registrar)
     }
 #endif
   }

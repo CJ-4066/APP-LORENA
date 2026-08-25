@@ -34,6 +34,8 @@ typedef CourseResourceCreator = Future<Course> Function(
   CreateCourseFromResourceInput input,
 );
 
+enum _AdminCoursesView { library, management }
+
 class CoursesScreen extends StatefulWidget {
   const CoursesScreen({
     super.key,
@@ -58,6 +60,7 @@ class CoursesScreen extends StatefulWidget {
 
 class _CoursesScreenState extends State<CoursesScreen> {
   int _refreshTick = 0;
+  _AdminCoursesView _adminView = _AdminCoursesView.library;
 
   Future<void> _handleRefresh() async {
     await widget.onRefresh();
@@ -73,16 +76,59 @@ class _CoursesScreenState extends State<CoursesScreen> {
   @override
   Widget build(BuildContext context) {
     if (widget.canManageCourses) {
-      return _CourseManagerView(
-        data: widget.data,
-        onRefresh: widget.onRefresh,
-        onUploadCourseAsset: widget.onUploadCourseAsset,
-        onCreateCourseFromResource: widget.onCreateCourseFromResource,
+      return Column(
+        children: [
+          SafeArea(
+            bottom: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+              child: SizedBox(
+                width: double.infinity,
+                child: SegmentedButton<_AdminCoursesView>(
+                  segments: const [
+                    ButtonSegment(
+                      value: _AdminCoursesView.library,
+                      icon: Icon(Icons.local_library_outlined),
+                      label: Text('Biblioteca'),
+                    ),
+                    ButtonSegment(
+                      value: _AdminCoursesView.management,
+                      icon: Icon(Icons.edit_note_rounded),
+                      label: Text('Gestionar'),
+                    ),
+                  ],
+                  selected: {_adminView},
+                  showSelectedIcon: false,
+                  onSelectionChanged: (selection) {
+                    setState(() {
+                      _adminView = selection.first;
+                    });
+                  },
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: _adminView == _AdminCoursesView.library
+                ? _buildLibraryView(hasPremiumAccess: true)
+                : _CourseManagerView(
+                    data: widget.data,
+                    onRefresh: widget.onRefresh,
+                    onUploadCourseAsset: widget.onUploadCourseAsset,
+                    onCreateCourseFromResource:
+                        widget.onCreateCourseFromResource,
+                  ),
+          ),
+        ],
       );
     }
 
-    final premiumActive = hasPremiumAccess(widget.data);
+    return _buildLibraryView(
+      hasPremiumAccess: hasPremiumAccess(widget.data),
+    );
+  }
 
+  Widget _buildLibraryView({required bool hasPremiumAccess}) {
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(
@@ -105,7 +151,7 @@ class _CoursesScreenState extends State<CoursesScreen> {
                 courses: widget.data.courses,
                 refreshTick: _refreshTick,
                 contentVersion: widget.contentVersion,
-                hasPremiumAccess: premiumActive,
+                hasPremiumAccess: hasPremiumAccess,
               ),
             ],
           ),
