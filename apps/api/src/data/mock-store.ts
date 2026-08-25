@@ -842,440 +842,103 @@ const courseArchivedStatus = "archived" as const;
 
 let courses: Course[] = [
   {
-    id: "course-tarot-sin-ruido",
-    title: "Tarot sin ruido",
-    subtitle: "Intuición, símbolo y decisiones sin respuestas literales",
+    id: "curso-iniciacion-tarot",
+    title: "Iniciación al Tarot de Marsella",
+    subtitle: "Aprende el lenguaje de los arquetipos y símbolos del tarot",
     category: "Tarot",
     level: "Inicial",
     premium: false,
     featured: true,
     removable: true,
-    estimatedHours: 3.5,
-    moduleCount: 4,
-    lessonCount: 12,
-    progressPercent: 28,
-    streakDays: 4,
+    estimatedHours: 4.0,
+    moduleCount: 1,
+    lessonCount: 1,
+    progressPercent: 0,
+    streakDays: 0,
     coverImageUrl: "https://images.unsplash.com/photo-1601049676099-e7ed07d825b0?auto=format&fit=crop&q=80&w=800",
-    hook: "Una ruta corta, elegante y muy práctica para que el tarot deje de sentirse confuso y empiece a darte claridad accionable.",
-    description:
-      "Este curso cambia la lógica de 'decir el futuro' por lectura simbólica, foco emocional y pequeñas decisiones concretas después de cada tirada.",
+    hook: "La guía definitiva para comprender la estructura del tarot sin memorizar significados rígidos.",
+    description: "Este curso práctico te enseñará a conectar con la simbología de los 22 Arcanos Mayores utilizando un enfoque intuitivo y terapéutico. Aprenderás a estructurar lecturas sencillas y a formular preguntas claras para tus tiradas.",
     outcomes: [
-      "Aprender a formular preguntas que abren lectura útil.",
-      "Leer arcanos sin depender de palabras clave rígidas.",
-      "Cerrar cada tirada con una acción observable en tu semana.",
+      "Comprender la estructura y simbología de los Arcanos Mayores.",
+      "Aprender a realizar tiradas de tres cartas con fluidez.",
+      "Desarrollar lecturas terapéuticas enfocadas en el presente."
     ],
     modules: [
       {
-        id: "course-tarot-sin-ruido-m1",
-        title: "Bajar el ruido mental",
-        summary:
-          "Cómo entrar al tarot sin ansiedad por acertar y sin buscar respuestas literales.",
-        durationMinutes: 48,
+        id: "curso-iniciacion-tarot-m1",
+        title: "Fundamentos y Primeros Pasos",
+        summary: "Introducción teórica y práctica para tus primeras lecturas.",
+        durationMinutes: 60,
         order: 1,
         status: "published",
         isActive: true,
         lessons: [
           {
-            id: "course-tarot-sin-ruido-m1-l1",
-            title: "La pregunta que abre símbolo",
-            format: "canva",
-            resourceUrl: "https://www.canva.com/design/DAF8YpL25uI/view?embed",
-            durationMinutes: 11,
-            prompt:
-              "Reescribe una pregunta cerrada como una pregunta de claridad.",
-            order: 1,
-            status: "published",
-            isActive: true,
-          },
-          {
-            id: "course-tarot-sin-ruido-m1-l2",
-            title: "Intención antes de barajar",
-            format: "audio",
-            durationMinutes: 9,
-            prompt:
-              "Detecta si estás entrando desde ansiedad, curiosidad o decisión.",
-            order: 2,
-            status: "published",
-            isActive: true,
-          },
-          {
-            id: "course-tarot-sin-ruido-m1-l3",
-            title: "La carta como espejo",
-            format: "práctica",
-            durationMinutes: 28,
-            prompt:
-              "Haz una lectura de una sola carta y anota tres reflejos del momento.",
-            order: 3,
-            status: "published",
-            isActive: true,
-          },
-        ],
-      },
-      {
-        id: "course-tarot-sin-ruido-m2",
-        title: "Arcanos que sí cambian una decisión",
-        summary:
-          "Aprende a distinguir energía de fondo, advertencia y oportunidad.",
-        durationMinutes: 56,
-        order: 2,
-        status: "published",
-        isActive: true,
-        lessons: [
-          {
-            id: "course-tarot-sin-ruido-m2-l1",
-            title: "Mayores como bisagra",
-            format: "video",
-            durationMinutes: 14,
-            prompt:
-              "Ubica en qué área de tu vida ya se siente un cambio de etapa.",
-            order: 1,
-            status: "published",
-            isActive: true,
-          },
-          {
-            id: "course-tarot-sin-ruido-m2-l2",
-            title: "Menores como clima real",
-            format: "lectura",
-            durationMinutes: 16,
-            prompt:
-              "Relaciona palo, número y contexto actual sin memorizar recetas.",
-            order: 2,
-            status: "published",
-            isActive: true,
-          },
-          {
-            id: "course-tarot-sin-ruido-m2-l3",
-            title: "Integracion express",
-            format: "práctica",
-            durationMinutes: 26,
-            prompt:
-              "Resume una tirada en una frase de acción para las próximas 48 horas.",
-            order: 3,
-            status: "published",
-            isActive: true,
-          },
-        ],
-      },
-      {
-        id: "course-tarot-sin-ruido-m3",
-        title: "Tirada de claridad",
-        summary:
-          "Una estructura simple de tres cartas para decisiones afectivas, laborales o creativas.",
-        durationMinutes: 62,
-        order: 3,
-        status: "published",
-        isActive: true,
-        lessons: [
-          {
-            id: "course-tarot-sin-ruido-m3-l1",
-            title: "Antes de la tirada",
-            format: "audio",
-            durationMinutes: 10,
-            prompt:
-              "Define qué necesitas entender hoy y qué no necesitas controlar.",
-            order: 1,
-            status: "published",
-            isActive: true,
-          },
-          {
-            id: "course-tarot-sin-ruido-m3-l2",
-            title: "Presente, tensión y salida",
-            format: "video",
-            durationMinutes: 18,
-            prompt:
-              "Aplica la estructura completa con un asunto real de tu semana.",
-            order: 2,
-            status: "published",
-            isActive: true,
-          },
-          {
-            id: "course-tarot-sin-ruido-m3-l3",
-            title: "Chequeo de realidad",
-            format: "práctica",
-            durationMinutes: 34,
-            prompt: "Convierte el mensaje final en una decisión verificable.",
-            order: 3,
-            status: "published",
-            isActive: true,
-          },
-        ],
-      },
-      {
-        id: "course-tarot-sin-ruido-m4",
-        title: "Cierre y ritual mínimo",
-        summary:
-          "Salir de la lectura con dirección, no con dependencia del mazo.",
-        durationMinutes: 44,
-        order: 4,
-        status: "published",
-        isActive: true,
-        lessons: [
-          {
-            id: "course-tarot-sin-ruido-m4-l1",
-            title: "Ritual de cierre de 5 minutos",
-            format: "audio",
-            durationMinutes: 8,
-            prompt: "Cierra energía y registra la acción elegida.",
-            order: 1,
-            status: "published",
-            isActive: true,
-          },
-          {
-            id: "course-tarot-sin-ruido-m4-l2",
-            title: "Bitácora para no depender",
-            format: "lectura",
-            durationMinutes: 12,
-            prompt:
-              "Crea una bitácora con fecha, símbolos, acción y resultado.",
-            order: 2,
-            status: "published",
-            isActive: true,
-          },
-          {
-            id: "course-tarot-sin-ruido-m4-l3",
-            title: "Sprint de integración",
-            format: "práctica",
-            durationMinutes: 24,
-            prompt:
-              "Sostiene siete días de lectura corta sin repetir la misma pregunta.",
-            order: 3,
-            status: "published",
-            isActive: true,
-          },
-        ],
-      },
-    ],
-  },
-  {
-    id: "course-arquitectura-del-destino",
-    title: "Arquitectura del destino",
-    subtitle: "Astrología y numerología para leer tu año sin improvisar",
-    category: "Astro + Numerología",
-    level: "Intermedio",
-    premium: true,
-    featured: false,
-    removable: true,
-    estimatedHours: 5.2,
-    moduleCount: 5,
-    lessonCount: 15,
-    progressPercent: 8,
-    streakDays: 1,
-    coverImageUrl: "https://images.unsplash.com/photo-1506318137071-a8e063b4bec0?auto=format&fit=crop&q=80&w=800",
-    hook: "Una experiencia con ritmo de serie corta: entiendes tus ciclos, reconoces tus ventanas y sales con mapa de acción trimestral.",
-    description:
-      "Cruza sendero de vida, año personal, Sol, Luna y tránsitos clave para pasar de intuición suelta a estrategia personal con timing.",
-    outcomes: [
-      "Ubicar tu tema rector del año con astrología y numerología.",
-      "Detectar meses de avance, corrección y repliegue.",
-      "Construir un tablero de decisiones por trimestre.",
-    ],
-    modules: [
-      {
-        id: "course-arquitectura-del-destino-m1",
-        title: "Tu mapa rector",
-        summary:
-          "Junta Sol, Luna, Ascendente y sendero de vida para encontrar el patrón de fondo.",
-        durationMinutes: 58,
-        order: 1,
-        status: "published",
-        isActive: true,
-        lessons: [
-          {
-            id: "course-arquitectura-del-destino-m1-l1",
-            title: "Sol, Luna y Ascendente en lenguaje humano",
-            format: "canva",
-            resourceUrl: "https://www.canva.com/design/DAF8YpL25uI/view?embed",
-            durationMinutes: 18,
-            prompt:
-              "Describe tu energía base, necesidad emocional y forma de entrar al mundo.",
-            order: 1,
-            status: "published",
-            isActive: true,
-          },
-          {
-            id: "course-arquitectura-del-destino-m1-l2",
-            title: "Sendero de vida como columna",
-            format: "lectura",
-            durationMinutes: 12,
-            prompt:
-              "Relaciona tu número central con decisiones repetidas en tu historia.",
-            order: 2,
-            status: "published",
-            isActive: true,
-          },
-          {
-            id: "course-arquitectura-del-destino-m1-l3",
-            title: "Síntesis del patrón",
-            format: "práctica",
-            durationMinutes: 28,
-            prompt: "Redacta una frase directriz para tu año actual.",
-            order: 3,
-            status: "published",
-            isActive: true,
-          },
-        ],
-      },
-      {
-        id: "course-arquitectura-del-destino-m2",
-        title: "Año personal y tránsitos",
-        summary:
-          "Cruza timing numerológico con el cielo para detectar presión, expansión y limpieza.",
-        durationMinutes: 64,
-        order: 2,
-        status: "published",
-        isActive: true,
-        lessons: [
-          {
-            id: "course-arquitectura-del-destino-m2-l1",
-            title: "Leer el año personal",
-            format: "video",
-            durationMinutes: 16,
-            prompt:
-              "Identifica el verbo central del año: sembrar, ordenar, exponer o cerrar.",
-            order: 1,
-            status: "published",
-            isActive: true,
-          },
-          {
-            id: "course-arquitectura-del-destino-m2-l2",
-            title: "Tránsitos que activan decisión",
-            format: "audio",
-            durationMinutes: 14,
-            prompt:
-              "Anota qué áreas se mueven cuando el cielo acelera tu mapa natal.",
-            order: 2,
-            status: "published",
-            isActive: true,
-          },
-          {
-            id: "course-arquitectura-del-destino-m2-l3",
-            title: "Cruce estrategico",
-            format: "práctica",
-            durationMinutes: 34,
-            prompt:
-              "Marca tus próximas tres ventanas de acción y una ventana de pausa.",
-            order: 3,
-            status: "published",
-            isActive: true,
-          },
-        ],
-      },
-      {
-        id: "course-arquitectura-del-destino-m3",
-        title: "Trabajo, dinero y estructura",
-        summary:
-          "Cómo ordenar foco profesional, energía y recursos sin sobrecargarte.",
-        durationMinutes: 52,
-        order: 3,
-        status: "published",
-        isActive: true,
-        lessons: [
-          {
-            id: "course-arquitectura-del-destino-m3-l1",
-            title: "La casa profesional y tus números de expresión",
-            format: "video",
-            durationMinutes: 17,
-            prompt:
-              "Detecta dónde tu talento pide más visibilidad o más sistema.",
-            order: 1,
-            status: "published",
-            isActive: true,
-          },
-          {
-            id: "course-arquitectura-del-destino-m3-l2",
-            title: "Prioridades del trimestre",
-            format: "práctica",
-            durationMinutes: 35,
-            prompt:
-              "Convierte tu lectura en tres decisiones concretas para ingresos y foco.",
-            order: 2,
-            status: "published",
-            isActive: true,
-          },
-        ],
-      },
-      {
-        id: "course-arquitectura-del-destino-m4",
-        title: "Vínculos y energía relacional",
-        summary:
-          "Relaciona necesidades emocionales, compatibilidades y límites sanos.",
-        durationMinutes: 49,
-        order: 4,
-        status: "published",
-        isActive: true,
-        lessons: [
-          {
-            id: "course-arquitectura-del-destino-m4-l1",
-            title: "Tu forma de vincular",
-            format: "audio",
-            durationMinutes: 15,
-            prompt:
-              "Observa qué patrón repites cuando buscas seguridad o cercanía.",
-            order: 1,
-            status: "published",
-            isActive: true,
-          },
-          {
-            id: "course-arquitectura-del-destino-m4-l2",
-            title: "Meses sensibles y meses de expansión",
-            format: "lectura",
-            durationMinutes: 14,
-            prompt:
-              "Distingue cuándo empujar y cuándo cuidar energía afectiva.",
-            order: 2,
-            status: "published",
-            isActive: true,
-          },
-          {
-            id: "course-arquitectura-del-destino-m4-l3",
-            title: "Mapa de conversaciones clave",
-            format: "práctica",
+            id: "curso-iniciacion-tarot-m1-l1",
+            title: "Guía Rápida de Arcanos Mayores",
+            format: "pdf",
+            resourceUrl: "https://lorenaciente.com/api/uploads/courses/tarot_slides-0edc6b5a-72a8-4058-b292-d3a08c8e72fa.pdf",
             durationMinutes: 20,
-            prompt:
-              "Programa una conversación necesaria en una ventana favorable.",
-            order: 3,
-            status: "published",
-            isActive: true,
-          },
-        ],
-      },
-      {
-        id: "course-arquitectura-del-destino-m5",
-        title: "Cierre con tablero anual",
-        summary:
-          "Arma un tablero liviano para sostener el aprendizaje sin perderte en teoria.",
-        durationMinutes: 41,
-        order: 5,
-        status: "published",
-        isActive: true,
-        lessons: [
-          {
-            id: "course-arquitectura-del-destino-m5-l1",
-            title: "Checklist de tu año",
-            format: "práctica",
-            durationMinutes: 21,
-            prompt: "Resume prioridades, riesgos y rituales de mantenimiento.",
+            prompt: "Descarga la guía en formato PDF y repasa los símbolos clave antes de tu primera tirada.",
             order: 1,
             status: "published",
-            isActive: true,
-          },
-          {
-            id: "course-arquitectura-del-destino-m5-l2",
-            title: "Ritmo de seguimiento",
-            format: "audio",
-            durationMinutes: 20,
-            prompt:
-              "Define un sistema semanal para revisar tu mapa sin obsesionarte.",
-            order: 2,
-            status: "published",
-            isActive: true,
-          },
-        ],
-      },
+            isActive: true
+          }
+        ]
+      }
     ],
     status: "published",
-    isActive: true,
+    isActive: true
   },
+  {
+    id: "curso-introduccion-astrologia",
+    title: "Astrología Básica y Carta Astral",
+    subtitle: "Descubre el mapa del cielo al momento de tu nacimiento",
+    category: "Astrología",
+    level: "Inicial",
+    premium: false,
+    featured: true,
+    removable: true,
+    estimatedHours: 5.0,
+    moduleCount: 1,
+    lessonCount: 1,
+    progressPercent: 0,
+    streakDays: 0,
+    coverImageUrl: "https://images.unsplash.com/photo-1518531933037-91b2f5f229cc?auto=format&fit=crop&q=80&w=800",
+    hook: "Aprende a interpretar tu carta natal y los ciclos cósmicos de forma didáctica y aplicada.",
+    description: "Un curso paso a paso diseñado para principiantes que desean descifrar los signos del zodiaco, los planetas y las doce casas astrológicas. Descubrirás cómo influye la energía planetaria en tu personalidad y en tu día a día.",
+    outcomes: [
+      "Identificar los signos solares, lunares y el ascendente en tu carta natal.",
+      "Comprender el significado y la influencia de cada planeta.",
+      "Aprender a interpretar las casas astrológicas básicas."
+    ],
+    modules: [
+      {
+        id: "curso-introduccion-astrologia-m1",
+        title: "El Alfabeto Astrológico",
+        summary: "Signos, planetas y casas explicados desde cero.",
+        durationMinutes: 90,
+        order: 1,
+        status: "published",
+        isActive: true,
+        lessons: [
+          {
+            id: "curso-introduccion-astrologia-m1-l1",
+            title: "Los Elementos y Modalidades",
+            format: "canva",
+            resourceUrl: "https://www.canva.com/design/DAF8YpL25uI/view?embed",
+            durationMinutes: 15,
+            prompt: "Abre la lección interactiva de Canva para explorar la energía de fuego, tierra, aire y agua.",
+            order: 1,
+            status: "published",
+            isActive: true
+          }
+        ]
+      }
+    ],
+    status: "published",
+    isActive: true
+  }
 ];
 
 function cloneCourse(value: Course): Course {
