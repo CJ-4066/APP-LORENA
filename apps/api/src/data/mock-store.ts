@@ -932,6 +932,28 @@ let courses: Course[] = [
             order: 1,
             status: "published",
             isActive: true
+          },
+          {
+            id: "curso-introduccion-astrologia-m1-l2",
+            title: "Planetas y Regencias (Video de prueba)",
+            format: "video",
+            resourceUrl: "https://lorenaciente.com/api/uploads/courses/test_video-05487535-e73f-40f6-a0a8-9a7a82ff2f31.mp4",
+            durationMinutes: 10,
+            prompt: "Mira el video explicativo de prueba para entender las regencias planetarias.",
+            order: 2,
+            status: "published",
+            isActive: true
+          },
+          {
+            id: "curso-introduccion-astrologia-m1-l3",
+            title: "Tabla de Elementos (Imagen de prueba)",
+            format: "image",
+            resourceUrl: "https://lorenaciente.com/api/uploads/courses/test_image-49247c9c-23c9-45fc-970c-b003f61db64d.jpg",
+            durationMinutes: 5,
+            prompt: "Examina la tabla de elementos e identifica cuál predomina en tu carta.",
+            order: 3,
+            status: "published",
+            isActive: true
           }
         ]
       }
