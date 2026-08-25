@@ -12799,6 +12799,7 @@ function App() {
                 <div className="course-drawer-rail">
                   {[
                     ["data", "Datos", "Información y archivo del curso"],
+                    ["modules", "Módulos", "Temario y contenido del curso"],
                     ["history", "Historial", "Auditoría y cambios"],
                   ].map(([value, label, hint]) => (
                     <button
@@ -13051,6 +13052,24 @@ function App() {
                     </div>
 
                     <div className="editor-actions course-editor-actions">
+                      {courseForm.status !== "published" && (
+                        <button
+                          type="button"
+                          className="primary-button"
+                          style={{ backgroundColor: "#10b981", borderColor: "#10b981", color: "white" }}
+                          disabled={savingCourseId !== null}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setCourseForm((prev) => ({ ...prev, status: "published" }));
+                            setTimeout(() => {
+                              const form = e.currentTarget.closest("form");
+                              if (form) form.requestSubmit();
+                            }, 50);
+                          }}
+                        >
+                          {isCreatingCourse ? "Publicar nuevo curso" : "Publicar curso"}
+                        </button>
+                      )}
                       <button
                         type="submit"
                         className="primary-button"
