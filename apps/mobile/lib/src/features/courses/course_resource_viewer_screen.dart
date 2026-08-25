@@ -7,6 +7,8 @@ import 'package:http/http.dart' as http;
 import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+// ignore: depend_on_referenced_packages
+import 'package:webview_flutter_wkwebview/webview_flutter_wkwebview.dart';
 
 import '../../core/theme/app_palette.dart';
 
@@ -54,8 +56,18 @@ class _CourseResourceViewerScreenState
 
     if (_kind == _CourseResourceKind.video ||
         _kind == _CourseResourceKind.link) {
-      _webViewController = WebViewController()
+      late final PlatformWebViewControllerCreationParams params;
+      if (WebViewPlatform.instance is WebKitWebViewPlatform) {
+        params = WebKitWebViewControllerCreationParams(
+          allowsInlineMediaPlayback: true,
+        );
+      } else {
+        params = const PlatformWebViewControllerCreationParams();
+      }
+
+      _webViewController = WebViewController.fromPlatformCreationParams(params)
         ..setJavaScriptMode(JavaScriptMode.unrestricted)
+        ..setUserAgent("Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/605.1.15")
         ..setNavigationDelegate(
           NavigationDelegate(
             onProgress: (progress) {
