@@ -31,7 +31,7 @@ class CourseResourceViewerScreen extends StatefulWidget {
 
 class _CourseResourceViewerScreenState
     extends State<CourseResourceViewerScreen> {
-  late final String _resourceUrl = widget.url.trim();
+  late final String _resourceUrl = _formatResourceUrl(widget.url.trim());
   late final _CourseResourceKind _kind = _inferResourceKind(
     _resourceUrl,
     widget.format,
@@ -315,4 +315,19 @@ String _videoHtml(String url) {
 </body>
 </html>
 ''';
+}
+
+String _formatResourceUrl(String url) {
+  var finalUrl = url;
+  if (finalUrl.contains('canva.com/design/')) {
+    if (!finalUrl.contains('view?embed')) {
+      final parts = finalUrl.split('/');
+      final designIndex = parts.indexOf('design');
+      if (designIndex != -1 && parts.length > designIndex + 1) {
+        final designId = parts[designIndex + 1];
+        finalUrl = 'https://www.canva.com/design/$designId/view?embed';
+      }
+    }
+  }
+  return finalUrl;
 }

@@ -98,6 +98,7 @@ class _CoursePdfViewerScreenState extends State<CoursePdfViewerScreen> {
 
         _webViewController = WebViewController()
           ..setJavaScriptMode(JavaScriptMode.unrestricted)
+          ..setUserAgent("Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/605.1.15")
           ..setNavigationDelegate(
             NavigationDelegate(
               onProgress: (progress) {
@@ -237,18 +238,31 @@ class _CoursePdfViewerScreenState extends State<CoursePdfViewerScreen> {
                       height: _isVideo ? 200 : 260,
                       width: double.infinity,
                       decoration: BoxDecoration(
-                        color: Colors.black,
+                        color: _isVideo ? Colors.black : Colors.white,
                         borderRadius: BorderRadius.circular(22),
+                        border: Border.all(color: AppPalette.border),
                       ),
                       child: Stack(
                         children: [
                           WebViewWidget(controller: _webViewController!),
-                          if (_isLoadingWeb)
+                          if (_isLoadingWeb) ...[
+                            if (hasCover)
+                              Positioned.fill(
+                                child: Image.network(
+                                  widget.course.coverImageUrl!.trim(),
+                                  fit: BoxFit.cover,
+                                ),
+                              )
+                            else
+                              Positioned.fill(
+                                child: _CoverFallback(course: widget.course),
+                              ),
                             const Center(
                               child: CircularProgressIndicator(
                                 color: AppPalette.flameGold,
                               ),
                             ),
+                          ],
                         ],
                       ),
                     ),
