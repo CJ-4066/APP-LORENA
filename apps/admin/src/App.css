@@ -2313,7 +2313,6 @@ summary:focus-visible {
   --course-ink: #26213a;
   --course-violet: #5f5194;
   --course-violet-soft: #f2eff9;
-  --course-green: #3f715d;
   padding: clamp(20px, 3vw, 40px);
   border: 1px solid #ded7e9;
   border-radius: 8px;
@@ -2463,7 +2462,7 @@ summary:focus-visible {
 }
 
 .course-workspace-page .course-form-section:nth-of-type(3) .course-form-step {
-  background: var(--course-green);
+  background: var(--primary);
 }
 
 .course-workspace-page .course-form-section-head h3 {
@@ -2593,8 +2592,8 @@ summary:focus-visible {
 }
 
 .course-workspace-page .course-publish-button {
-  border-color: var(--course-green);
-  background: var(--course-green);
+  border-color: var(--secondary);
+  background: var(--secondary);
 }
 
 .course-workspace-page .course-subview-grid,
