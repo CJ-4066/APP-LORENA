@@ -88,6 +88,28 @@ export const CurriculumEditor = ({
                                 </strong>
                                 <button
                                   type="button"
+                                  className="primary-button"
+                                  onClick={() => {
+                                    setSelectedCourseModuleId(module.id);
+                                    setSelectedCourseLessonId(null);
+                                    setCourseLessonForm({
+                                      title: "",
+                                      format: "video",
+                                      durationMinutes: "",
+                                      prompt: "",
+                                      content: "",
+                                      resourceUrl: "",
+                                      order: String(module.lessons.length + 1),
+                                      status: "draft",
+                                      isActive: true,
+                                    });
+                                    handleSelectCourseDrawerTab("lessons");
+                                  }}
+                                >
+                                  Lecciones
+                                </button>
+                                <button
+                                  type="button"
                                   className="secondary-button"
                                   onClick={() => {
                                     setSelectedCourseModuleId(module.id);

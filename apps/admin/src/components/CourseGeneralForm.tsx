@@ -32,7 +32,13 @@ export const CourseGeneralForm = ({
   return (
     <form
       className="course-editor-form course-creator-flow"
-      onSubmit={(event) => void handleSaveCourse(event)}
+      onSubmit={(event) =>
+        void handleSaveCourse(
+          event,
+          undefined,
+          isCreatingCourse ? 'modules' : undefined,
+        )
+      }
     >
       <section className="course-form-section course-form-section-first">
         <header className="course-form-section-head">
@@ -314,25 +320,25 @@ export const CourseGeneralForm = ({
       </section>
 
       <footer className="editor-actions course-editor-actions">
-        {!isPublished ? (
+        {!isPublished && !isCreatingCourse ? (
           <button
             type="button"
             className="primary-button course-publish-button"
             disabled={savingCourseId !== null}
             onClick={() => void handleSaveCourse(undefined, 'published')}
           >
-            {isCreatingCourse ? 'Crear y publicar' : 'Publicar curso'}
+            Publicar curso
           </button>
         ) : null}
         <button
           type="submit"
-          className={isPublished ? 'primary-button' : 'secondary-button'}
+          className={isCreatingCourse || isPublished ? 'primary-button' : 'secondary-button'}
           disabled={savingCourseId !== null}
         >
           {savingCourseId
             ? 'Guardando...'
             : isCreatingCourse
-              ? 'Guardar borrador'
+              ? 'Guardar y continuar a módulos'
               : 'Guardar cambios'}
         </button>
         <button

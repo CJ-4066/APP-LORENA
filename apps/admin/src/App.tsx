@@ -4570,6 +4570,7 @@ function App() {
   async function handleSaveCourse(
     event?: FormEvent<HTMLFormElement>,
     statusOverride?: "draft" | "published" | "archived",
+    nextTabAfterSave?: CourseWorkspaceTab,
   ) {
     event?.preventDefault();
     setCourseMessage(null);
@@ -4794,22 +4795,28 @@ function App() {
         }
         return [finalCourse, ...current];
       });
-      if (!wasEditing) {
+      const nextTab = nextTabAfterSave ?? "data";
+      if (!wasEditing || nextTabAfterSave) {
         window.history.replaceState(
           {},
           "",
-          buildCourseWorkspaceUrl(finalCourse.id, "data"),
+          buildCourseWorkspaceUrl(finalCourse.id, nextTab),
         );
         previousCourseWorkspaceIdRef.current = finalCourse.id;
       }
       setSelectedCourseId(finalCourse.id);
+      if (nextTabAfterSave) {
+        setCourseDrawerTab(nextTabAfterSave);
+      }
       setCourseForm(buildCourseForm(finalCourse));
       setCourseMessage(
         statusOverride === "published"
           ? "Curso publicado y disponible en la aplicación."
           : wasEditing
             ? "Curso actualizado."
-            : "Borrador creado. Ya puedes agregar módulos y lecciones.",
+            : nextTabAfterSave === "modules"
+              ? "Curso creado. Agrega el primer módulo para continuar."
+              : "Borrador creado. Ya puedes agregar módulos y lecciones.",
       );
     } catch (saveError) {
       setCourseError(
@@ -4914,6 +4921,12 @@ function App() {
     }
     setCourseMessage(null);
     setCourseError(null);
+    const editingModuleId = selectedCourseModuleId;
+    const previousModuleIds = new Set(
+      courses
+        .find((course) => course.id === selectedCourseId)
+        ?.modules?.map((module) => module.id) ?? [],
+    );
     const payload = {
       title: courseModuleForm.title.trim(),
       summary: courseModuleForm.summary.trim(),
@@ -4945,8 +4958,36 @@ function App() {
     setCourses((current) =>
       current.map((item) => (item.id === savedCourse.id ? savedCourse : item)),
     );
+    const createdModule = editingModuleId
+      ? null
+      : savedCourse.modules?.find((module) => !previousModuleIds.has(module.id)) ??
+        savedCourse.modules?.at(-1) ??
+        null;
+    if (createdModule) {
+      setSelectedCourseModuleId(createdModule.id);
+      setSelectedCourseLessonId(null);
+      setCourseLessonForm({
+        title: "",
+        format: "video",
+        durationMinutes: "",
+        prompt: "",
+        content: "",
+        resourceUrl: "",
+        order: "1",
+        status: "draft",
+        isActive: true,
+      });
+      setCourseDrawerTab("lessons");
+      window.history.replaceState(
+        {},
+        "",
+        buildCourseWorkspaceUrl(savedCourse.id, "lessons"),
+      );
+    }
     setCourseMessage(
-      selectedCourseModuleId ? "Módulo actualizado." : "Módulo creado.",
+      editingModuleId
+        ? "Módulo actualizado."
+        : "Módulo creado. Ahora agrega su primera lección.",
     );
   }
 

@@ -1,5 +1,6 @@
 // @ts-nocheck
 import React from 'react';
+import { ActionIcon } from '../App';
 
 export const PublishPanel = ({
   courseDrawerTab,

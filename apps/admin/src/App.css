@@ -2755,7 +2755,8 @@ summary:focus-visible {
   text-align: right;
 }
 
-.course-item-meta .secondary-button {
+.course-item-meta .secondary-button,
+.course-item-meta .primary-button {
   min-height: 34px;
   padding: 7px 10px;
   border-radius: 10px;

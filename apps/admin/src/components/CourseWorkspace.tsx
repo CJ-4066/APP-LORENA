@@ -234,7 +234,12 @@ export const CourseWorkspace: React.FC<CourseWorkspaceProps> = ({
                     </div>
                     <div>
                       <span>Lecciones</span>
-                      <strong>{selectedCourseLessons.length}</strong>
+                      <strong>
+                        {selectedCourseModules.reduce(
+                          (total, module) => total + module.lessons.length,
+                          0,
+                        )}
+                      </strong>
                     </div>
                     <div>
                       <span>Recursos</span>
@@ -246,7 +251,10 @@ export const CourseWorkspace: React.FC<CourseWorkspaceProps> = ({
                 <div className="course-drawer-rail">
                   {[
                     ["data", "Datos", "Información y archivo del curso"],
-                    ["modules", "Módulos", "Temario y contenido del curso"],
+                    ["modules", "Módulos", "Estructura principal del temario"],
+                    ["lessons", "Lecciones", "Contenido dentro de cada módulo"],
+                    ["resources", "Recursos", "Archivos y enlaces complementarios"],
+                    ["publication", "Publicación", "Visibilidad del curso en la app"],
                     ["history", "Historial", "Auditoría y cambios"],
                   ].map(([value, label, hint]) => (
                     <button
