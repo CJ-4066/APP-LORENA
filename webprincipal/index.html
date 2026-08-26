@@ -449,31 +449,62 @@
     display:grid;
     grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));
     gap:24px;
+    perspective:1100px;
+  }
+  .feat-stage{
+    min-width:0;
+    perspective:900px;
   }
   .feat-card{
+    --tilt-x:0deg;
+    --tilt-y:0deg;
+    --lift:0px;
+    --glare-x:50%;
+    --glare-y:50%;
     background:linear-gradient(135deg,rgba(43,47,99,.5),rgba(23,26,62,.6));
     border:1px solid rgba(103,89,170,.2);
-    border-radius:16px;padding:30px 24px;
+    border-radius:8px;padding:30px 24px;
     position:relative;overflow:hidden;
-    transition:all .4s ease;
+    height:100%;
+    transform-style:preserve-3d;
+    transform:rotateX(var(--tilt-x)) rotateY(var(--tilt-y)) translateY(var(--lift));
+    transition:transform .22s ease,border-color .35s ease,box-shadow .35s ease;
+    will-change:transform;
     cursor:default;
     min-width:0;
   }
   .feat-card::before{
     content:'';position:absolute;inset:0;
-    background:linear-gradient(135deg,rgba(217,160,76,.06),transparent);
-    opacity:0;transition:opacity .4s;
+    background:linear-gradient(115deg,transparent 12%,rgba(255,255,255,.09) var(--glare-x),transparent 72%);
+    opacity:0;transition:opacity .35s;
+    pointer-events:none;
   }
   .feat-card:hover{
-    transform:translateY(-6px);
+    --lift:-8px;
     border-color:rgba(217,160,76,.35);
     box-shadow:0 20px 60px rgba(103,89,170,.25),0 0 0 1px rgba(217,160,76,.1);
   }
   .feat-card:hover::before{opacity:1}
+  .feat-card-body{
+    position:relative;z-index:1;
+    transform:translateZ(22px);
+  }
+  .feat-icon-shell{
+    width:52px;height:52px;
+    display:flex;align-items:center;justify-content:center;
+    margin-bottom:18px;
+    border:1px solid rgba(217,160,76,.22);
+    border-radius:50%;
+    background:rgba(13,14,36,.48);
+    box-shadow:inset 0 0 18px rgba(103,89,170,.16),0 10px 28px rgba(0,0,0,.18);
+    transform:translateZ(34px);
+  }
   .feat-icon{
-    font-size:2rem;margin-bottom:16px;
-    display:block;
+    font-size:1.8rem;
+    display:block;line-height:1;
     filter:drop-shadow(0 0 12px rgba(217,160,76,.4));
+    animation:featureIconFloat 4.8s ease-in-out infinite;
+    animation-delay:var(--icon-delay,0s);
   }
   .feat-title{
     font-family:'Cinzel',serif;font-size:1rem;
@@ -486,13 +517,108 @@
     line-height:1.7;
     overflow-wrap:anywhere;
   }
-  .feat-glow{
-    position:absolute;bottom:0;right:0;
-    width:80px;height:80px;
-    background:radial-gradient(circle,rgba(103,89,170,.2),transparent);
-    border-radius:50%;
-    transform:translate(25%,25%);
+  .feat-accent{
+    position:absolute;left:24px;right:24px;bottom:0;height:2px;
+    background:linear-gradient(90deg,transparent,rgba(217,160,76,.56),rgba(143,123,197,.45),transparent);
+    transform:scaleX(.25);opacity:.35;
+    transition:transform .35s ease,opacity .35s ease;
+  }
+  .feat-card:hover .feat-accent{transform:scaleX(1);opacity:1}
+  @keyframes featureIconFloat{
+    0%,100%{transform:translateY(0) rotate(-2deg)}
+    50%{transform:translateY(-6px) rotate(3deg)}
+  }
+  .store-feature{
+    display:grid;
+    grid-template-columns:minmax(0,1.08fr) minmax(0,.92fr);
+    gap:0;
+    margin-top:30px;
+    min-height:430px;
+    border:1px solid rgba(217,160,76,.28);
+    border-radius:8px;
+    overflow:hidden;
+    background:#151737;
+    box-shadow:0 30px 80px rgba(0,0,0,.28);
+  }
+  .store-product-frame{
+    --tilt-x:0deg;
+    --tilt-y:0deg;
+    position:relative;
+    min-height:360px;
+    overflow:hidden;
+    transform:rotateX(var(--tilt-x)) rotateY(var(--tilt-y));
+    transform-style:preserve-3d;
+    transition:transform .24s ease;
+    will-change:transform;
+  }
+  .store-product-frame::after{
+    content:'';position:absolute;inset:0;
+    background:linear-gradient(90deg,transparent 62%,#151737 100%);
     pointer-events:none;
+  }
+  .store-product-image{
+    width:100%;height:100%;object-fit:cover;
+    display:block;
+    transform:scale(1.035);
+    animation:storeProductDrift 8s ease-in-out infinite;
+    transition:filter .4s ease;
+  }
+  .store-feature:hover .store-product-image{filter:saturate(1.08) contrast(1.03)}
+  @keyframes storeProductDrift{
+    0%,100%{transform:scale(1.035) translate3d(0,0,0)}
+    50%{transform:scale(1.075) translate3d(-1%, -1%,0)}
+  }
+  .store-copy{
+    display:flex;flex-direction:column;justify-content:center;
+    padding:clamp(34px,5vw,68px);
+    position:relative;
+  }
+  .store-kicker{
+    color:var(--gold);font-size:.76rem;font-weight:600;
+    letter-spacing:.16em;text-transform:uppercase;margin-bottom:14px;
+  }
+  .store-title{
+    font-family:'Cinzel',serif;font-size:2rem;line-height:1.22;
+    color:#fff;margin-bottom:16px;
+  }
+  .store-description{
+    color:rgba(255,255,255,.64);line-height:1.75;
+    font-size:.95rem;margin-bottom:24px;
+  }
+  .store-tags{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:28px}
+  .store-tag{
+    display:inline-flex;align-items:center;min-height:32px;
+    padding:6px 12px;border-radius:999px;
+    border:1px solid rgba(143,123,197,.3);
+    color:rgba(255,255,255,.7);font-size:.76rem;
+    background:rgba(13,14,36,.34);
+  }
+  .store-cta{
+    display:inline-flex;align-items:center;justify-content:center;gap:10px;
+    align-self:flex-start;min-height:46px;padding:12px 18px;
+    border-radius:6px;text-decoration:none;
+    color:#101126;background:var(--gold);
+    font-family:'Cinzel',serif;font-size:.78rem;font-weight:700;
+    letter-spacing:.05em;
+    transition:transform .25s ease,background .25s ease,box-shadow .25s ease;
+  }
+  .store-cta:hover{
+    transform:translateY(-3px);background:#efbd68;
+    box-shadow:0 12px 30px rgba(217,160,76,.22);
+  }
+  .store-cta-arrow{font-size:1.1rem;transition:transform .25s ease}
+  .store-cta:hover .store-cta-arrow{transform:translateX(4px)}
+  @media(max-width:780px){
+    .store-feature{grid-template-columns:1fr;min-height:0}
+    .store-product-frame{min-height:280px}
+    .store-product-frame::after{background:linear-gradient(180deg,transparent 68%,#151737 100%)}
+    .store-copy{padding:34px 24px 40px}
+    .store-title{font-size:1.55rem}
+  }
+  @media(max-width:520px){
+    .features-grid{gap:16px}
+    .feat-card{padding:26px 22px}
+    .store-product-frame{min-height:230px}
   }
 
   /* reveal animation */
@@ -736,6 +862,15 @@
   .social-btn:hover{background:rgba(103,89,170,.2);border-color:var(--violet);color:#fff;}
   .footer-copy{font-size:.75rem;color:rgba(255,255,255,.2);letter-spacing:.06em;}
 
+  @media (prefers-reduced-motion:reduce){
+    html{scroll-behavior:auto}
+    .feat-card,.feat-icon,.store-product-frame,.store-product-image,.store-cta,.store-cta-arrow{
+      animation:none!important;
+      transition:none!important;
+      transform:none!important;
+    }
+  }
+
   /* ── FALLBACK 2D ── */
   #fallback-2d{
     display:none;
@@ -910,6 +1045,34 @@
       <div class="features-grid">
         <!-- Cards injected by JS -->
       </div>
+      <article class="store-feature reveal" aria-labelledby="store-feature-title">
+        <div class="store-product-frame" data-motion-surface>
+          <img
+            class="store-product-image"
+            src="/assets/tienda-holistica.webp"
+            alt="Cristales, vela ritual, cartas de tarot y collar lunar de la tienda Lo Renaciente"
+            width="1440"
+            height="960"
+            loading="lazy"
+            decoding="async"
+          />
+        </div>
+        <div class="store-copy">
+          <p class="store-kicker">Tienda Lo Renaciente</p>
+          <h3 class="store-title" id="store-feature-title">Objetos con intención para tu práctica</h3>
+          <p class="store-description">
+            Explora una selección de cristales, velas, tarot y piezas rituales para acompañar tus momentos de conexión.
+          </p>
+          <div class="store-tags" aria-label="Categorías de la tienda">
+            <span class="store-tag">Cristales</span>
+            <span class="store-tag">Rituales</span>
+            <span class="store-tag">Tarot</span>
+          </div>
+          <a class="store-cta" href="#download">
+            Explorar en la app <span class="store-cta-arrow" aria-hidden="true">→</span>
+          </a>
+        </div>
+      </article>
     </div>
   </section>
 
@@ -1256,7 +1419,6 @@ const features = [
   {icon:'💎',title:'Piedras & Colores',desc:'Recomendaciones de cristales y colores según tu signo y energía del día.'},
   {icon:'🌸',title:'Comunidad Espiritual',desc:'Conecta con personas en su propio proceso de despertar y crecimiento.'},
   {icon:'🧿',title:'Especialistas',desc:'Consulta con tarotistas, astrólogos y coaches espirituales certificados.'},
-  {icon:'🛍️',title:'Tienda',desc:'Compra productos holísticos, cristales, velas y objetos espirituales seleccionados.'},
   {icon:'📚',title:'Contenido Premium',desc:'Cursos, meditaciones y talleres para profundizar tu camino espiritual.'},
   {icon:'🌱',title:'Perfil & Progreso',desc:'Registra tu evolución, favoritos y historial espiritual personalizado.'},
 ];
@@ -1264,16 +1426,57 @@ const features = [
 const grid = document.querySelector('.features-grid');
 features.forEach((f, i) => {
   const el = document.createElement('div');
-  el.className = 'feat-card reveal';
+  el.className = 'feat-stage reveal';
   el.style.transitionDelay = (i * 0.06) + 's';
   el.innerHTML = `
-    <span class="feat-icon">${f.icon}</span>
-    <h3 class="feat-title">${f.title}</h3>
-    <p class="feat-desc">${f.desc}</p>
-    <div class="feat-glow"></div>
+    <article class="feat-card" data-motion-surface>
+      <div class="feat-card-body">
+        <span class="feat-icon-shell" aria-hidden="true">
+          <span class="feat-icon" style="--icon-delay:${-i * 0.27}s">${f.icon}</span>
+        </span>
+        <h3 class="feat-title">${f.title}</h3>
+        <p class="feat-desc">${f.desc}</p>
+      </div>
+      <div class="feat-accent"></div>
+    </article>
   `;
   grid.appendChild(el);
 });
+
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+const precisePointer = window.matchMedia('(hover: hover) and (pointer: fine)');
+
+function initFeatureMotion(){
+  if(reducedMotion.matches || !precisePointer.matches) return;
+
+  document.querySelectorAll('[data-motion-surface]').forEach((surface) => {
+    let frame = 0;
+
+    surface.addEventListener('pointermove', (event) => {
+      if(frame) cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const rect = surface.getBoundingClientRect();
+        const x = (event.clientX - rect.left) / rect.width;
+        const y = (event.clientY - rect.top) / rect.height;
+        const intensity = surface.classList.contains('store-product-frame') ? 3.2 : 5.5;
+        surface.style.setProperty('--tilt-x', `${(0.5 - y) * intensity}deg`);
+        surface.style.setProperty('--tilt-y', `${(x - 0.5) * intensity}deg`);
+        surface.style.setProperty('--glare-x', `${x * 100}%`);
+        surface.style.setProperty('--glare-y', `${y * 100}%`);
+      });
+    });
+
+    surface.addEventListener('pointerleave', () => {
+      if(frame) cancelAnimationFrame(frame);
+      surface.style.setProperty('--tilt-x', '0deg');
+      surface.style.setProperty('--tilt-y', '0deg');
+      surface.style.setProperty('--glare-x', '50%');
+      surface.style.setProperty('--glare-y', '50%');
+    });
+  });
+}
+
+initFeatureMotion();
 
 /* ============================================================
    ZODIAC BADGES
