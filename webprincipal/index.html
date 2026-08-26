@@ -189,9 +189,7 @@
   .top-nav.menu-open .top-nav-toggle-icon{background:transparent}
   .top-nav.menu-open .top-nav-toggle-icon::before{top:0;transform:rotate(45deg)}
   .top-nav.menu-open .top-nav-toggle-icon::after{top:0;transform:rotate(-45deg)}
-  .mobile-dock{display:none}
   @media (max-width: 760px){
-    body{padding-bottom:calc(68px + env(safe-area-inset-bottom))}
     .top-nav{
       top:8px;
       width:calc(100vw - 16px);
@@ -242,36 +240,6 @@
       letter-spacing:.08em;
       border-radius:8px;
     }
-    .mobile-dock{
-      position:fixed;z-index:1100;
-      left:8px;right:8px;bottom:8px;
-      display:grid;grid-template-columns:repeat(5,minmax(0,1fr));
-      padding:6px 5px calc(6px + env(safe-area-inset-bottom));
-      background:rgba(10,11,30,.9);
-      border:1px solid rgba(143,123,197,.24);
-      border-radius:12px;
-      box-shadow:0 16px 42px rgba(0,0,0,.5);
-      backdrop-filter:blur(18px) saturate(130%);
-      -webkit-backdrop-filter:blur(18px) saturate(130%);
-    }
-    .mobile-dock a{
-      min-width:0;min-height:48px;
-      display:flex;flex-direction:column;align-items:center;justify-content:center;
-      gap:3px;padding:4px 2px;
-      color:rgba(255,255,255,.52);text-decoration:none;
-      font-size:.58rem;font-weight:600;line-height:1;
-      letter-spacing:.04em;text-transform:uppercase;
-      border-radius:7px;
-      transition:color .2s ease,background .2s ease;
-    }
-    .mobile-dock-icon{
-      display:block;font-size:1.05rem;line-height:1;
-      color:rgba(143,123,197,.82);
-    }
-    .mobile-dock a.active{
-      color:#fff;background:rgba(103,89,170,.2);
-    }
-    .mobile-dock a.active .mobile-dock-icon{color:var(--gold)}
     #hero{
       padding:92px 16px 72px;
     }
@@ -960,7 +928,7 @@
     .download-card{padding:34px 22px;border-radius:8px}
     .phone-mockup{width:116px;height:200px;margin-bottom:24px}
     .btn-download-big{width:100%;justify-content:center;padding:16px 20px;font-size:.88rem}
-    footer{padding-bottom:calc(92px + env(safe-area-inset-bottom))}
+    footer{padding-bottom:32px}
   }
 
   @media (prefers-reduced-motion:reduce){
@@ -1094,29 +1062,6 @@
         <a href="/admin" data-admin-link>Iniciar sesión</a>
       </div>
     </div>
-  </nav>
-
-  <nav class="mobile-dock" aria-label="Accesos rápidos">
-    <a href="#hero" class="active">
-      <span class="mobile-dock-icon" aria-hidden="true">⌂</span>
-      Inicio
-    </a>
-    <a href="#features">
-      <span class="mobile-dock-icon" aria-hidden="true">✦</span>
-      Funciones
-    </a>
-    <a href="#tarot">
-      <span class="mobile-dock-icon" aria-hidden="true">☾</span>
-      Tarot
-    </a>
-    <a href="#rituals">
-      <span class="mobile-dock-icon" aria-hidden="true">◇</span>
-      Rituales
-    </a>
-    <a href="#download">
-      <span class="mobile-dock-icon" aria-hidden="true">↓</span>
-      App
-    </a>
   </nav>
 
   <!-- ── HERO ── -->
@@ -2596,7 +2541,6 @@ sections.forEach(s=>{
    TOP NAV ACTIVE STATE
 ============================================================ */
 const navLinks = Array.from(document.querySelectorAll('.top-nav-links a'));
-const mobileDockLinks = Array.from(document.querySelectorAll('.mobile-dock a'));
 const sectionNavLinks = navLinks.filter(link => (link.getAttribute('href') || '').startsWith('#'));
 const navTargets = navLinks
   .filter(link => (link.getAttribute('href') || '').startsWith('#'))
@@ -2606,7 +2550,7 @@ const navObs = new IntersectionObserver((entries) => {
   entries.forEach(entry => {
     if(!entry.isIntersecting) return;
     const id = '#' + entry.target.id;
-    [...sectionNavLinks, ...mobileDockLinks].forEach(link => {
+    sectionNavLinks.forEach(link => {
       link.classList.toggle('active', link.getAttribute('href') === id);
     });
   });
@@ -2630,7 +2574,6 @@ topNavToggle?.addEventListener('click', () => {
 });
 
 navLinks.forEach(link => link.addEventListener('click', () => setMobileMenu(false)));
-mobileDockLinks.forEach(link => link.addEventListener('click', () => setMobileMenu(false)));
 
 window.addEventListener('scroll', () => {
   if(!topNav) return;
