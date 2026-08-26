@@ -102,7 +102,10 @@
     width:min(1120px,calc(100vw - 24px));
     z-index:1000;
     pointer-events:auto;
+    transition:transform .24s ease,top .24s ease;
+    will-change:transform;
   }
+  .top-nav.is-hidden{transform:translate(-50%,-140%)}
   .top-nav-inner{
     display:flex;align-items:center;justify-content:space-between;gap:16px;
     padding:12px 16px;
@@ -159,47 +162,86 @@
     background:rgba(217,160,76,.12);
     border-color:rgba(217,160,76,.26);
   }
+  .top-nav-toggle{
+    display:none;
+    width:44px;height:44px;
+    align-items:center;justify-content:center;
+    border:1px solid rgba(143,123,197,.24);
+    border-radius:12px;
+    background:rgba(103,89,170,.12);
+    color:var(--cream);
+    cursor:pointer;
+  }
+  .top-nav-toggle-icon,
+  .top-nav-toggle-icon::before,
+  .top-nav-toggle-icon::after{
+    display:block;
+    width:18px;height:2px;
+    border-radius:2px;
+    background:currentColor;
+    transition:transform .2s ease,opacity .2s ease;
+  }
+  .top-nav-toggle-icon{position:relative}
+  .top-nav-toggle-icon::before,
+  .top-nav-toggle-icon::after{content:'';position:absolute;left:0}
+  .top-nav-toggle-icon::before{top:-6px}
+  .top-nav-toggle-icon::after{top:6px}
+  .top-nav.menu-open .top-nav-toggle-icon{background:transparent}
+  .top-nav.menu-open .top-nav-toggle-icon::before{top:0;transform:rotate(45deg)}
+  .top-nav.menu-open .top-nav-toggle-icon::after{top:0;transform:rotate(-45deg)}
   @media (max-width: 760px){
     .top-nav{
-      top:10px;
+      top:8px;
       width:calc(100vw - 16px);
     }
     .top-nav-inner{
-      display:flex;
-      flex-direction:column;
-      align-items:stretch;
-      gap:10px;
-      border-radius:24px;
-      padding:10px 12px;
+      display:grid;
+      grid-template-columns:minmax(0,1fr) 44px;
+      align-items:center;
+      gap:8px 10px;
+      border-radius:18px;
+      padding:8px 10px;
     }
     .top-nav-brand{
       font-size:.82rem;
-      justify-content:center;
+      justify-content:flex-start;
+      min-width:0;
+    }
+    .top-nav-toggle{
+      display:inline-flex;
     }
     .top-nav-links{
-      justify-content:flex-start;
-      flex-wrap:nowrap;
-      overflow-x:auto;
-      padding-bottom:2px;
-      scroll-snap-type:x proximity;
-      scrollbar-width:none;
+      grid-column:1 / -1;
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:6px;
+      max-height:0;
+      overflow:hidden;
+      visibility:hidden;
+      opacity:0;
+      pointer-events:none;
+      transform:translateY(-6px);
+      transition:max-height .25s ease,opacity .18s ease,transform .2s ease,visibility .2s;
     }
-    .top-nav-links::-webkit-scrollbar{
-      display:none;
+    .top-nav.menu-open .top-nav-links{
+      max-height:340px;
+      padding-top:8px;
+      border-top:1px solid rgba(143,123,197,.16);
+      visibility:visible;
+      opacity:1;
+      pointer-events:auto;
+      transform:translateY(0);
     }
     .top-nav-links a{
-      flex:0 0 auto;
-      min-height:42px;
-      padding:8px 11px;
+      width:100%;
+      min-height:40px;
+      padding:8px 10px;
       font-size:.68rem;
-      letter-spacing:.1em;
-      scroll-snap-align:start;
-    }
-    .top-nav-links a:nth-child(n+5){
-      font-size:.66rem;
+      letter-spacing:.08em;
+      border-radius:8px;
     }
     #hero{
-      padding:138px 16px 72px;
+      padding:92px 16px 72px;
     }
     .hero-title{
       font-size:clamp(2.35rem,11vw,3.35rem);
@@ -796,7 +838,16 @@
         </span>
         Lo Renaciente
       </a>
-      <div class="top-nav-links">
+      <button
+        class="top-nav-toggle"
+        type="button"
+        aria-label="Abrir menú"
+        aria-controls="top-nav-links"
+        aria-expanded="false"
+      >
+        <span class="top-nav-toggle-icon" aria-hidden="true"></span>
+      </button>
+      <div class="top-nav-links" id="top-nav-links">
         <a href="#hero" class="active">Inicio</a>
         <a href="#features">Funciones</a>
         <a href="#tarot">Tarot</a>
@@ -2233,6 +2284,41 @@ const navObs = new IntersectionObserver((entries) => {
   });
 },{threshold:0.55, rootMargin:'-12% 0px -45% 0px'});
 navTargets.forEach(section => navObs.observe(section));
+
+const topNav = document.querySelector('.top-nav');
+const topNavToggle = document.querySelector('.top-nav-toggle');
+let lastNavScrollY = window.scrollY;
+
+function setMobileMenu(open){
+  if(!topNav || !topNavToggle) return;
+  topNav.classList.toggle('menu-open', open);
+  topNavToggle.setAttribute('aria-expanded', String(open));
+  topNavToggle.setAttribute('aria-label', open ? 'Cerrar menú' : 'Abrir menú');
+}
+
+topNavToggle?.addEventListener('click', () => {
+  setMobileMenu(!topNav.classList.contains('menu-open'));
+  topNav.classList.remove('is-hidden');
+});
+
+navLinks.forEach(link => link.addEventListener('click', () => setMobileMenu(false)));
+
+window.addEventListener('scroll', () => {
+  if(!topNav) return;
+  const currentScrollY = window.scrollY;
+  const movingDown = currentScrollY > lastNavScrollY;
+  const menuOpen = topNav.classList.contains('menu-open');
+  topNav.classList.toggle('is-hidden', movingDown && currentScrollY > 120 && !menuOpen);
+  lastNavScrollY = currentScrollY;
+}, {passive:true});
+
+window.addEventListener('resize', () => {
+  if(window.innerWidth > 760) setMobileMenu(false);
+});
+
+document.addEventListener('keydown', event => {
+  if(event.key === 'Escape') setMobileMenu(false);
+});
 
 console.log('🦋 Lo Renaciente — Loaded with spiritual energy ✨');
 </script>
