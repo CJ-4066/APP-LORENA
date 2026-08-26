@@ -189,7 +189,9 @@
   .top-nav.menu-open .top-nav-toggle-icon{background:transparent}
   .top-nav.menu-open .top-nav-toggle-icon::before{top:0;transform:rotate(45deg)}
   .top-nav.menu-open .top-nav-toggle-icon::after{top:0;transform:rotate(-45deg)}
+  .mobile-dock{display:none}
   @media (max-width: 760px){
+    body{padding-bottom:calc(68px + env(safe-area-inset-bottom))}
     .top-nav{
       top:8px;
       width:calc(100vw - 16px);
@@ -240,6 +242,36 @@
       letter-spacing:.08em;
       border-radius:8px;
     }
+    .mobile-dock{
+      position:fixed;z-index:1100;
+      left:8px;right:8px;bottom:8px;
+      display:grid;grid-template-columns:repeat(5,minmax(0,1fr));
+      padding:6px 5px calc(6px + env(safe-area-inset-bottom));
+      background:rgba(10,11,30,.9);
+      border:1px solid rgba(143,123,197,.24);
+      border-radius:12px;
+      box-shadow:0 16px 42px rgba(0,0,0,.5);
+      backdrop-filter:blur(18px) saturate(130%);
+      -webkit-backdrop-filter:blur(18px) saturate(130%);
+    }
+    .mobile-dock a{
+      min-width:0;min-height:48px;
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      gap:3px;padding:4px 2px;
+      color:rgba(255,255,255,.52);text-decoration:none;
+      font-size:.58rem;font-weight:600;line-height:1;
+      letter-spacing:.04em;text-transform:uppercase;
+      border-radius:7px;
+      transition:color .2s ease,background .2s ease;
+    }
+    .mobile-dock-icon{
+      display:block;font-size:1.05rem;line-height:1;
+      color:rgba(143,123,197,.82);
+    }
+    .mobile-dock a.active{
+      color:#fff;background:rgba(103,89,170,.2);
+    }
+    .mobile-dock a.active .mobile-dock-icon{color:var(--gold)}
     #hero{
       padding:92px 16px 72px;
     }
@@ -277,6 +309,8 @@
       width:100%;
       justify-content:center;
     }
+    #hero .hero-cta .btn-secondary{display:none}
+    #hero .scroll-hint{display:none}
   }
 
   /* ── HERO ── */
@@ -616,8 +650,6 @@
     .store-title{font-size:1.55rem}
   }
   @media(max-width:520px){
-    .features-grid{gap:16px}
-    .feat-card{padding:26px 22px}
     .store-product-frame{min-height:230px}
   }
 
@@ -862,6 +894,75 @@
   .social-btn:hover{background:rgba(103,89,170,.2);border-color:var(--violet);color:#fff;}
   .footer-copy{font-size:.75rem;color:rgba(255,255,255,.2);letter-spacing:.06em;}
 
+  @media(max-width:760px){
+    section{
+      scroll-margin-top:76px;
+      padding:52px 20px;
+    }
+    .section-title{font-size:1.72rem;line-height:1.2}
+    .section-text{line-height:1.65;margin-bottom:28px}
+    #features .section-inner > .reveal{margin-bottom:32px!important}
+    .features-grid{
+      display:flex;
+      gap:12px;
+      overflow-x:auto;
+      overscroll-behavior-inline:contain;
+      scroll-snap-type:x mandatory;
+      scrollbar-width:none;
+      margin-inline:-20px;
+      padding:0 20px 12px;
+    }
+    .features-grid::-webkit-scrollbar,.rituals-items::-webkit-scrollbar{display:none}
+    .feat-stage{
+      flex:0 0 auto;
+      width:min(82vw,300px);
+      min-width:min(82vw,300px);
+      scroll-snap-align:start;
+      scroll-snap-stop:always;
+    }
+    .feat-card{min-height:226px;padding:24px 22px}
+    .store-feature{margin-top:20px}
+    .store-product-frame{min-height:210px}
+    .store-copy{padding:28px 24px 32px}
+    .store-description{margin-bottom:18px}
+    .store-tags{margin-bottom:22px}
+    .tarot-layout{gap:24px}
+    .tarot-visual{height:260px}
+    #zodiac-canvas-2d{height:auto;max-width:330px;aspect-ratio:1}
+    .rituals-layout{gap:22px}
+    .rituals-layout > *{min-width:0}
+    .rituals-items{
+      display:flex;flex-direction:row;
+      gap:12px;overflow-x:auto;
+      overscroll-behavior-inline:contain;
+      scroll-snap-type:x mandatory;
+      scrollbar-width:none;
+      margin-inline:-20px;
+      padding:0 20px 10px;
+    }
+    .ritual-item{
+      flex:0 0 auto;
+      width:min(82vw,300px);
+      min-width:min(82vw,300px);
+      min-height:180px;
+      scroll-snap-align:start;
+      scroll-snap-stop:always;
+      border-radius:8px;
+      padding:20px 18px;
+    }
+    #ritual-visual{display:none!important}
+    #community .section-inner > .reveal:first-child{margin-bottom:26px!important}
+    .community-visual{height:220px;margin-bottom:24px}
+    .community-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+    .comm-item{padding:18px 6px;border-radius:8px}
+    .comm-num{font-size:1.35rem}
+    .comm-label{font-size:.65rem;line-height:1.35;letter-spacing:0}
+    .download-card{padding:34px 22px;border-radius:8px}
+    .phone-mockup{width:116px;height:200px;margin-bottom:24px}
+    .btn-download-big{width:100%;justify-content:center;padding:16px 20px;font-size:.88rem}
+    footer{padding-bottom:calc(92px + env(safe-area-inset-bottom))}
+  }
+
   @media (prefers-reduced-motion:reduce){
     html{scroll-behavior:auto}
     .feat-card,.feat-icon,.store-product-frame,.store-product-image,.store-cta,.store-cta-arrow{
@@ -993,6 +1094,29 @@
         <a href="/admin" data-admin-link>Iniciar sesión</a>
       </div>
     </div>
+  </nav>
+
+  <nav class="mobile-dock" aria-label="Accesos rápidos">
+    <a href="#hero" class="active">
+      <span class="mobile-dock-icon" aria-hidden="true">⌂</span>
+      Inicio
+    </a>
+    <a href="#features">
+      <span class="mobile-dock-icon" aria-hidden="true">✦</span>
+      Funciones
+    </a>
+    <a href="#tarot">
+      <span class="mobile-dock-icon" aria-hidden="true">☾</span>
+      Tarot
+    </a>
+    <a href="#rituals">
+      <span class="mobile-dock-icon" aria-hidden="true">◇</span>
+      Rituales
+    </a>
+    <a href="#download">
+      <span class="mobile-dock-icon" aria-hidden="true">↓</span>
+      App
+    </a>
   </nav>
 
   <!-- ── HERO ── -->
@@ -2472,6 +2596,7 @@ sections.forEach(s=>{
    TOP NAV ACTIVE STATE
 ============================================================ */
 const navLinks = Array.from(document.querySelectorAll('.top-nav-links a'));
+const mobileDockLinks = Array.from(document.querySelectorAll('.mobile-dock a'));
 const sectionNavLinks = navLinks.filter(link => (link.getAttribute('href') || '').startsWith('#'));
 const navTargets = navLinks
   .filter(link => (link.getAttribute('href') || '').startsWith('#'))
@@ -2481,11 +2606,11 @@ const navObs = new IntersectionObserver((entries) => {
   entries.forEach(entry => {
     if(!entry.isIntersecting) return;
     const id = '#' + entry.target.id;
-    sectionNavLinks.forEach(link => {
+    [...sectionNavLinks, ...mobileDockLinks].forEach(link => {
       link.classList.toggle('active', link.getAttribute('href') === id);
     });
   });
-},{threshold:0.55, rootMargin:'-12% 0px -45% 0px'});
+},{threshold:0.01, rootMargin:'-16% 0px -74% 0px'});
 navTargets.forEach(section => navObs.observe(section));
 
 const topNav = document.querySelector('.top-nav');
@@ -2505,6 +2630,7 @@ topNavToggle?.addEventListener('click', () => {
 });
 
 navLinks.forEach(link => link.addEventListener('click', () => setMobileMenu(false)));
+mobileDockLinks.forEach(link => link.addEventListener('click', () => setMobileMenu(false)));
 
 window.addEventListener('scroll', () => {
   if(!topNav) return;
