@@ -23,7 +23,7 @@ ADMIN_DEPLOY_PATH="${ADMIN_DEPLOY_PATH:-}"
 if [[ -z "$DEPLOY_USER" || -z "$DEPLOY_HOST" || -z "$DEPLOY_PATH" ]]; then
   echo "Build complete: $DIST_DIR"
   echo "Set DEPLOY_USER, DEPLOY_HOST and DEPLOY_PATH to sync the build to the VPS."
-  echo "Use DEPLOY_PATH=/var/www/lorenaciente/webprincipal/dist"
+  echo "Use DEPLOY_PATH=/var/www/lo-renaciente"
   echo "Optionally set ADMIN_DEPLOY_PATH=/var/www/lorenaciente/admin"
   exit 0
 fi
@@ -39,8 +39,9 @@ fi
 echo "Ensuring remote directories exist"
 ssh "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -p '$DEPLOY_PATH' '$ADMIN_DEPLOY_PATH'"
 
-echo "Syncing to $DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH"
-rsync -az --delete "$DIST_DIR"/ "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH"/
+echo "Syncing landing to $DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH"
+# The landing shares this root with /api and /admin, so never delete the target.
+rsync -az "$DIST_DIR"/ "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH"/
 
 echo "Syncing admin to $DEPLOY_USER@$DEPLOY_HOST:$ADMIN_DEPLOY_PATH"
 rsync -az --delete "$ADMIN_DIST_DIR"/ "$DEPLOY_USER@$DEPLOY_HOST:$ADMIN_DEPLOY_PATH"/
