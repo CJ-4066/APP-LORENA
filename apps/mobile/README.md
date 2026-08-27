@@ -19,6 +19,37 @@ Para iPhone via TestFlight usa:
 API_BASE_URL=https://lorenaciente.com npm run mobile:ios:testflight
 ```
 
+## Actualizaciones para todos los dispositivos
+
+Las instalaciones distribuidas desde una release Shorebird reciben parches de
+interfaz y lógica automáticamente en segundo plano. El parche se aplica en el
+siguiente inicio de la aplicación.
+
+Primera release o cambios nativos/de dependencias:
+
+```bash
+npm run mobile:shorebird:release:android
+npm run mobile:shorebird:release:ios
+```
+
+Para una instalación iOS de desarrollo en dispositivos registrados, mientras
+se habilitan los permisos de App Store Connect:
+
+```bash
+IOS_EXPORT_METHOD=development npm run mobile:shorebird:release:ios
+```
+
+Cambios posteriores únicamente en Dart:
+
+```bash
+npm run mobile:shorebird:patch:android
+npm run mobile:shorebird:patch:ios
+```
+
+Cada dispositivo debe instalar una release Shorebird al menos una vez. Android
+recibe el APK nuevo; iOS debe instalar la build desde TestFlight o App Store.
+Los parches Shorebird no reemplazan cambios nativos ni dependencias nuevas.
+
 Guia corta:
 
 - [docs/ios-testflight.md](/Users/mark/Desktop/APP%20DE%20LORE/docs/ios-testflight.md)

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../core/i18n/app_i18n.dart';
 import '../../core/theme/app_palette.dart';
@@ -662,18 +663,44 @@ class ProfileScreen extends StatelessWidget {
               ),
             ],
             const SizedBox(height: 24),
-            Center(
-              child: Text(
-                'Versión 1.0.0 (Build 16)',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: AppPalette.mutedLavender,
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
-            ),
+            const _AppVersionLabel(),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _AppVersionLabel extends StatefulWidget {
+  const _AppVersionLabel();
+
+  @override
+  State<_AppVersionLabel> createState() => _AppVersionLabelState();
+}
+
+class _AppVersionLabelState extends State<_AppVersionLabel> {
+  late final Future<PackageInfo> _packageInfo = PackageInfo.fromPlatform();
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<PackageInfo>(
+      future: _packageInfo,
+      builder: (context, snapshot) {
+        final packageInfo = snapshot.data;
+        final label = packageInfo == null
+            ? 'Versión de la aplicación'
+            : 'Versión ${packageInfo.version} (Build ${packageInfo.buildNumber})';
+
+        return Center(
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: AppPalette.mutedLavender,
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+        );
+      },
     );
   }
 }
