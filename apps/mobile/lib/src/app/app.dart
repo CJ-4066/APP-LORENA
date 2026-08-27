@@ -386,8 +386,9 @@ class _AuthenticatedShellState extends State<_AuthenticatedShell> {
               onOpenNumerology: openNumerology,
               onOpenCommunityChat: openCommunityChat,
               onLoadAstroOverview: controller.generateAstroOverview,
-              onLoadNotificationTemplates:
-                  controller.loadPushEngagementTemplates,
+              onLoadNotifications: controller.loadInAppNotifications,
+              onMarkNotificationAsRead: controller.markInAppNotificationAsRead,
+              onNavigate: controller.setCurrentIndex,
             ),
             TarotScreen(
               data: data,

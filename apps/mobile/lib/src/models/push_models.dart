@@ -33,3 +33,35 @@ class PushEngagementTemplate {
     );
   }
 }
+
+class InAppNotification {
+  InAppNotification({
+    required this.id,
+    required this.userId,
+    required this.title,
+    required this.body,
+    required this.deepLink,
+    required this.isRead,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String userId;
+  final String title;
+  final String body;
+  final String deepLink;
+  final bool isRead;
+  final String createdAt;
+
+  factory InAppNotification.fromJson(Map<String, dynamic> json) {
+    return InAppNotification(
+      id: json['id'] as String? ?? '',
+      userId: json['userId'] as String? ?? '',
+      title: json['title'] as String? ?? '',
+      body: json['body'] as String? ?? '',
+      deepLink: json['deepLink'] as String? ?? '',
+      isRead: json['isRead'] as bool? ?? false,
+      createdAt: json['createdAt'] as String? ?? '',
+    );
+  }
+}

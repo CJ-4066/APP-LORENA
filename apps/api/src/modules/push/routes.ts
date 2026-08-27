@@ -111,6 +111,34 @@ export async function registerPushRoutes(app: FastifyInstance) {
             ? error.message
             : "No se pudo eliminar el dispositivo.",
       };
+  });
+
+  app.get("/notifications", async (request, reply) => {
+    const userId = await requireAuthenticatedUser(request, reply);
+    if (!userId) {
+      return {
+        error: "Inicia sesión para ver tus notificaciones.",
+      };
     }
+
+    const { getUserNotifications } = await import("../../data/notification-store.js");
+    return {
+      items: await getUserNotifications(userId),
+    };
+  });
+
+  app.post<{ Params: { id: string } }>("/notifications/:id/read", async (request, reply) => {
+    const userId = await requireAuthenticatedUser(request, reply);
+    if (!userId) {
+      return {
+        error: "Inicia sesión para actualizar la notificación.",
+      };
+    }
+
+    const { markNotificationAsRead } = await import("../../data/notification-store.js");
+    await markNotificationAsRead(userId, request.params.id);
+    return {
+      success: true,
+    };
   });
 }

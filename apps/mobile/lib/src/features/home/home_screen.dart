@@ -23,7 +23,9 @@ class HomeScreen extends StatefulWidget {
     required this.onOpenNumerology,
     required this.onOpenCommunityChat,
     required this.onLoadAstroOverview,
-    required this.onLoadNotificationTemplates,
+    required this.onLoadNotifications,
+    required this.onMarkNotificationAsRead,
+    required this.onNavigate,
   });
 
   final AppBootstrap data;
@@ -33,8 +35,9 @@ class HomeScreen extends StatefulWidget {
   final Future<void> Function() onOpenCommunityChat;
   final Future<AstroOverviewData> Function(AstroRequestInput input)
       onLoadAstroOverview;
-  final Future<List<PushEngagementTemplate>> Function()
-      onLoadNotificationTemplates;
+  final Future<List<InAppNotification>> Function() onLoadNotifications;
+  final Future<void> Function(String id) onMarkNotificationAsRead;
+  final void Function(int index) onNavigate;
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -42,7 +45,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   AstroOverviewData? _astroOverview;
-  List<PushEngagementTemplate>? _notificationTemplates;
+  List<InAppNotification>? _inAppNotifications;
   String? _astroError;
   String? _notificationError;
   bool _isAstroLoading = false;
@@ -57,6 +60,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _loadAstroOverview(force: true);
+    _loadNotifications();
   }
 
   @override
@@ -120,6 +124,7 @@ class _HomeScreenState extends State<HomeScreen> {
               _HomeShortcutRow(
                 onOpenCommunityChat: widget.onOpenCommunityChat,
                 onOpenNotifications: _openNotificationProgram,
+                unreadNotificationsCount: _unreadNotificationCount,
               ),
               const SizedBox(height: 24),
               _DiscoverDaySection(
@@ -293,7 +298,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _openNotificationProgram() async {
-    await _loadNotificationTemplates();
+    await _loadNotifications();
     if (!mounted) {
       return;
     }
@@ -303,64 +308,170 @@ class _HomeScreenState extends State<HomeScreen> {
       showDragHandle: true,
       isScrollControlled: true,
       builder: (sheetContext) {
-        final templates = _notificationTemplates ?? const [];
-        final eligible = templates.where((template) => template.eligible);
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Recordatorios amigables',
-                  style: Theme.of(sheetContext).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w900,
+        final notifications = _inAppNotifications ?? const [];
+        final unreadCount = notifications.where((n) => !n.isRead).length;
+        return StatefulBuilder(
+          builder: (stContext, setSheetState) {
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Recordatorios',
+                      style: Theme.of(sheetContext).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w900,
+                          ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      unreadCount > 0
+                          ? 'Tienes $unreadCount recordatorios pendientes.'
+                          : 'No tienes recordatorios pendientes.',
+                      style: Theme.of(sheetContext).textTheme.bodyMedium?.copyWith(
+                            color: AppPalette.mutedLavender,
+                          ),
+                    ),
+                    if (_notificationError != null) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        _notificationError!,
+                        style:
+                            Theme.of(sheetContext).textTheme.bodyMedium?.copyWith(
+                                  color: AppPalette.berry,
+                                  fontWeight: FontWeight.w700,
+                                ),
                       ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'El sistema ya tiene ${templates.length} tipos. Para tu plan aplican ${eligible.length}.',
-                  style: Theme.of(sheetContext).textTheme.bodyMedium?.copyWith(
-                        color: AppPalette.mutedLavender,
+                    ],
+                    const SizedBox(height: 14),
+                    if (notifications.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 24),
+                        child: Center(
+                          child: Text(
+                            'Todo al día por aquí ✨',
+                            style: Theme.of(sheetContext).textTheme.bodyMedium?.copyWith(
+                                  color: AppPalette.mutedLavender,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                          ),
+                        ),
+                      )
+                    else
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxHeight: MediaQuery.of(sheetContext).size.height * 0.58,
+                        ),
+                        child: ListView.separated(
+                          shrinkWrap: true,
+                          itemCount: notifications.length,
+                          separatorBuilder: (_, __) => const SizedBox(height: 8),
+                          itemBuilder: (context, index) {
+                            final item = notifications[index];
+                            final isUnread = !item.isRead;
+                            return Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(18),
+                                onTap: () async {
+                                  final navigator = Navigator.of(sheetContext);
+                                  if (isUnread) {
+                                    await widget.onMarkNotificationAsRead(item.id);
+                                    setState(() {
+                                      final localIdx = _inAppNotifications?.indexWhere((n) => n.id == item.id) ?? -1;
+                                      if (localIdx != -1) {
+                                        final old = _inAppNotifications![localIdx];
+                                        _inAppNotifications![localIdx] = InAppNotification(
+                                          id: old.id,
+                                          userId: old.userId,
+                                          title: old.title,
+                                          body: old.body,
+                                          deepLink: old.deepLink,
+                                          isRead: true,
+                                          createdAt: old.createdAt,
+                                        );
+                                      }
+                                    });
+                                    setSheetState(() {});
+                                  }
+
+                                  final uri = Uri.tryParse(item.deepLink);
+                                  if (uri != null && uri.scheme == 'lo-renaciente') {
+                                    final path = uri.host + uri.path;
+                                    if (path.contains('orders/chat') || path.contains('orders/detail')) {
+                                      widget.onNavigate(2); // ShopScreen
+                                    } else if (path.contains('courses/detail') || path.contains('library/detail')) {
+                                      widget.onNavigate(3); // CoursesScreen
+                                    }
+                                  }
+                                  navigator.pop();
+                                },
+                                child: Ink(
+                                  padding: const EdgeInsets.all(14),
+                                  decoration: BoxDecoration(
+                                    color: isUnread ? Colors.white : AppPalette.softLilac.withValues(alpha: 0.5),
+                                    borderRadius: BorderRadius.circular(18),
+                                    border: Border.all(
+                                      color: isUnread ? AppPalette.royalViolet.withValues(alpha: 0.3) : AppPalette.border,
+                                      width: isUnread ? 1.5 : 1.0,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Icon(
+                                        isUnread ? Icons.notifications_active_rounded : Icons.notifications_none_rounded,
+                                        color: isUnread ? AppPalette.royalViolet : AppPalette.mutedLavender,
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              item.title,
+                                              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                                    color: isUnread ? AppPalette.butterflyInk : AppPalette.mutedLavender,
+                                                    fontWeight: isUnread ? FontWeight.w900 : FontWeight.w500,
+                                                  ),
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              item.body,
+                                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                                    color: isUnread ? AppPalette.butterflyInk : AppPalette.mutedLavender,
+                                                    height: 1.35,
+                                                  ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                       ),
+                  ],
                 ),
-                if (_notificationError != null) ...[
-                  const SizedBox(height: 10),
-                  Text(
-                    _notificationError!,
-                    style:
-                        Theme.of(sheetContext).textTheme.bodyMedium?.copyWith(
-                              color: AppPalette.berry,
-                              fontWeight: FontWeight.w700,
-                            ),
-                  ),
-                ],
-                const SizedBox(height: 14),
-                ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxHeight: MediaQuery.of(sheetContext).size.height * 0.58,
-                  ),
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    itemCount: templates.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
-                    itemBuilder: (context, index) {
-                      final template = templates[index];
-                      return _NotificationTemplateTile(template: template);
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );
   }
 
-  Future<void> _loadNotificationTemplates() async {
-    if (_notificationTemplates != null || _isNotificationLoading) {
+  int get _unreadNotificationCount {
+    return _inAppNotifications?.where((n) => !n.isRead).length ?? 0;
+  }
+
+  Future<void> _loadNotifications() async {
+    if (_isNotificationLoading) {
       return;
     }
 
@@ -370,12 +481,12 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     try {
-      final templates = await widget.onLoadNotificationTemplates();
+      final items = await widget.onLoadNotifications();
       if (!mounted) {
         return;
       }
       setState(() {
-        _notificationTemplates = templates;
+        _inAppNotifications = items;
         _isNotificationLoading = false;
       });
     } catch (error) {
@@ -383,7 +494,7 @@ class _HomeScreenState extends State<HomeScreen> {
         return;
       }
       setState(() {
-        _notificationTemplates = const [];
+        _inAppNotifications = const [];
         _notificationError = error.toString().replaceFirst('Exception: ', '');
         _isNotificationLoading = false;
       });
@@ -622,10 +733,12 @@ class _HomeShortcutRow extends StatelessWidget {
   const _HomeShortcutRow({
     required this.onOpenCommunityChat,
     required this.onOpenNotifications,
+    required this.unreadNotificationsCount,
   });
 
   final Future<void> Function() onOpenCommunityChat;
   final Future<void> Function() onOpenNotifications;
+  final int unreadNotificationsCount;
 
   @override
   Widget build(BuildContext context) {
@@ -644,7 +757,9 @@ class _HomeShortcutRow extends StatelessWidget {
           child: _HomeShortcutButton(
             icon: Icons.notifications_active_outlined,
             label: 'Recordatorios',
-            caption: '10 tipos',
+            caption: unreadNotificationsCount > 0
+                ? '$unreadNotificationsCount pendientes'
+                : 'Todo al día',
             onTap: onOpenNotifications,
           ),
         ),
@@ -727,72 +842,7 @@ class _HomeShortcutButton extends StatelessWidget {
   }
 }
 
-class _NotificationTemplateTile extends StatelessWidget {
-  const _NotificationTemplateTile({
-    required this.template,
-  });
 
-  final PushEngagementTemplate template;
-
-  @override
-  Widget build(BuildContext context) {
-    final foreground =
-        template.eligible ? AppPalette.butterflyInk : AppPalette.mutedLavender;
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: template.eligible ? Colors.white : AppPalette.softLilac,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: template.eligible ? AppPalette.border : AppPalette.mistLilac,
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(
-            template.eligible
-                ? Icons.notifications_active_rounded
-                : Icons.lock_clock_rounded,
-            color: template.eligible
-                ? AppPalette.royalViolet
-                : AppPalette.mutedLavender,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  template.title,
-                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                        color: foreground,
-                        fontWeight: FontWeight.w900,
-                      ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  template.body,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: foreground,
-                        height: 1.35,
-                      ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  '${template.audience} · ${template.trigger} · cada ${template.minHoursBetweenSends}h',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: AppPalette.mutedLavender,
-                      ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class _HomeAstroCard extends StatelessWidget {
   const _HomeAstroCard({

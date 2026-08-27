@@ -966,6 +966,39 @@ class AppController extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
+  Future<List<InAppNotification>> loadInAppNotifications() async {
+    final currentSession = _session;
+    if (currentSession == null) {
+      throw Exception(
+        'Tu sesión ya no está activa. Vuelve a ingresar con tu teléfono.',
+      );
+    }
+
+    try {
+      return await _apiClient.fetchInAppNotifications(
+        accessToken: currentSession.accessToken,
+      );
+    } catch (error) {
+      throw Exception(_readErrorMessage(error));
+    }
+  }
+
+  Future<void> markInAppNotificationAsRead(String notificationId) async {
+    final currentSession = _session;
+    if (currentSession == null) {
+      return;
+    }
+
+    try {
+      await _apiClient.markInAppNotificationAsRead(
+        accessToken: currentSession.accessToken,
+        notificationId: notificationId,
+      );
+    } catch (error) {
+      // Fail silently
+    }
+  }
+
   Future<List<PushEngagementTemplate>> loadPushEngagementTemplates() async {
     final currentSession = _session;
     if (currentSession == null) {

@@ -541,6 +541,33 @@ class ApiClient {
     );
   }
 
+  Future<List<InAppNotification>> fetchInAppNotifications({
+    required String accessToken,
+  }) async {
+    final response = await _send(
+      method: 'GET',
+      path: '/api/push/notifications',
+      accessToken: accessToken,
+    );
+
+    final items = response['items'] as List<dynamic>? ?? const <dynamic>[];
+    return items
+        .whereType<Map<String, dynamic>>()
+        .map(InAppNotification.fromJson)
+        .toList();
+  }
+
+  Future<void> markInAppNotificationAsRead({
+    required String accessToken,
+    required String notificationId,
+  }) async {
+    await _send(
+      method: 'POST',
+      path: '/api/push/notifications/$notificationId/read',
+      accessToken: accessToken,
+    );
+  }
+
   Future<List<PushEngagementTemplate>> fetchPushEngagementTemplates({
     required String accessToken,
   }) async {

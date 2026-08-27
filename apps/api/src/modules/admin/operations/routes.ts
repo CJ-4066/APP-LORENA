@@ -804,6 +804,23 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
           request.body ?? { status: order.status },
           item.specialistId,
         );
+
+        // Notify client of status change
+        const statusLabel = request.body?.status === "confirmed" ? "confirmada (pago recibido)" 
+                          : request.body?.status === "preparing" ? "en preparación"
+                          : request.body?.status === "shipped" ? "enviada"
+                          : request.body?.status === "delivered" ? "entregada"
+                          : request.body?.status === "cancelled" ? "cancelada"
+                          : request.body?.status || order.status;
+
+        const { createNotification } = await import("../../../data/notification-store.js");
+        await createNotification(
+          item.userId,
+          "Actualización de tu pedido",
+          `Tu orden ${item.orderCode} ha sido marcada como ${statusLabel}.`,
+          `lo-renaciente://orders/detail?id=${item.id}`
+        );
+
         return { item, chatThread };
       } catch (error) {
         reply.code(400);
@@ -858,13 +875,23 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
 
     try {
       reply.code(201);
+      const chatThread = await ensureOrderChatThread(order, {
+        authorType: "specialist",
+        authorId: order.specialistId,
+        message: request.body?.body,
+        imageUrl: request.body?.imageUrl,
+      });
+
+      const { createNotification } = await import("../../../data/notification-store.js");
+      await createNotification(
+        order.userId,
+        "Nuevo mensaje de coordinación",
+        request.body?.body || "Has recibido una imagen.",
+        `lo-renaciente://orders/chat?id=${order.id}`
+      );
+
       return {
-        item: await ensureOrderChatThread(order, {
-          authorType: "specialist",
-          authorId: order.specialistId,
-          message: request.body?.body,
-          imageUrl: request.body?.imageUrl,
-        }),
+        item: chatThread,
       };
     } catch (error) {
       reply.code(400);
@@ -1241,6 +1268,15 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
           entityId: item.id,
           actor: admin.email,
         });
+
+        // Notify all users about the new course!
+        const { notifyAllUsers } = await import("../../../data/notification-store.js");
+        await notifyAllUsers(
+          "¡Nuevo curso disponible!",
+          `Se ha publicado el curso "${item.title}". ¡Empieza a aprender hoy mismo!`,
+          `lo-renaciente://courses/detail?id=${item.id}`
+        );
+
         return { item };
       } catch (error) {
         reply.code(400);
@@ -1933,6 +1969,15 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
           entityId: item.id,
           actor: admin.email,
         });
+
+        // Notify all users about the new PDF!
+        const { notifyAllUsers } = await import("../../../data/notification-store.js");
+        await notifyAllUsers(
+          "¡Nuevo PDF disponible en la Biblioteca!",
+          `Se ha agregado el libro "${item.title}". ¡Pasa a leerlo!`,
+          `lo-renaciente://library/detail?id=${item.id}`
+        );
+
         return { item };
       } catch (error) {
         reply.code(400);
