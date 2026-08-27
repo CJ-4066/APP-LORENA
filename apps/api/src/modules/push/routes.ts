@@ -111,6 +111,7 @@ export async function registerPushRoutes(app: FastifyInstance) {
             ? error.message
             : "No se pudo eliminar el dispositivo.",
       };
+    }
   });
 
   app.get("/notifications", async (request, reply) => {
