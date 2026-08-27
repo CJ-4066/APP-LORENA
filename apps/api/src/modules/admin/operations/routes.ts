@@ -806,12 +806,13 @@ export async function registerAdminOperationsRoutes(app: FastifyInstance) {
         );
 
         // Notify client of status change
-        const statusLabel = request.body?.status === "confirmed" ? "confirmada (pago recibido)" 
-                          : request.body?.status === "preparing" ? "en preparación"
-                          : request.body?.status === "shipped" ? "enviada"
-                          : request.body?.status === "delivered" ? "entregada"
-                          : request.body?.status === "cancelled" ? "cancelada"
-                          : request.body?.status || order.status;
+        const statusVal = request.body?.status as string | undefined;
+        const statusLabel = statusVal === "confirmed" ? "confirmada (pago recibido)" 
+                          : statusVal === "preparing" ? "en preparación"
+                          : statusVal === "shipped" ? "enviada"
+                          : statusVal === "delivered" ? "entregada"
+                          : statusVal === "cancelled" ? "cancelada"
+                          : statusVal || order.status;
 
         const { createNotification } = await import("../../../data/notification-store.js");
         await createNotification(
