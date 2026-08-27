@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -45,6 +46,8 @@ class CoursesScreen extends StatefulWidget {
     this.canManageCourses = false,
     this.onUploadCourseAsset,
     this.onCreateCourseFromResource,
+    this.libraryService,
+    this.thumbnailService,
   });
 
   final AppBootstrap data;
@@ -53,6 +56,8 @@ class CoursesScreen extends StatefulWidget {
   final bool canManageCourses;
   final CourseAssetUploader? onUploadCourseAsset;
   final CourseResourceCreator? onCreateCourseFromResource;
+  final SharedDriveLibraryService? libraryService;
+  final LibraryPdfThumbnailService? thumbnailService;
 
   @override
   State<CoursesScreen> createState() => _CoursesScreenState();
@@ -152,6 +157,8 @@ class _CoursesScreenState extends State<CoursesScreen> {
                 refreshTick: _refreshTick,
                 contentVersion: widget.contentVersion,
                 hasPremiumAccess: hasPremiumAccess,
+                libraryService: widget.libraryService,
+                thumbnailService: widget.thumbnailService,
               ),
             ],
           ),
@@ -1347,12 +1354,16 @@ class _CoursesPanel extends StatefulWidget {
     required this.refreshTick,
     required this.contentVersion,
     required this.hasPremiumAccess,
+    this.libraryService,
+    this.thumbnailService,
   });
 
   final List<Course> courses;
   final int refreshTick;
   final String contentVersion;
   final bool hasPremiumAccess;
+  final SharedDriveLibraryService? libraryService;
+  final LibraryPdfThumbnailService? thumbnailService;
 
   @override
   State<_CoursesPanel> createState() => _CoursesPanelState();
@@ -1361,21 +1372,24 @@ class _CoursesPanel extends StatefulWidget {
 class _CoursesPanelState extends State<_CoursesPanel> {
   final TextEditingController _librarySearchController =
       TextEditingController();
-  final SharedDriveLibraryService _libraryService = SharedDriveLibraryService();
+  late final SharedDriveLibraryService _libraryService;
   final LibraryPdfBookmarkService _bookmarkService =
       LibraryPdfBookmarkService();
-  final LibraryPdfThumbnailService _thumbnailService =
-      LibraryPdfThumbnailService(client: http.Client());
+  late final LibraryPdfThumbnailService _thumbnailService;
   final Map<String, int> _savedPagesByDocumentId = <String, int>{};
   late Future<List<SharedDriveCategory>> _categoriesFuture;
   Future<List<SharedDriveDocument>>? _documentsFuture;
   SharedDriveCategory? _selectedCategory;
   List<Course> _coursesSnapshot = const [];
   String _librarySearchQuery = '';
+  int _libraryRefreshGeneration = 0;
 
   @override
   void initState() {
     super.initState();
+    _libraryService = widget.libraryService ?? SharedDriveLibraryService();
+    _thumbnailService = widget.thumbnailService ??
+        LibraryPdfThumbnailService(client: http.Client());
     _coursesSnapshot = widget.courses;
     _categoriesFuture =
         widget.hasPremiumAccess ? _loadCategories() : Future.value(const []);
@@ -1395,11 +1409,20 @@ class _CoursesPanelState extends State<_CoursesPanel> {
     final contentChanged = oldWidget.contentVersion != widget.contentVersion;
     final premiumAccessChanged =
         oldWidget.hasPremiumAccess != widget.hasPremiumAccess;
-    if (coursesChanged ||
-        oldWidget.refreshTick != widget.refreshTick ||
-        contentChanged ||
-        premiumAccessChanged) {
-      _reloadLibrary();
+    if (coursesChanged) {
+      _coursesSnapshot = widget.courses;
+    }
+
+    if (!widget.hasPremiumAccess) {
+      _libraryRefreshGeneration += 1;
+      return;
+    }
+
+    final manuallyRefreshed = oldWidget.refreshTick != widget.refreshTick;
+    if (contentChanged || manuallyRefreshed || premiumAccessChanged) {
+      unawaited(
+        _refreshLibrarySilently(clearThumbnails: manuallyRefreshed),
+      );
     }
   }
 
@@ -1423,35 +1446,53 @@ class _CoursesPanelState extends State<_CoursesPanel> {
     return true;
   }
 
-  void _reloadLibrary() {
-    setState(() {
-      _coursesSnapshot = widget.courses;
-      _selectedCategory = null;
-      _documentsFuture = null;
-      _librarySearchQuery = '';
-      _librarySearchController.clear();
-      _libraryService.invalidateCache();
+  Future<void> _refreshLibrarySilently({
+    required bool clearThumbnails,
+  }) async {
+    final generation = ++_libraryRefreshGeneration;
+    _libraryService.invalidateCache();
+    if (clearThumbnails) {
       LibraryPdfThumbnailService.clearCache();
-      _categoriesFuture =
-          widget.hasPremiumAccess ? _loadCategories() : Future.value(const []);
-    });
+    }
+
+    try {
+      final categories = await _fetchCategories();
+      if (!mounted || generation != _libraryRefreshGeneration) {
+        return;
+      }
+
+      final currentCategoryId = _selectedCategory?.id;
+      final selectedCategory = _findCategory(categories, currentCategoryId) ??
+          _preferredCategory(categories);
+      final documents = selectedCategory == null
+          ? const <SharedDriveDocument>[]
+          : await _fetchDocumentsForCategory(selectedCategory);
+
+      if (!mounted || generation != _libraryRefreshGeneration) {
+        return;
+      }
+
+      final latestCategoryId = _selectedCategory?.id;
+      final userChangedCategory = latestCategoryId != null &&
+          latestCategoryId != selectedCategory?.id &&
+          _findCategory(categories, latestCategoryId) != null;
+
+      setState(() {
+        _categoriesFuture = Future.value(categories);
+        if (!userChangedCategory) {
+          _selectedCategory = selectedCategory;
+          _documentsFuture = Future.value(documents);
+        }
+      });
+    } catch (_) {
+      // Keep the current category, search and documents visible on sync errors.
+    }
   }
 
   Future<List<SharedDriveCategory>> _loadCategories() async {
-    final serverCategories = await _libraryService.fetchRootCategories();
-    final categories = <SharedDriveCategory>[
-      _savedLibraryCategory,
-      ...serverCategories.where(
-        (category) => category.id != _savedLibraryCategoryId,
-      ),
-    ];
-    if (categories.isNotEmpty) {
-      final preferredCategory = serverCategories.firstWhere(
-        (category) => category.id == 'general',
-        orElse: () => serverCategories.isNotEmpty
-            ? serverCategories.first
-            : categories.first,
-      );
+    final categories = await _fetchCategories();
+    final preferredCategory = _preferredCategory(categories);
+    if (preferredCategory != null) {
       if (mounted) {
         setState(() {
           _selectedCategory = preferredCategory;
@@ -1463,6 +1504,49 @@ class _CoursesPanelState extends State<_CoursesPanel> {
       }
     }
     return categories;
+  }
+
+  Future<List<SharedDriveCategory>> _fetchCategories() async {
+    final serverCategories = await _libraryService.fetchRootCategories();
+    final categories = <SharedDriveCategory>[
+      _savedLibraryCategory,
+      ...serverCategories.where(
+        (category) => category.id != _savedLibraryCategoryId,
+      ),
+    ];
+    return categories;
+  }
+
+  SharedDriveCategory? _preferredCategory(
+    List<SharedDriveCategory> categories,
+  ) {
+    final general = _findCategory(categories, 'general');
+    if (general != null) {
+      return general;
+    }
+
+    for (final category in categories) {
+      if (category.id != _savedLibraryCategoryId) {
+        return category;
+      }
+    }
+
+    return categories.isEmpty ? null : categories.first;
+  }
+
+  SharedDriveCategory? _findCategory(
+    List<SharedDriveCategory> categories,
+    String? categoryId,
+  ) {
+    if (categoryId == null) {
+      return null;
+    }
+    for (final category in categories) {
+      if (category.id == categoryId) {
+        return category;
+      }
+    }
+    return null;
   }
 
   Future<List<SharedDriveDocument>> _fetchDocumentsForCategory(
@@ -1493,6 +1577,7 @@ class _CoursesPanelState extends State<_CoursesPanel> {
       return;
     }
 
+    _libraryRefreshGeneration += 1;
     setState(() {
       _selectedCategory = category;
       _documentsFuture = _fetchDocumentsForCategory(category);
@@ -1536,14 +1621,15 @@ class _CoursesPanelState extends State<_CoursesPanel> {
         : _coursesSnapshot
             .where((course) => !course.premium)
             .toList(growable: false);
-    
+
     if (query.isNotEmpty) {
-      visibleCourses = visibleCourses.where((c) => 
-        c.title.toLowerCase().contains(query) || 
-        c.category.toLowerCase().contains(query)
-      ).toList(growable: false);
+      visibleCourses = visibleCourses
+          .where((c) =>
+              c.title.toLowerCase().contains(query) ||
+              c.category.toLowerCase().contains(query))
+          .toList(growable: false);
     }
-        
+
     final lockedPremiumCourseCount =
         _coursesSnapshot.where((course) => course.premium).length;
 
@@ -1662,7 +1748,8 @@ class _DriveLibrarySection extends StatelessWidget {
     return FutureBuilder<List<SharedDriveCategory>>(
       future: categoriesFuture,
       builder: (context, snapshot) {
-        if (snapshot.connectionState != ConnectionState.done) {
+        if (snapshot.connectionState != ConnectionState.done &&
+            !snapshot.hasData) {
           return const Padding(
             padding: EdgeInsets.symmetric(vertical: 24),
             child: Center(child: CircularProgressIndicator()),
@@ -1736,7 +1823,8 @@ class _DriveLibrarySection extends StatelessWidget {
             FutureBuilder<List<SharedDriveDocument>>(
               future: documentsFuture,
               builder: (context, documentsSnapshot) {
-                if (documentsSnapshot.connectionState != ConnectionState.done) {
+                if (documentsSnapshot.connectionState != ConnectionState.done &&
+                    !documentsSnapshot.hasData) {
                   return const Padding(
                     padding: EdgeInsets.symmetric(vertical: 24),
                     child: Center(child: CircularProgressIndicator()),
