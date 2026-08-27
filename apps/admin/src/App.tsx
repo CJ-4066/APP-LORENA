@@ -216,6 +216,8 @@ type AdminShopOrder = {
     productName: string;
     category: string;
     quantity: number;
+    unitPrice?: { amount: number; currency: string };
+    lineTotal?: { amount: number; currency: string };
   }>;
   total: {
     amount: number;
@@ -1814,20 +1816,7 @@ function formatOrderStatusLabel(status: string): string {
   }
 }
 
-function formatOrderStatusPurpose(status: string): string {
-  switch (status) {
-    case "confirmed":
-      return "Confirma venta y abre coordinación de pago/entrega.";
-    case "preparing":
-      return "Avisa que el pedido está en preparación.";
-    case "shipped":
-      return "Marca salida o envío del pedido.";
-    case "delivered":
-      return "Cierra la entrega con confirmación final.";
-    default:
-      return "Pedido recibido, pendiente de gestión.";
-  }
-}
+
 
 function formatModeLabel(mode: string): string {
   switch (mode) {

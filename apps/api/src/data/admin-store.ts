@@ -85,6 +85,7 @@ export interface AdminChatOverview {
     userName: string;
     specialistId: string;
     specialistName: string;
+    orderId: string | null;
     status: string;
     lastMessageAt: string | null;
     lastMessagePreview: string;
@@ -652,6 +653,7 @@ export async function getAdminChatOverview(limit = 10): Promise<AdminChatOvervie
           t.user_id,
           coalesce(nullif(trim(concat_ws(' ', u.first_name, u.last_name)), ''), u.nickname, u.email, t.user_id) as user_name,
           t.specialist_id,
+          t.order_id,
           t.status,
           (
             select m.created_at
@@ -696,6 +698,7 @@ export async function getAdminChatOverview(limit = 10): Promise<AdminChatOvervie
       userName: row.user_name,
       specialistId: row.specialist_id,
       specialistName: getSpecialistName(row.specialist_id),
+      orderId: row.order_id ?? null,
       status: row.status,
       lastMessageAt: toIsoString(row.last_message_at),
       lastMessagePreview: row.last_message_preview ?? "",
