@@ -680,52 +680,68 @@ class _AppVersionLabel extends StatefulWidget {
 }
 
 class _AppVersionLabelState extends State<_AppVersionLabel> {
-  late final Future<_AppReleaseInfo> _releaseInfo = _loadReleaseInfo();
+  late final Future<PackageInfo> _packageInfo = PackageInfo.fromPlatform();
+  late final Future<int?> _patchNumber = _loadPatchNumber();
 
-  Future<_AppReleaseInfo> _loadReleaseInfo() async {
-    final packageInfo = await PackageInfo.fromPlatform();
-    Patch? patch;
-
+  Future<int?> _loadPatchNumber() async {
     try {
-      patch = await ShorebirdUpdater().readCurrentPatch();
-    } on ReadPatchException {
-      // The native version remains useful if Shorebird is unavailable.
+      final patch = await ShorebirdUpdater()
+          .readCurrentPatch()
+          .timeout(const Duration(seconds: 2));
+      return patch?.number;
+    } on Object {
+      // Update metadata must never prevent the native version from rendering.
+      return null;
     }
-
-    return _AppReleaseInfo(packageInfo: packageInfo, patch: patch);
   }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<_AppReleaseInfo>(
-      future: _releaseInfo,
+    return FutureBuilder<PackageInfo>(
+      future: _packageInfo,
       builder: (context, snapshot) {
-        final releaseInfo = snapshot.data;
-        final label = releaseInfo == null
-            ? 'Versión de la aplicación'
-            : 'Versión ${releaseInfo.packageInfo.version} '
-                '(Build ${releaseInfo.packageInfo.buildNumber}) · '
-                '${releaseInfo.patch == null ? 'Versión base' : 'Parche ${releaseInfo.patch!.number}'}';
+        final packageInfo = snapshot.data;
 
-        return Center(
-          child: Text(
-            label,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: AppPalette.mutedLavender,
-                  fontWeight: FontWeight.w600,
-                ),
-          ),
+        if (packageInfo == null) {
+          return _VersionText(label: 'Versión de la aplicación');
+        }
+
+        final baseLabel =
+            'Versión ${packageInfo.version} (Build ${packageInfo.buildNumber})';
+
+        return FutureBuilder<int?>(
+          future: _patchNumber,
+          builder: (context, patchSnapshot) {
+            final patchNumber = patchSnapshot.data;
+            return _VersionText(
+              label: patchNumber == null
+                  ? baseLabel
+                  : '$baseLabel · Parche $patchNumber',
+            );
+          },
         );
       },
     );
   }
 }
 
-class _AppReleaseInfo {
-  const _AppReleaseInfo({required this.packageInfo, required this.patch});
+class _VersionText extends StatelessWidget {
+  const _VersionText({required this.label});
 
-  final PackageInfo packageInfo;
-  final Patch? patch;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: AppPalette.mutedLavender,
+              fontWeight: FontWeight.w600,
+            ),
+      ),
+    );
+  }
 }
 
 Color _badgeRarityColor(String rarity) {
