@@ -46,6 +46,12 @@ npm run mobile:shorebird:patch:android
 npm run mobile:shorebird:patch:ios
 ```
 
+Para parchear la release iOS de desarrollo actual:
+
+```bash
+IOS_EXPORT_METHOD=development npm run mobile:shorebird:patch:ios
+```
+
 Cada dispositivo debe instalar una release Shorebird al menos una vez. Android
 recibe el APK nuevo; iOS debe instalar la build desde TestFlight o App Store.
 Los parches Shorebird no reemplazan cambios nativos ni dependencias nuevas.
