@@ -1512,6 +1512,35 @@ class _CoursesPanelState extends State<_CoursesPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        if (visibleCourses.isNotEmpty) ...[
+          Text(
+            context.l10n.ts('Cursos y Masterclasses'),
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  color: AppPalette.butterflyInk,
+                  fontWeight: FontWeight.w900,
+                ),
+          ),
+          const SizedBox(height: 14),
+          _CourseShelfSection(courses: visibleCourses),
+          const SizedBox(height: 24),
+        ],
+        if (!widget.hasPremiumAccess && lockedPremiumCourseCount > 0) ...[
+          PremiumLockedCard(
+            title: context.l10n.ts('Cursos Premium'),
+            message: context.l10n.ts(
+              'Hay cursos adicionales bloqueados para Plan Premium. Habilita el acceso mensual desde administración para abrirlos.',
+            ),
+          ),
+          const SizedBox(height: 24),
+        ],
+        Text(
+          context.l10n.ts('Biblioteca PDF'),
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: AppPalette.butterflyInk,
+                fontWeight: FontWeight.w900,
+              ),
+        ),
+        const SizedBox(height: 14),
         if (widget.hasPremiumAccess)
           _DriveLibrarySection(
             categoriesFuture: _categoriesFuture,
@@ -1537,22 +1566,9 @@ class _CoursesPanelState extends State<_CoursesPanel> {
           PremiumLockedCard(
             title: context.l10n.ts('Biblioteca Premium'),
             message: context.l10n.ts(
-              'La biblioteca completa pertenece al Plan Premium. Los cursos gratuitos siguen disponibles abajo.',
+              'La biblioteca completa pertenece al Plan Premium. Los cursos gratuitos siguen disponibles arriba.',
             ),
           ),
-        if (visibleCourses.isNotEmpty) ...[
-          const SizedBox(height: 18),
-          _CourseShelfSection(courses: visibleCourses),
-        ],
-        if (!widget.hasPremiumAccess && lockedPremiumCourseCount > 0) ...[
-          const SizedBox(height: 18),
-          PremiumLockedCard(
-            title: context.l10n.ts('Cursos Premium'),
-            message: context.l10n.ts(
-              'Hay cursos adicionales bloqueados para Plan Premium. Habilita el acceso mensual desde administración para abrirlos.',
-            ),
-          ),
-        ],
       ],
     );
   }
