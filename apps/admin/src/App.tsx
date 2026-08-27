@@ -73,6 +73,7 @@ type AdminChat = {
     id: string;
     userName: string;
     specialistName: string;
+    orderId: string | null;
     status: string;
     lastMessageAt: string | null;
     lastMessagePreview: string;

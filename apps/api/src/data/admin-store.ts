@@ -629,6 +629,7 @@ export async function getAdminChatOverview(limit = 10): Promise<AdminChatOvervie
           userName: "Mark Lore",
           specialistId: "spec-amaya",
           specialistName: getSpecialistName("spec-amaya"),
+          orderId: null,
           status: "open",
           lastMessageAt: "2026-03-24T15:06:00.000Z",
           lastMessagePreview: "Perfecto, quiero enfocarme en claridad laboral y vínculos.",
