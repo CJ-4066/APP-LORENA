@@ -283,3 +283,22 @@ select {
   font-weight: 700;
   color: #444;
 }
+
+/* Order Status Select Styling */
+.order-status-select {
+  width: 100%;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  background-color: white;
+  font-size: 0.9rem;
+  color: #333;
+  font-weight: 500;
+  outline: none;
+  cursor: pointer;
+  margin-top: 4px;
+  transition: border-color 0.2s ease;
+}
+.order-status-select:focus {
+  border-color: #6a1b9a;
+}

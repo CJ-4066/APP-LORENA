@@ -8392,6 +8392,23 @@ function App() {
                           <p className="order-info-label">Especialista</p>
                           <p className="order-info-value">{order.specialistName}</p>
                         </div>
+                        <div>
+                          <p className="order-info-label">Estado del Pedido</p>
+                          <select
+                            value={order.status}
+                            className="order-status-select"
+                            onChange={(event) =>
+                              void handleUpdateOrderStatus(order, event.target.value)
+                            }
+                          >
+                            <option value="pending">Pendiente</option>
+                            <option value="confirmed">Confirmada</option>
+                            <option value="preparing">En preparación</option>
+                            <option value="shipped">Enviada</option>
+                            <option value="delivered">Entregada</option>
+                            <option value="cancelled">Cancelada</option>
+                          </select>
+                        </div>
                         <div className="full-width">
                           <p className="order-info-label">Dirección de Entrega</p>
                           <p className="order-info-value">{order.deliveryAddress || "Sin especificar"}</p>
