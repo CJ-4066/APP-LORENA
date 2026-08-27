@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:shorebird_code_push/shorebird_code_push.dart';
 
 import '../../core/i18n/app_i18n.dart';
 import '../../core/theme/app_palette.dart';
@@ -679,17 +680,32 @@ class _AppVersionLabel extends StatefulWidget {
 }
 
 class _AppVersionLabelState extends State<_AppVersionLabel> {
-  late final Future<PackageInfo> _packageInfo = PackageInfo.fromPlatform();
+  late final Future<_AppReleaseInfo> _releaseInfo = _loadReleaseInfo();
+
+  Future<_AppReleaseInfo> _loadReleaseInfo() async {
+    final packageInfo = await PackageInfo.fromPlatform();
+    Patch? patch;
+
+    try {
+      patch = await ShorebirdUpdater().readCurrentPatch();
+    } on ReadPatchException {
+      // The native version remains useful if Shorebird is unavailable.
+    }
+
+    return _AppReleaseInfo(packageInfo: packageInfo, patch: patch);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<PackageInfo>(
-      future: _packageInfo,
+    return FutureBuilder<_AppReleaseInfo>(
+      future: _releaseInfo,
       builder: (context, snapshot) {
-        final packageInfo = snapshot.data;
-        final label = packageInfo == null
+        final releaseInfo = snapshot.data;
+        final label = releaseInfo == null
             ? 'Versión de la aplicación'
-            : 'Versión ${packageInfo.version} (Build ${packageInfo.buildNumber})';
+            : 'Versión ${releaseInfo.packageInfo.version} '
+                '(Build ${releaseInfo.packageInfo.buildNumber}) · '
+                '${releaseInfo.patch == null ? 'Versión base' : 'Parche ${releaseInfo.patch!.number}'}';
 
         return Center(
           child: Text(
@@ -703,6 +719,13 @@ class _AppVersionLabelState extends State<_AppVersionLabel> {
       },
     );
   }
+}
+
+class _AppReleaseInfo {
+  const _AppReleaseInfo({required this.packageInfo, required this.patch});
+
+  final PackageInfo packageInfo;
+  final Patch? patch;
 }
 
 Color _badgeRarityColor(String rarity) {
