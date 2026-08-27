@@ -8347,51 +8347,82 @@ function App() {
                   <h2>Órdenes</h2>
                 </div>
               </div>
-              <div className="table-list">
-                {orders.slice(0, 8).map((order) => (
-                  <article key={order.id} className="table-row">
-                    <div>
-                      <strong>{order.orderCode}</strong>
-                      <p>{order.userName ?? order.userId}</p>
-                      {order.deliveryAddress ? (
-                        <p>{order.deliveryAddress}</p>
-                      ) : null}
-                    </div>
-                    <div>
-                      <strong>{order.specialistName}</strong>
-                      <p>{formatDate(order.createdAt)}</p>
-                      <p>{formatOrderStatusPurpose(order.status)}</p>
-                    </div>
-                    <div className="align-right">
-                      <div className="editor-actions">
-                        <label className="order-status-control">
-                          <span>Estado</span>
-                          <select
-                            value={order.status}
-                            onChange={(event) =>
-                              void handleUpdateOrderStatus(order, event.target.value)
-                            }
+              <div className="order-cards-list">
+                {orders.map((order) => {
+                  const thread = chat?.recentThreads.find((t) => t.orderId === order.id);
+                  const hasUnread = thread?.status === "open";
+                  return (
+                  <details key={order.id} className="order-details-card">
+                    <summary className="order-details-summary">
+                      <div className="order-details-main">
+                        <strong className="order-user-name">{order.userName ?? order.userId}</strong>
+                        <span className="order-date">{formatDate(order.createdAt)}</span>
+                      </div>
+                      <div className="order-details-status">
+                        <span className={`order-badge status-${order.status}`}>
+                          {formatOrderStatusLabel(order.status)}
+                        </span>
+                        <strong className="order-total">
+                          {order.total?.currency ?? "USD"} {(order.total?.amount ?? 0).toFixed(2)}
+                        </strong>
+                      </div>
+                      <div className="order-details-actions">
+                        {order.status === "pending" ? (
+                          <button
+                            type="button"
+                            className="primary-button small-button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              void handleUpdateOrderStatus(order, "confirmed");
+                            }}
                           >
-                            <option value="pending">Pendiente</option>
-                            <option value="confirmed">Confirmada</option>
-                            <option value="preparing">En preparación</option>
-                            <option value="shipped">Enviada</option>
-                            <option value="delivered">Entregada</option>
-                            <option value="cancelled">Cancelada</option>
-                          </select>
-                        </label>
+                            Marcar Pagado
+                          </button>
+                        ) : null}
                         <button
                           type="button"
-                          className="primary-button"
-                          onClick={() => void handleOpenOrderChat(order)}
+                          className="secondary-button small-button relative-button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            void handleOpenOrderChat(order);
+                          }}
                         >
                           Chat
+                          {hasUnread && <span className="notification-dot"></span>}
                         </button>
                       </div>
-                      <p>{order.itemCount} productos</p>
+                    </summary>
+                    <div className="order-details-body">
+                      <div className="order-info-grid">
+                        <div>
+                          <p className="order-info-label">Código de Pedido</p>
+                          <p className="order-info-value">{order.orderCode}</p>
+                        </div>
+                        <div>
+                          <p className="order-info-label">Especialista</p>
+                          <p className="order-info-value">{order.specialistName}</p>
+                        </div>
+                        <div className="full-width">
+                          <p className="order-info-label">Dirección de Entrega</p>
+                          <p className="order-info-value">{order.deliveryAddress || "Sin especificar"}</p>
+                        </div>
+                      </div>
+                      <div className="order-items-list">
+                        <p className="order-info-label">Detalle de Productos</p>
+                        {(order.items ?? []).map((item, idx) => (
+                          <div key={idx} className="order-item-row">
+                            <span className="order-item-qty">{item.quantity}x</span>
+                            <span className="order-item-name">{item.productName}</span>
+                            <span className="order-item-price">
+                              {item.lineTotal?.currency ?? "USD"} {(item.lineTotal?.amount ?? 0).toFixed(2)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </article>
-                ))}
+                  </details>
+                  );
+                })}
               </div>
             </section>
           ) : null}

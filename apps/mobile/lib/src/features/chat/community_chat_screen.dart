@@ -517,6 +517,13 @@ class _MessageBubble extends StatelessWidget {
         children: [
           Row(
             children: [
+              if (item.authorAvatarUrl != null && item.authorAvatarUrl!.isNotEmpty) ...[
+                CircleAvatar(
+                  radius: 11,
+                  backgroundImage: NetworkImage(item.authorAvatarUrl!),
+                ),
+                const SizedBox(width: 8),
+              ],
               Expanded(
                 child: Text(
                   item.authorName,

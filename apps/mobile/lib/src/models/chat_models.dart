@@ -3,6 +3,11 @@ class CommunityChatMessage {
     required this.id,
     required this.authorName,
     required this.authorRole,
+    this.authorUserId,
+    this.authorAvatarUrl,
+    this.authorBadgeName,
+    this.authorBadgeIconUrl,
+    this.authorBadgePathId,
     required this.body,
     required this.imageUrl,
     required this.createdAt,
@@ -11,6 +16,11 @@ class CommunityChatMessage {
   final String id;
   final String authorName;
   final String authorRole;
+  final String? authorUserId;
+  final String? authorAvatarUrl;
+  final String? authorBadgeName;
+  final String? authorBadgeIconUrl;
+  final String? authorBadgePathId;
   final String body;
   final String? imageUrl;
   final String createdAt;
@@ -20,6 +30,11 @@ class CommunityChatMessage {
       id: json['id'] as String? ?? '',
       authorName: json['authorName'] as String? ?? '',
       authorRole: json['authorRole'] as String? ?? '',
+      authorUserId: json['authorUserId'] as String?,
+      authorAvatarUrl: json['authorAvatarUrl'] as String?,
+      authorBadgeName: json['authorBadgeName'] as String?,
+      authorBadgeIconUrl: json['authorBadgeIconUrl'] as String?,
+      authorBadgePathId: json['authorBadgePathId'] as String?,
       body: json['body'] as String? ?? '',
       imageUrl: json['imageUrl'] as String?,
       createdAt: json['createdAt'] as String? ?? '',

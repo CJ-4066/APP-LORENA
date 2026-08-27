@@ -1072,7 +1072,7 @@ class _CourseShelfSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          height: 262,
+          height: 290,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             physics: const BouncingScrollPhysics(),
@@ -1131,21 +1131,50 @@ class _CourseShelfCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                ClipRRect(
-                  borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(24),
-                  ),
-                  child: SizedBox(
-                    height: 136,
-                    child: hasCover
-                        ? Image.network(
-                            course.coverImageUrl!.trim(),
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) =>
-                                _CourseCoverFallback(course: course),
-                          )
-                        : _CourseCoverFallback(course: course),
-                  ),
+                Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(24),
+                      ),
+                      child: SizedBox(
+                        height: 136,
+                        width: double.infinity,
+                        child: hasCover
+                            ? Image.network(
+                                course.coverImageUrl!.trim(),
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) =>
+                                    _CourseCoverFallback(course: course),
+                              )
+                            : _CourseCoverFallback(course: course),
+                      ),
+                    ),
+                    if (course.premium)
+                      Positioned(
+                        top: 10,
+                        right: 10,
+                        child: Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: AppPalette.candleGlow,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.1),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: const Icon(
+                            Icons.star_rounded,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
                 Expanded(
                   child: Padding(
@@ -1501,17 +1530,54 @@ class _CoursesPanelState extends State<_CoursesPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final visibleCourses = widget.hasPremiumAccess
+    final query = _librarySearchQuery.trim().toLowerCase();
+    var visibleCourses = widget.hasPremiumAccess
         ? _coursesSnapshot
         : _coursesSnapshot
             .where((course) => !course.premium)
             .toList(growable: false);
+    
+    if (query.isNotEmpty) {
+      visibleCourses = visibleCourses.where((c) => 
+        c.title.toLowerCase().contains(query) || 
+        c.category.toLowerCase().contains(query)
+      ).toList(growable: false);
+    }
+        
     final lockedPremiumCourseCount =
         _coursesSnapshot.where((course) => course.premium).length;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        TextField(
+          controller: _librarySearchController,
+          onChanged: (value) {
+            setState(() {
+              _librarySearchQuery = value;
+            });
+          },
+          autocorrect: false,
+          enableSuggestions: false,
+          spellCheckConfiguration: const SpellCheckConfiguration.disabled(),
+          decoration: InputDecoration(
+            labelText: context.l10n.ts('Buscar curso o PDF'),
+            hintText: context.l10n.ts('Título, concepto o palabra clave'),
+            prefixIcon: const Icon(Icons.search_rounded),
+            suffixIcon: _librarySearchQuery.isEmpty
+                ? null
+                : IconButton(
+                    onPressed: () {
+                      _librarySearchController.clear();
+                      setState(() {
+                        _librarySearchQuery = '';
+                      });
+                    },
+                    icon: const Icon(Icons.clear_rounded),
+                  ),
+          ),
+        ),
+        const SizedBox(height: 24),
         if (visibleCourses.isNotEmpty) ...[
           Text(
             context.l10n.ts('Cursos y Masterclasses'),
@@ -1546,15 +1612,9 @@ class _CoursesPanelState extends State<_CoursesPanel> {
             categoriesFuture: _categoriesFuture,
             documentsFuture: _documentsFuture,
             selectedCategory: _selectedCategory,
-            searchController: _librarySearchController,
             searchQuery: _librarySearchQuery,
             savedPagesByDocumentId: _savedPagesByDocumentId,
             onSelectCategory: _selectCategory,
-            onSearchChanged: (value) {
-              setState(() {
-                _librarySearchQuery = value;
-              });
-            },
             thumbnailService: _thumbnailService,
             onOpenDocument: (document, {initialPage}) => _openDocument(
               context,
@@ -1579,11 +1639,9 @@ class _DriveLibrarySection extends StatelessWidget {
     required this.categoriesFuture,
     required this.documentsFuture,
     required this.selectedCategory,
-    required this.searchController,
     required this.searchQuery,
     required this.savedPagesByDocumentId,
     required this.onSelectCategory,
-    required this.onSearchChanged,
     required this.thumbnailService,
     required this.onOpenDocument,
   });
@@ -1591,11 +1649,9 @@ class _DriveLibrarySection extends StatelessWidget {
   final Future<List<SharedDriveCategory>> categoriesFuture;
   final Future<List<SharedDriveDocument>>? documentsFuture;
   final SharedDriveCategory? selectedCategory;
-  final TextEditingController searchController;
   final String searchQuery;
   final Map<String, int> savedPagesByDocumentId;
   final ValueChanged<SharedDriveCategory> onSelectCategory;
-  final ValueChanged<String> onSearchChanged;
   final LibraryPdfThumbnailService thumbnailService;
   final void Function(SharedDriveDocument document, {int? initialPage})
       onOpenDocument;
@@ -1641,28 +1697,6 @@ class _DriveLibrarySection extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            TextField(
-              controller: searchController,
-              onChanged: onSearchChanged,
-              autocorrect: false,
-              enableSuggestions: false,
-              spellCheckConfiguration: const SpellCheckConfiguration.disabled(),
-              decoration: InputDecoration(
-                labelText: l10n.ts('Buscar en la biblioteca'),
-                hintText: l10n.ts('Título, concepto o palabra clave'),
-                prefixIcon: const Icon(Icons.search_rounded),
-                suffixIcon: searchQuery.isEmpty
-                    ? null
-                    : IconButton(
-                        onPressed: () {
-                          searchController.clear();
-                          onSearchChanged('');
-                        },
-                        icon: const Icon(Icons.clear_rounded),
-                      ),
-              ),
-            ),
-            const SizedBox(height: 14),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(

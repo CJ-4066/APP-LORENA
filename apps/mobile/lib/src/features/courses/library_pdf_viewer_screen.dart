@@ -45,6 +45,9 @@ class _LibraryPdfViewerScreenState extends State<LibraryPdfViewerScreen> {
   Offset? _swipeLatest;
   bool _swipeHandled = false;
   String? _errorMessage;
+  
+  PdfPageLayoutMode _layoutMode = PdfPageLayoutMode.continuous;
+  PdfScrollDirection _scrollDirection = PdfScrollDirection.vertical;
 
   String get _baseUrl => AppConfig.apiBaseUrl;
   String get _metaUrl =>
@@ -410,9 +413,9 @@ class _LibraryPdfViewerScreenState extends State<LibraryPdfViewerScreen> {
           canShowPasswordDialog: false,
           canShowSignaturePadDialog: false,
           canShowTextSelectionMenu: false,
-          pageLayoutMode: PdfPageLayoutMode.continuous,
+          pageLayoutMode: _layoutMode,
           pageSpacing: 0,
-          scrollDirection: PdfScrollDirection.vertical,
+          scrollDirection: _scrollDirection,
           initialPageNumber: _initialPage,
           initialZoomLevel: 1,
           maxZoomLevel: 6,
@@ -429,30 +432,108 @@ class _LibraryPdfViewerScreenState extends State<LibraryPdfViewerScreen> {
     );
   }
 
-  Widget _buildSaveButton(BuildContext context) {
+  void _showJumpToPageDialog() {
+    if (_metadata == null) return;
+    
+    final controller = TextEditingController(text: _currentPage.toString());
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(context.l10n.ts('Ir a la página')),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          decoration: InputDecoration(
+            labelText: context.l10n.ts('Página (1 - ${_metadata!.pageCount})'),
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: Text(context.l10n.ts('Cancelar')),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final page = int.tryParse(controller.text);
+              if (page != null) {
+                _goToPage(page);
+              }
+              Navigator.of(context).pop();
+            },
+            child: Text(context.l10n.ts('Ir')),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _toggleLayout() {
+    setState(() {
+      if (_layoutMode == PdfPageLayoutMode.continuous) {
+        _layoutMode = PdfPageLayoutMode.single;
+        _scrollDirection = PdfScrollDirection.horizontal;
+      } else {
+        _layoutMode = PdfPageLayoutMode.continuous;
+        _scrollDirection = PdfScrollDirection.vertical;
+      }
+    });
+  }
+
+  Widget _buildTopBar(BuildContext context) {
     final isSaved = _savedPage == _currentPage;
     return SafeArea(
       child: Align(
         alignment: Alignment.topRight,
         child: Padding(
           padding: const EdgeInsets.all(10),
-          child: Material(
-            color: isSaved
-                ? AppPalette.flameGold
-                : Colors.black.withValues(alpha: 0.44),
-            shape: const CircleBorder(),
-            child: InkWell(
-              customBorder: const CircleBorder(),
-              onTap: _toggleCurrentPageBookmark,
-              child: SizedBox.square(
-                dimension: 44,
-                child: Icon(
-                  isSaved ? Icons.bookmark_rounded : Icons.bookmark_add_rounded,
-                  color: isSaved ? AppPalette.midnight : Colors.white,
-                  size: 23,
-                ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _buildFloatingButton(
+                icon: Icons.list_alt_rounded,
+                onTap: _showJumpToPageDialog,
               ),
-            ),
+              const SizedBox(width: 8),
+              _buildFloatingButton(
+                icon: _layoutMode == PdfPageLayoutMode.continuous 
+                    ? Icons.swap_vert_rounded 
+                    : Icons.swap_horiz_rounded,
+                onTap: _toggleLayout,
+              ),
+              const SizedBox(width: 8),
+              _buildFloatingButton(
+                icon: isSaved ? Icons.bookmark_rounded : Icons.bookmark_add_rounded,
+                color: isSaved ? AppPalette.flameGold : Colors.black.withValues(alpha: 0.44),
+                iconColor: isSaved ? AppPalette.midnight : Colors.white,
+                onTap: _toggleCurrentPageBookmark,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFloatingButton({
+    required IconData icon,
+    required VoidCallback onTap,
+    Color? color,
+    Color? iconColor,
+  }) {
+    return Material(
+      color: color ?? Colors.black.withValues(alpha: 0.44),
+      shape: const CircleBorder(),
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: SizedBox.square(
+          dimension: 44,
+          child: Icon(
+            icon,
+            color: iconColor ?? Colors.white,
+            size: 23,
           ),
         ),
       ),
@@ -476,7 +557,7 @@ class _LibraryPdfViewerScreenState extends State<LibraryPdfViewerScreen> {
               child: content,
             ),
           ),
-          if (!_loading && _errorMessage == null) _buildSaveButton(context),
+          if (!_loading && _errorMessage == null) _buildTopBar(context),
         ],
       ),
     );

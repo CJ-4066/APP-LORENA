@@ -5023,6 +5023,7 @@ class _OrderCard extends StatelessWidget {
                     )
                   : coordinationThread!.lastMessagePreview,
               actionLabel: l10n.ts('Revisar'),
+              hasUnread: coordinationThread!.status == 'open',
               onTap: onOpenChat,
             ),
           ] else if (onUpdateStatus != null && onOpenChat != null) ...[
@@ -5147,16 +5148,26 @@ class _OrderChatNotice extends StatelessWidget {
     required this.title,
     required this.body,
     this.actionLabel,
+    this.hasUnread = false,
     this.onTap,
   });
 
   final String title;
   final String body;
   final String? actionLabel;
+  final bool hasUnread;
   final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
+    final bgColor = hasUnread 
+        ? AppPalette.flameGold.withValues(alpha: 0.15) 
+        : AppPalette.mistLilac.withValues(alpha: 0.72);
+    final borderColor = hasUnread
+        ? AppPalette.flameGold.withValues(alpha: 0.5)
+        : AppPalette.royalViolet.withValues(alpha: 0.18);
+    final iconColor = hasUnread ? AppPalette.flameGold : AppPalette.royalViolet;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -5166,11 +5177,9 @@ class _OrderChatNotice extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: AppPalette.mistLilac.withValues(alpha: 0.72),
+            color: bgColor,
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(
-              color: AppPalette.royalViolet.withValues(alpha: 0.18),
-            ),
+            border: Border.all(color: borderColor),
           ),
           child: Row(
             children: [
@@ -5181,9 +5190,9 @@ class _OrderChatNotice extends StatelessWidget {
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: const Icon(
-                  Icons.mark_chat_unread_rounded,
-                  color: AppPalette.royalViolet,
+                child: Icon(
+                  hasUnread ? Icons.mark_chat_unread_rounded : Icons.chat_bubble_outline_rounded,
+                  color: iconColor,
                 ),
               ),
               const SizedBox(width: 12),
