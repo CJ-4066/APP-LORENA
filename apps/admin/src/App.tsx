@@ -2749,6 +2749,7 @@ function App() {
   const [userMessage, setUserMessage] = useState<string | null>(null);
   const [userError, setUserError] = useState<string | null>(null);
   const [savingUserId, setSavingUserId] = useState<string | "new" | null>(null);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [grantingPremiumUserId, setGrantingPremiumUserId] = useState<
     string | null
   >(null);
@@ -5655,6 +5656,57 @@ function App() {
       );
     } finally {
       setGrantingPremiumUserId(null);
+    }
+  }
+
+  async function handleDeleteUser(user: AdminUser) {
+    const targetName = user.fullName || user.email || user.id;
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm(
+        `¿Eliminar definitivamente a ${targetName}? Se eliminarán su cuenta y sus datos personales vinculados. Los cursos, productos y archivos de la biblioteca no se eliminarán. Esta acción no se puede deshacer.`,
+      )
+    ) {
+      return;
+    }
+
+    setUserError(null);
+    setUserMessage(null);
+    setDeletingUserId(user.id);
+
+    try {
+      const response = await fetch(
+        `${apiBaseUrl}/api/admin/users/${encodeURIComponent(user.id)}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        },
+      );
+      const json = (await response.json()) as {
+        ok?: boolean;
+        item?: { id: string };
+        error?: string;
+      };
+      if (!response.ok || !json.ok) {
+        setUserError(json.error ?? "No se pudo eliminar el usuario.");
+        return;
+      }
+
+      setUsers((current) => current.filter((item) => item.id !== user.id));
+      if (selectedUserId === user.id) {
+        setSelectedUserId(null);
+        setIsUserDrawerOpen(false);
+      }
+      setUserMessage(`${targetName} fue eliminado.`);
+      setOperatingPanelMessage(`Usuario eliminado: ${targetName}.`);
+    } catch (error) {
+      setUserError(
+        error instanceof Error
+          ? error.message
+          : "No se pudo eliminar el usuario.",
+      );
+    } finally {
+      setDeletingUserId(null);
     }
   }
 
@@ -9793,6 +9845,7 @@ function App() {
                               className="secondary-button"
                               aria-label={`Editar ${user.fullName || user.email}`}
                               onClick={() => handleOpenUserDrawer(user)}
+                              disabled={deletingUserId === user.id}
                             >
                               Editar
                             </button>
@@ -9803,11 +9856,26 @@ function App() {
                                 user.fullName || user.email
                               }`}
                               onClick={() => void handleGrantPremium(user)}
-                              disabled={grantingPremiumUserId === user.id}
+                              disabled={
+                                grantingPremiumUserId === user.id ||
+                                deletingUserId === user.id
+                              }
                             >
                               {grantingPremiumUserId === user.id
                                 ? "Habilitando..."
                                 : premiumActionLabel}
+                            </button>
+                            <button
+                              type="button"
+                              className="danger-button button-with-icon"
+                              aria-label={`Eliminar ${user.fullName || user.email}`}
+                              onClick={() => void handleDeleteUser(user)}
+                              disabled={deletingUserId === user.id}
+                            >
+                              <ActionIcon name="delete" />
+                              {deletingUserId === user.id
+                                ? "Eliminando..."
+                                : "Eliminar"}
                             </button>
                           </div>
                         </article>

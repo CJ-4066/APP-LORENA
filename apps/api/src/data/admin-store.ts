@@ -12,6 +12,7 @@ import {
   getBookings as getBookingsMock,
   getProfile as getProfileMock,
   createAdminUser as createAdminUserMock,
+  deleteAdminUser as deleteAdminUserMock,
   listAdminUsers as listAdminUsersMock,
   updateAdminUser as updateAdminUserMock,
   getSpecialists,
@@ -300,7 +301,7 @@ export async function getAdminRecentUsers(
   limit = 10,
   options: { role?: "client" | UserRole; search?: string } = {},
 ): Promise<AdminRecentUser[]> {
-  const safeLimit = Math.max(1, Math.min(limit, 50));
+  const safeLimit = Math.max(1, Math.min(limit, 200));
   const search = options.search?.trim().toLowerCase() ?? "";
 
   if (!isDatabaseConfigured()) {
@@ -597,6 +598,23 @@ export async function updateAdminUser(
   }
 
   return current;
+}
+
+export async function deleteAdminUser(userId: string): Promise<{ id: string }> {
+  if (!isDatabaseConfigured()) {
+    return deleteAdminUserMock(userId);
+  }
+
+  const result = await query<{ id: string }>(
+    `delete from users where id = $1 returning id`,
+    [userId],
+  );
+  const deletedId = result.rows[0]?.id;
+  if (!deletedId) {
+    throw new Error("El usuario no existe.");
+  }
+
+  return { id: deletedId };
 }
 
 export async function grantAdminUserPremium(

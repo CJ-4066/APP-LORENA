@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 
 import {
   createAdminUser,
+  deleteAdminUser,
   getAdminChatOverview,
   getAdminDashboardSummary,
   getAdminRecentBookings,
@@ -110,6 +111,36 @@ export async function registerAdminRoutes(app: FastifyInstance) {
         return {
           error: error instanceof Error ? error.message : "No se pudo actualizar el usuario.",
         };
+      }
+    },
+  );
+
+  app.delete<{ Params: { userId: string } }>(
+    "/users/:userId",
+    async (request, reply) => {
+      const admin = await requireAdminSession(request, reply);
+      if (!admin) {
+        return {
+          error:
+            reply.statusCode === 403
+              ? "No tienes permisos de admin."
+              : "Falta la sesión de admin.",
+        };
+      }
+
+      if (request.params.userId === admin.id) {
+        reply.code(400);
+        return { error: "No puedes eliminar tu propia cuenta de administrador." };
+      }
+
+      try {
+        const item = await deleteAdminUser(request.params.userId);
+        return { ok: true, item };
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "No se pudo eliminar el usuario.";
+        reply.code(message === "El usuario no existe." ? 404 : 400);
+        return { error: message };
       }
     },
   );

@@ -3839,7 +3839,8 @@ summary:focus-visible {
 }
 
 .user-row-actions .secondary-button,
-.user-row-actions .primary-button {
+.user-row-actions .primary-button,
+.user-row-actions .danger-button {
   width: 100%;
   min-height: 42px;
   justify-content: center;

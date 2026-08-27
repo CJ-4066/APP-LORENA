@@ -152,6 +152,80 @@ test("endpoint admin protegido funciona con sesión admin", async () => {
   assert.equal(typeof json.item.activeUsers, "number");
 });
 
+test("admin puede crear y eliminar un usuario de prueba", async () => {
+  const loginResponse = await app.inject({
+    method: "POST",
+    url: "/api/admin/auth/login",
+    payload: {
+      email: "admin@lore.com",
+      password: "Admin123!",
+    },
+  });
+  const cookie = extractCookie(loginResponse.headers["set-cookie"]);
+  const email = `usuario-prueba-${Date.now()}@lore.com`;
+  const sharedContentUrls = [
+    "/api/admin/courses",
+    "/api/admin/shop/products",
+    "/api/admin/library/pdfs",
+  ];
+  const getSharedContentIds = async () =>
+    Promise.all(
+      sharedContentUrls.map(async (url) => {
+        const response = await app.inject({
+          method: "GET",
+          url,
+          headers: { cookie },
+        });
+        assert.equal(response.statusCode, 200);
+        const json = response.json() as {
+          items: Array<{ id?: string; courseId?: string; pdfId?: string }>;
+        };
+        return json.items.map(
+          (item) => item.id ?? item.courseId ?? item.pdfId ?? "",
+        );
+      }),
+    );
+  const sharedContentBefore = await getSharedContentIds();
+
+  const createResponse = await app.inject({
+    method: "POST",
+    url: "/api/admin/users",
+    headers: { cookie },
+    payload: {
+      firstName: "Usuario",
+      lastName: "Temporal",
+      email,
+      accountType: "client",
+      roles: [],
+    },
+  });
+  assert.equal(createResponse.statusCode, 201);
+  const created = createResponse.json() as { item: { id: string } };
+
+  const deleteResponse = await app.inject({
+    method: "DELETE",
+    url: `/api/admin/users/${created.item.id}`,
+    headers: { cookie },
+  });
+  assert.equal(deleteResponse.statusCode, 200);
+  const deleted = deleteResponse.json() as {
+    ok: boolean;
+    item: { id: string };
+  };
+  assert.equal(deleted.ok, true);
+  assert.equal(deleted.item.id, created.item.id);
+
+  const listResponse = await app.inject({
+    method: "GET",
+    url: `/api/admin/users?limit=50&search=${encodeURIComponent(email)}`,
+    headers: { cookie },
+  });
+  assert.equal(listResponse.statusCode, 200);
+  const listed = listResponse.json() as { items: Array<{ id: string }> };
+  assert.equal(listed.items.some((item) => item.id === created.item.id), false);
+  assert.deepEqual(await getSharedContentIds(), sharedContentBefore);
+});
+
 test("logout invalida la sesión admin", async () => {
   const loginResponse = await app.inject({
     method: "POST",

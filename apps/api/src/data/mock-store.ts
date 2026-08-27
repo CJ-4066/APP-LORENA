@@ -2992,6 +2992,25 @@ export function updateAdminUser(
   return toAdminUserRecord(updatedUser);
 }
 
+export function deleteAdminUser(userId: string): { id: string } {
+  if (!usersById.has(userId)) {
+    throw new Error("El usuario no existe.");
+  }
+  if (currentUser.id === userId) {
+    throw new Error("No puedes eliminar el usuario activo del entorno de prueba.");
+  }
+
+  for (const [phoneNumber, identity] of phoneAuthIdentitiesByPhone.entries()) {
+    if (identity.userId === userId) {
+      phoneAuthIdentitiesByPhone.delete(phoneNumber);
+    }
+  }
+  usersById.delete(userId);
+  userCreatedAtById.delete(userId);
+
+  return { id: userId };
+}
+
 export function setUserPlan(planId: string, userId?: string): UserProfile {
   const existingUser = getUserById(userId);
   const updatedUser = {
